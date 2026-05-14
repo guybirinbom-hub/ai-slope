@@ -90,6 +90,34 @@ export default function App() {
   const [_creatureDrawer, openCreatureDrawer] = useAtom(creatureDrawerState);
   const isPhone = useMediaQuery(phoneQuery());
 
+  // Ctrl+Wheel zoom for the whole app UI. The page already has a
+  // CSS `zoom` wrapper around <Layout> (driven by the Settings
+  // UI-Size slider via getCachedCustomization()); we just need to
+  // mutate that value on Ctrl+Wheel for browser-style zoom-in/out.
+  // Initial value comes from the saved customization so the slider
+  // and Ctrl+Wheel stay in sync. Clamp to [0.5, 2.0] to avoid
+  // unusable extremes. Step size 0.1 per scroll tick — a single
+  // bump is noticeable but not jarring. localStorage persistence is
+  // intentionally NOT done here; the Settings slider is the source
+  // of truth for "permanent" zoom, and Ctrl+Wheel is a per-session
+  // adjustment.
+  const [zoom, setZoom] = useState<number>(() => getCachedCustomization()?.sheet_theme?.zoom ?? 1);
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      // preventDefault stops Chromium's native page zoom AND any
+      // outer scroll from running on the same tick. Marked
+      // `{ passive: false }` below so this is allowed.
+      e.preventDefault();
+      setZoom((prev) => {
+        const next = prev + (e.deltaY < 0 ? 0.1 : -0.1);
+        return Math.min(2.0, Math.max(0.5, +next.toFixed(2)));
+      });
+    };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, []);
+
   const [session, setSession] = useAtom(sessionState);
   useEffect(() => {
     resetContentStore();
@@ -409,7 +437,7 @@ export default function App() {
         <SearchSpotlight />
         <Notifications position='top-right' zIndex={9400} containerWidth={350} />
         <DrawerBase />
-        <Box style={{ zoom: getCachedCustomization()?.sheet_theme?.zoom ?? 1 }}>
+        <Box style={{ zoom }}>
           <Layout>
             {/* Outlet is where react-router will render child routes */}
             <Outlet />

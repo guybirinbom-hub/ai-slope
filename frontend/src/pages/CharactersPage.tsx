@@ -35,7 +35,7 @@ import {
   rem,
   useMantineTheme,
 } from '@mantine/core';
-import { useForceUpdate, useHover, useMediaQuery } from '@mantine/hooks';
+import { useDisclosure, useForceUpdate, useHover, useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { hideNotification, showNotification } from '@mantine/notifications';
 import { makeRequest } from '@requests/request-manager';
@@ -88,6 +88,13 @@ export function Component() {
 
   const [loadingCreateCharacter, setLoadingCreateCharacter] = useState(false);
   const [loadingImportCharacter, setLoadingImportCharacter] = useState(false);
+  // The Import button wraps a Mantine Menu around a Tooltip+ActionIcon.
+  // In Mantine v9 the implicit ref/click forwarding through that double
+  // wrapper is unreliable — clicks land on the Tooltip root and never
+  // reach the Menu's open trigger, so the dropdown never appears. We
+  // make the Menu CONTROLLED via useDisclosure and toggle it explicitly
+  // from the ActionIcon's onClick to sidestep that.
+  const [importMenuOpened, { toggle: toggleImportMenu, close: closeImportMenu }] = useDisclosure(false);
   const [loadingCreateZeroCharacter, setLoadingCreateZeroCharacter] = useState(false);
   const [loadingCreateRandomCharacter, setLoadingCreateRandomCharacter] = useState(false);
 
@@ -235,7 +242,14 @@ export function Component() {
                   <IconPlus size='1.65rem' stroke={2.5} />
                 </ActionIcon>
               </Tooltip>
-              <Menu shadow='md' width={240} withArrow withinPortal>
+              <Menu
+                shadow='md'
+                width={240}
+                withArrow
+                withinPortal
+                opened={importMenuOpened}
+                onClose={closeImportMenu}
+              >
                 <Menu.Target>
                   <Tooltip label='Import Character' openDelay={500}>
                     <ActionIcon
@@ -246,6 +260,7 @@ export function Component() {
                       size='lg'
                       radius='lg'
                       aria-label='Import Character'
+                      onClick={toggleImportMenu}
                     >
                       <IconUpload size='1.3rem' stroke={2.5} />
                     </ActionIcon>
