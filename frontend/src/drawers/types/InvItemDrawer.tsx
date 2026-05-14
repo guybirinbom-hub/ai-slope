@@ -8,11 +8,16 @@ import {
   FUNDAMENTAL_RUNES,
   compileTraits,
   determineItemMetaType,
+  getCurrentUses,
+  getFillableSpellHolder,
   getItemHealth,
+  getMaxUses,
+  getScrollWandDisplayName,
   isItemArchaic,
   isItemArmor,
   isItemBroken,
   isItemContainer,
+  isItemExhausted,
   isItemFormula,
   isItemRangedWeapon,
   isItemShield,
@@ -65,6 +70,7 @@ import {
   IconChevronDown,
   IconEdit,
   IconHelpCircle,
+  IconRefresh,
   IconSquareRounded,
   IconSquareRoundedFilled,
   IconTrashXFilled,
@@ -93,12 +99,26 @@ import { getAnchorStyles } from '@utils/anchor';
 import { ItemMetaGroupArmor, ItemMetaGroupWeapon } from '@schemas/shared';
 
 export function InvItemDrawerTitle(props: { data: { invItem: InventoryItem } }) {
+  // Items that have hit 0 charges/uses get dimmed in the title so
+  // the player can tell at a glance the thing is "spent". Dim is
+  // purely visual — the drawer body stays interactive (the refill
+  // button on the charges row needs to remain clickable).
+  const exhausted = isItemExhausted(props.data.invItem.item);
+  // For generic scroll/wand items with a chosen spell, render
+  // "Magic Wand of Fireball (3rd-Rank)" instead of the bland
+  // "Magic Wand (3rd-rank Spell)". Falls through to the raw name
+  // for everything else.
+  const displayName = getScrollWandDisplayName(props.data.invItem.item);
   return (
     <>
-      <Group justify='space-between' wrap='nowrap'>
+      <Group
+        justify='space-between'
+        wrap='nowrap'
+        style={exhausted ? { opacity: 0.45 } : undefined}
+      >
         <Group wrap='nowrap' gap={10}>
           <Box>
-            <Title order={3}>{props.data.invItem.item.name}</Title>
+            <Title order={3}>{displayName}</Title>
           </Box>
         </Group>
         <Text style={{ textWrap: 'nowrap' }}>{determineItemMetaType(props.data.invItem.item, true)}</Text>
@@ -238,9 +258,45 @@ export function InvItemDrawerContent(props: {
         )}
 
         <Divider />
-        <RichText ta='justify' store={props.data.storeId} py={5}>
-          {invItem.item.description}
-        </RichText>
+        {(() => {
+          // For generic scroll/wand items with a chosen spell, prepend
+          // a "Spell: [name](link_spell_<id>) (cast at Nth rank)" line
+          // so the description shows the chosen spell and the name is
+          // a clickable link into the spell drawer. RichText's
+          // link_<type>_<id> sentinel resolver does the click → drawer
+          // plumbing for us.
+          //
+          // When the holder's rank > the spell's natural rank (e.g. a
+          // 3rd-rank wand holding Magic Missile, naturally 1st-rank),
+          // we render "1st → 3rd" with the Unicode arrow to mirror
+          // how cantrips auto-heighten by character level.
+          const holder = getFillableSpellHolder(invItem.item);
+          const chosen = invItem.item.meta_data?.scroll_wand;
+          let description = invItem.item.description;
+          if (holder && chosen?.spell_id && chosen?.spell_name) {
+            const ord = (n: number) => {
+              const m10 = n % 10;
+              const m100 = n % 100;
+              if (m10 === 1 && m100 !== 11) return 'st';
+              if (m10 === 2 && m100 !== 12) return 'nd';
+              if (m10 === 3 && m100 !== 13) return 'rd';
+              return 'th';
+            };
+            const castRank = chosen.spell_rank;
+            const baseRank = chosen.base_rank;
+            const rankDisplay =
+              typeof baseRank === 'number' && baseRank > 0 && baseRank < castRank
+                ? `${baseRank}${ord(baseRank)} → ${castRank}${ord(castRank)}`
+                : `${castRank}${ord(castRank)}`;
+            const prelude = `**Spell:** [${chosen.spell_name}](link_spell_${chosen.spell_id}) (cast at ${rankDisplay} rank)\n\n`;
+            description = prelude + description;
+          }
+          return (
+            <RichText ta='justify' store={props.data.storeId} py={5}>
+              {description}
+            </RichText>
+          );
+        })()}
 
         {/* Runes accordion — always shown when the item supports runes.
             For items in Monster Parts mode, ItemRunesDescription
@@ -294,7 +350,10 @@ export function InvItemDrawerContent(props: {
       </Box>
       <Box
         style={[
-          getAnchorStyles({ r: 5, b: 20 }),
+          // Aligns with the favorite-star / edit / delete row in
+          // DrawerBase, which sits at b: 50 to stay well clear of
+          // the Windows taskbar / window bottom edge.
+          getAnchorStyles({ r: 5, b: 50 }),
           {
             width: '100%',
           },
@@ -302,60 +361,106 @@ export function InvItemDrawerContent(props: {
       >
         <Group justify='space-between' wrap='nowrap'>
           <Group wrap='nowrap' gap={15} ml={0}>
-            {invItem.item.meta_data?.charges?.max && (
-              <Box mb={-10} ml={20}>
-                <ScrollArea scrollbars='x' w={180}>
-                  <TokenSelect
-                    count={invItem.item.meta_data.charges.max}
-                    value={invItem.item.meta_data.charges.current ?? 0}
-                    onChange={(val) =>
-                      onItemUpdate({
-                        ...invItem,
-                        item: {
-                          ...invItem.item,
-                          meta_data: {
-                            ...invItem.item.meta_data!,
-                            charges: {
-                              ...invItem.item.meta_data?.charges,
-                              current: val,
-                            },
-                          },
-                        },
-                      })
-                    }
-                    size='xs'
-                    emptySymbol={
-                      <ActionIcon
-                        variant='transparent'
-                        color='gray.1'
-                        aria-label='Item Charge, Unused'
+            {/* Per-instance charges / uses tracker. Visible for any
+                item with an inferred max (explicit charges.max, a
+                "Frequency N per day" phrase in the description, or
+                a CONSUMABLE trait — see getMaxUses in inv-utils).
+                Click individual tokens to flip used/unused; the ↻
+                Refill button resets back to full. Refill works on
+                single-use consumables too — handy if you tapped one
+                by accident. We persist BOTH `current` AND `max` on
+                every save so a description-derived max gets pinned
+                to the item and won't shift if the dataset changes. */}
+            {(() => {
+              const maxUses = getMaxUses(invItem.item);
+              if (maxUses <= 0) return null;
+              const current = getCurrentUses(invItem.item);
+              const setCurrent = (val: number) =>
+                onItemUpdate({
+                  ...invItem,
+                  item: {
+                    ...invItem.item,
+                    meta_data: {
+                      ...invItem.item.meta_data!,
+                      charges: {
+                        ...invItem.item.meta_data?.charges,
+                        current: val,
+                        max: maxUses,
+                      },
+                    },
+                  },
+                });
+              // The favorite star floats at left: 5 px with a ~40 px
+              // backdrop pill; ml: 55 puts the charges row to the
+              // right of it with breathing room. The token row sizes
+              // with the use count so single-use items don't leave a
+              // wide empty strip between the lone token and the
+              // refill button — both numbers are pure CSS, nothing
+              // here changes click / pointer-events behavior.
+              const tokenAreaWidth = Math.max(28, Math.min(maxUses * 22, 220));
+              return (
+                <Box mb={-10} ml={55}>
+                  <Group gap={6} wrap='nowrap' align='center'>
+                    {/* Explicit "N / max" text so the player can see at a
+                        glance how many uses are left, even on single-use
+                        items where the token row is just one square.
+                        Tokens stay clickable for setting any value in
+                        between; the refill (↻) button at the end resets
+                        to max. */}
+                    <Text fz='xs' fw={600} c='gray.2' style={{ minWidth: 32, textAlign: 'right' }}>
+                      {current} / {maxUses}
+                    </Text>
+                    <ScrollArea scrollbars='x' w={tokenAreaWidth}>
+                      <TokenSelect
+                        count={maxUses}
+                        value={current}
+                        onChange={setCurrent}
                         size='xs'
-                        style={{
-                          opacity: 0.7,
-                          ...glassStyle(),
-                        }}
-                      >
-                        <IconSquareRounded size='1rem' />
-                      </ActionIcon>
-                    }
-                    fullSymbol={
-                      <ActionIcon
-                        variant='transparent'
-                        color='gray.1'
-                        aria-label='Item Charge, Exhuasted'
-                        size='xs'
-                        style={{
-                          opacity: 0.7,
-                          ...glassStyle(),
-                        }}
-                      >
-                        <IconSquareRoundedFilled size='1rem' />
-                      </ActionIcon>
-                    }
-                  />
-                </ScrollArea>
-              </Box>
-            )}
+                        emptySymbol={
+                          <ActionIcon
+                            variant='transparent'
+                            color='gray.1'
+                            aria-label='Item Charge, Unused'
+                            size='xs'
+                            style={{
+                              opacity: 0.7,
+                              ...glassStyle(),
+                            }}
+                          >
+                            <IconSquareRounded size='1rem' />
+                          </ActionIcon>
+                        }
+                        fullSymbol={
+                          <ActionIcon
+                            variant='transparent'
+                            color='gray.1'
+                            aria-label='Item Charge, Used'
+                            size='xs'
+                            style={{
+                              opacity: 0.7,
+                              ...glassStyle(),
+                            }}
+                          >
+                            <IconSquareRoundedFilled size='1rem' />
+                          </ActionIcon>
+                        }
+                      />
+                    </ScrollArea>
+                    <ActionIcon
+                      variant='subtle'
+                      color='gray.3'
+                      aria-label='Refill charges'
+                      title='Refill'
+                      size='sm'
+                      radius='xl'
+                      onClick={() => setCurrent(maxUses)}
+                    >
+                      <IconRefresh size='0.9rem' />
+                    </ActionIcon>
+                  </Group>
+                </Box>
+              );
+            })()}
           </Group>
           <Group wrap='nowrap' gap={15} mr={15}>
             {!invItem.item.meta_data?.unselectable && containerItems.length > 0 && (

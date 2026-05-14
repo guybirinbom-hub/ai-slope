@@ -223,6 +223,23 @@ export interface Item {
       category?: 'weapon' | 'armor' | 'shield' | 'perception' | 'skill';
       skill_variable?: string;
     };
+    // Player-chosen spell for a generic "Magic Wand (Nth-rank Spell)"
+    // or "Magic Scroll (Nth-rank Spell)" item. Per-instance, so a
+    // player can hold three different wands with three different spells.
+    //
+    // - spell_id    — content-store id (used to open the spell drawer)
+    // - spell_name  — duplicated for offline display
+    // - spell_rank  — the rank the spell is CAST at. By PF2e's rule
+    //                 this equals the holder's max rank (always).
+    // - base_rank   — the spell's NATURAL rank from the spellbook.
+    //                 When < spell_rank we render the upcast arrow
+    //                 ("1st → 3rd") in the drawer description.
+    scroll_wand?: {
+      spell_id: number;
+      spell_name: string;
+      spell_rank: number;
+      base_rank?: number;
+    };
   } | null;
   operations: Operation[] | null;
   content_source_id: number;
@@ -362,6 +379,16 @@ export const ItemSchema: z.ZodType<Item> = z.lazy(() =>
             refinement_value: z.number(),
             category: z.enum(['weapon', 'armor', 'shield', 'perception', 'skill']).optional(),
             skill_variable: z.string().optional(),
+          })
+          .optional(),
+        // Player-chosen spell for generic "Magic Wand/Scroll
+        // (Nth-rank Spell)" items. See matching TS block above.
+        scroll_wand: z
+          .object({
+            spell_id: z.number(),
+            spell_name: z.string(),
+            spell_rank: z.number(),
+            base_rank: z.number().optional(),
           })
           .optional(),
       })

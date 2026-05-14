@@ -8,7 +8,7 @@ import { isAbilityBlockVisible } from '@content/content-hidden';
 import { getContentFast } from '@content/content-store';
 import { handleDeleteItem, handleMoveItem, handleUpdateItem } from '@items/inv-handlers';
 import { getFavorites, lookupFavoriteName } from '@character/favorites';
-import { isItemWeapon } from '@items/inv-utils';
+import { getFillableSpellHolder, getScrollWandDisplayName, isItemWeapon } from '@items/inv-utils';
 import { getWeaponStats, parseOtherDamage } from '@items/weapon-handler';
 import {
   useMantineTheme,
@@ -368,6 +368,16 @@ export default function SkillsActionsPanel(props: {
   const itemsWithActions = useMemo(() => {
     const actionItems =
       props.entity?.inventory?.items.filter((invItem) => {
+        // Generic scroll/wand items don't carry a `cost="..."` token
+        // in their description (just a markdown "[Cast a Spell]"
+        // link), so the default findActions check misses them.
+        // Force them in explicitly once a spell has been picked.
+        if (
+          getFillableSpellHolder(invItem.item) &&
+          invItem.item.meta_data?.scroll_wand?.spell_id
+        ) {
+          return true;
+        }
         return findActions(invItem.item.description).length > 0;
       }) ?? [];
 
@@ -386,6 +396,12 @@ export default function SkillsActionsPanel(props: {
 
             const searchStr = JSON.stringify({
               _: invItem.item.name,
+              // For filled scroll/wand items, also include the chosen
+              // spell name + derived display name so search-by-spell
+              // works (e.g. typing "Fireball" finds "Magic Wand of
+              // Fireball").
+              __: invItem.item.meta_data?.scroll_wand?.spell_name,
+              __a: getScrollWandDisplayName(invItem.item),
               ___: getContentFast<Trait>('trait', invItem.item.traits ?? []).map((t) => t.name),
               ____: invItem.item.description,
               _____: invItem.item.group,
@@ -758,7 +774,20 @@ export default function SkillsActionsPanel(props: {
               actions={itemsWithActions
                 .map((invItem) => {
                   const actions = findActions(invItem.item.description);
-                  const action = actions.length > 0 ? actions[0] : 'ONE-ACTION';
+                  // Generic scroll/wand: no cost= token in the
+                  // description, so default to TWO-ACTIONS (the typical
+                  // spell cast time, which is also what most wand
+                  // activations resolve to). The player can follow the
+                  // spell link in the drawer for the exact cost.
+                  const scrollWandHolder = getFillableSpellHolder(invItem.item);
+                  const scrollWandFilled =
+                    scrollWandHolder && invItem.item.meta_data?.scroll_wand?.spell_id;
+                  const action =
+                    actions.length > 0
+                      ? actions[0]
+                      : scrollWandFilled
+                        ? 'TWO-ACTIONS'
+                        : 'ONE-ACTION';
 
                   // if (action === 'ONE-ACTION' && isItemWeapon(invItem.item) && invItem.is_equipped) {
                   //   // It's a weapon with one action, we already have a section for weapons
@@ -767,7 +796,12 @@ export default function SkillsActionsPanel(props: {
 
                   return {
                     id: parseInt(invItem.id),
-                    name: invItem.item.name,
+                    // For filled scroll/wand items show
+                    // "Magic Wand of Fireball" instead of the
+                    // blank-item name.
+                    name: scrollWandFilled
+                      ? getScrollWandDisplayName(invItem.item)
+                      : invItem.item.name,
                     drawerType: 'inv-item',
                     drawerData: {
                       storeId: props.id,

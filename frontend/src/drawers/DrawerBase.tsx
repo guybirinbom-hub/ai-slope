@@ -47,6 +47,17 @@ const NO_FEEDBACK_DRAWERS = [
 ];
 
 export const DRAWER_STYLES = {
+  // Push the whole drawer down by the title-bar overlay height
+  // (32 px, same as electron/main.cjs `titleBarOverlay.height`).
+  // Mantine v9 renders the drawer panel inside `inner`; shifting
+  // `top` on that slot via the `styles` prop is class-name-
+  // independent (CSS selectors against `.mantine-Drawer-inner`
+  // were unreliable across Mantine versions). Doesn't touch
+  // pointer-events / overlay — so click handling stays exactly as
+  // Mantine ships it.
+  inner: {
+    top: 32,
+  },
   content: {
     display: 'flex',
     flexDirection: 'column',
@@ -59,6 +70,10 @@ export const DRAWER_STYLES = {
   },
   header: {
     paddingBottom: 0,
+    // Reserve ~160 px on the right of the header so the drawer's
+    // own close (X) button doesn't hide under the native Win11
+    // min/max/close trio in the top-right corner of the window.
+    paddingRight: 160,
   },
   body: {
     flex: '1 1 auto',
@@ -219,7 +234,13 @@ export default function DrawerBase() {
         }}
       >
         <Box onTouchStart={swipeHandlers.onTouchStart} onTouchEnd={swipeHandlers.onTouchEnd} style={{ height: '100%' }}>
-          <ScrollArea viewportRef={viewport} h='100%' pr={16} scrollbars='y'>
+          {/* pb={110} reserves 110 px of empty space at the bottom
+              of the scroll viewport so long descriptions don't slide
+              UNDER the floating action row (favorite star, charges
+              indicator, edit, delete) which is anchored at bottom:
+              50 px and is ~40 px tall. Without this padding the last
+              few lines of text would sit behind those buttons. */}
+          <ScrollArea viewportRef={viewport} h='100%' pr={16} pb={110} scrollbars='y'>
             {opened && (
               <Suspense fallback={<div></div>}>
                 <DrawerContent
@@ -243,7 +264,10 @@ export default function DrawerBase() {
               <HoverCard.Target>
                 <Box
                   style={{
-                    ...getAnchorStyles({ l: 5, b: 5 }),
+                    // Lifted well above the Windows taskbar / window
+                    // bottom edge so the star isn't crammed against
+                    // it or the last line of description text above.
+                    ...getAnchorStyles({ l: 5, b: 50 }),
                     // Mantine drawers use var(--mantine-color-body) for
                     // their body bg; matching it keeps the button
                     // visually flush with the drawer and masks any
@@ -283,7 +307,10 @@ export default function DrawerBase() {
                     aria-label='Help and Feedback'
                     radius='xl'
                     color='dark.3'
-                    style={getAnchorStyles({ r: 5, b: 5 })}
+                    // Matches the star on the other side and lifts the
+                    // delete / feedback cluster well above the window
+                    // bottom so it's not crammed against the taskbar.
+                    style={getAnchorStyles({ r: 5, b: 50 })}
                     onClick={() => {
                       const type = isAbilityBlockType(_drawer.type)
                         ? _drawer.type

@@ -420,6 +420,88 @@ export function getItemQuantity(item: Item) {
 }
 
 /**
+ * Infer how many uses / charges this item supports per refill.
+ *
+ * Three-tier inference, in priority order:
+ *
+ *   1. `meta_data.charges.max` — explicit charge count baked into
+ *      the item template (multi-charge wands, staves, etc.).
+ *   2. A "Frequency once/twice/N times per day" phrase parsed out
+ *      of the description (most daily-use magic items spell their
+ *      cap in prose rather than in a structured field).
+ *   3. CONSUMABLE trait — one-shot (still refillable in the UI in
+ *      case the player tapped one by mistake).
+ *
+ * Returns 0 when none apply, which the drawer treats as "hide the
+ * charges UI for this item entirely".
+ */
+export function getMaxUses(item: Item): number {
+  if (!item) return 0;
+
+  // (1) Explicit charge count baked into the item.
+  const baked = item.meta_data?.charges?.max;
+  if (typeof baked === 'number' && baked > 0) return baked;
+
+  // (2) Frequency-text parse. The dataset is fairly consistent:
+  //     "Frequency once per day" / "Frequency** twice per day" /
+  //     "Frequency: 3 times per day". 0-4 trailing asterisks, optional
+  //     colon, word-form (once / twice / three / … / ten) or numeric.
+  //     Required "per <unit>" suffix disambiguates from other prose
+  //     that happens to start with "Frequency".
+  const desc = item.description ?? '';
+  const wordMap: Record<string, number> = {
+    once: 1,
+    twice: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+  };
+  const re =
+    /Frequency\*{0,4}[: ]+(once|twice|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:times\s+)?per\s+(?:day|hour|minute|round|encounter|\d+\s*minutes?)/i;
+  const m = desc.match(re);
+  if (m) {
+    const phrase = m[1].toLowerCase();
+    if (phrase in wordMap) return wordMap[phrase];
+    const n = parseInt(phrase, 10);
+    if (!isNaN(n) && n > 0) return n;
+  }
+
+  // (3) Consumable trait → single use.
+  if (hasTraitType('CONSUMABLE', item.traits ?? undefined)) return 1;
+
+  return 0;
+}
+
+/**
+ * Current uses remaining on an item instance. Defaults to the max
+ * when no `current` has been persisted, so a freshly-picked-up
+ * consumable starts "full" instead of looking already-spent.
+ */
+export function getCurrentUses(item: Item): number {
+  if (!item) return 0;
+  const max = getMaxUses(item);
+  if (max <= 0) return 0;
+  const cur = item.meta_data?.charges?.current;
+  return typeof cur === 'number' ? cur : max;
+}
+
+/**
+ * True when the item has a use cap AND is fully spent (0 remaining).
+ * Used to dim the drawer title + inventory row so the player can
+ * see "out of uses" at a glance.
+ */
+export function isItemExhausted(item: Item): boolean {
+  const max = getMaxUses(item);
+  if (max <= 0) return false;
+  return getCurrentUses(item) <= 0;
+}
+
+/**
  * Utility function to determine if an item is broken
  * @param item - Item
  * @returns - Whether the item is broken
@@ -637,6 +719,72 @@ export function isItemShield(item: Item) {
  */
 export function isItemStave(item: Item) {
   return hasTraitType('STAFF', item.traits ?? undefined);
+}
+
+/**
+ * Detect a "fillable" generic scroll or wand — an item whose name
+ * encodes the spell rank but not the spell. Pattern:
+ *   "Magic Wand (3rd-Rank Spell)"   → { kind: 'wand', maxRank: 3 }
+ *   "Magic Scroll (5th-rank Spell)" → { kind: 'scroll', maxRank: 5 }
+ * Specific pre-baked items like "Wand of Shardstorm (7th-Rank Spell)"
+ * return null — the regex anchors on the literal word "Magic " at
+ * the start of the name, which only the generic versions have.
+ *
+ * The rank cap in the name is the spell rank the holder can cast.
+ * Lower-rank spells are valid picks too (PF2e auto-heightens them
+ * up to the holder's rank). Cantrips, focus spells, and rituals
+ * are never valid — that's enforced separately by the picker's
+ * filterFn, not here.
+ */
+export function getFillableSpellHolder(item: Item): { kind: 'scroll' | 'wand'; maxRank: number } | null {
+  if (!item?.name) return null;
+  // Case-insensitive on "Rank" — the dataset uses both casings.
+  // Optional dash before "rank" handles both "3rd-Rank" and "3rd rank".
+  const m = /^Magic\s+(Wand|Scroll)\s*\(\s*(\d+)\s*[a-z]*-?rank\s*spell\s*\)/i.exec(item.name);
+  if (!m) return null;
+  const kind = m[1].toLowerCase() === 'wand' ? 'wand' : 'scroll';
+  const rank = Math.min(10, Math.max(1, parseInt(m[2], 10)));
+  return { kind, maxRank: rank };
+}
+
+/**
+ * True iff the item is a generic fillable scroll/wand (regardless
+ * of whether a spell has been picked yet).
+ */
+export function isFillableScrollOrWand(item: Item): boolean {
+  return getFillableSpellHolder(item) !== null;
+}
+
+/**
+ * Display name for a scroll/wand item, baking the chosen spell into
+ * the name. Falls back to the raw item name when the item isn't a
+ * fillable scroll/wand OR when no spell has been picked.
+ *
+ *   "Magic Wand (3rd-Rank Spell)"   + Magic Missile  → "Magic Wand of Magic Missile (3rd-Rank)"
+ *   "Magic Scroll (5th-rank Spell)" + Heal           → "Scroll of Heal (5th-Rank)"
+ */
+export function getScrollWandDisplayName(item: Item): string {
+  if (!item) return '';
+  const holder = getFillableSpellHolder(item);
+  const chosen = item.meta_data?.scroll_wand;
+  if (!holder || !chosen?.spell_name) return item.name;
+  const rankLabel = `${chosen.spell_rank}${ordinalSuffix(chosen.spell_rank)}-Rank`;
+  if (holder.kind === 'scroll') return `Scroll of ${chosen.spell_name} (${rankLabel})`;
+  return `Magic Wand of ${chosen.spell_name} (${rankLabel})`;
+}
+
+/**
+ * Ordinal suffix helper (1→"st", 2→"nd", 3→"rd", 4→"th", 11/12/13→"th").
+ * Local to this module — only used to format scroll/wand display names
+ * and the upcast arrow in the drawer prelude.
+ */
+function ordinalSuffix(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return 'st';
+  if (m10 === 2 && m100 !== 12) return 'nd';
+  if (m10 === 3 && m100 !== 13) return 'rd';
+  return 'th';
 }
 
 /**

@@ -15,8 +15,10 @@ import {
   getInvBulk,
   getItemBulk,
   getItemQuantity,
+  getScrollWandDisplayName,
   isItemContainer,
   isItemEquippable,
+  isItemExhausted,
   isItemImplantable,
   isItemInvestable,
   isItemWeapon,
@@ -94,6 +96,12 @@ export default function InventoryPanel(props: {
         const checkInvItem = (invItem: InventoryItem) => {
           const searchStr = JSON.stringify({
             _: invItem.item.name,
+            // For filled scroll/wand items, also include the chosen
+            // spell name + the derived display name so search-by-spell
+            // works (e.g. typing "Fireball" finds "Magic Wand of
+            // Fireball" in the inventory list).
+            __: invItem.item.meta_data?.scroll_wand?.spell_name,
+            __a: getScrollWandDisplayName(invItem.item),
             ___: getContentFast<Trait>('trait', invItem.item.traits ?? []).map((t) => t.name),
             ____: invItem.item.description,
             _____: invItem.item.group,
@@ -756,8 +764,22 @@ function InvItemOption(props: {
       <Grid.Col span='auto'>
         <Group wrap='nowrap' gap={props.isPhone ? 5 : 10}>
           <ItemIcon item={props.invItem.item} size='1.0rem' color={theme.colors.gray[6]} />
-          <Text c='gray.0' fz='sm' truncate>
-            {props.invItem.item.name}
+          <Text
+            c='gray.0'
+            fz='sm'
+            truncate
+            // Dim the row when the item is out of uses (charges = 0).
+            // Same visual signal as the drawer title — lets the player
+            // see at a glance which consumables / charged items are
+            // spent without having to open each one.
+            style={isItemExhausted(props.invItem.item) ? { opacity: 0.5 } : undefined}
+          >
+            {/* Generic scroll/wand with a chosen spell renders with the
+                spell name baked in ("Magic Wand of Fireball"), so a
+                player carrying three different wands can tell them
+                apart at a glance. Everything else passes through to
+                the raw item name. */}
+            {getScrollWandDisplayName(props.invItem.item)}
           </Text>
           {isItemContainer(props.invItem.item) && props.hideSections && (
             <ImprintButton

@@ -39,6 +39,11 @@ export function SpellDrawerTitle(props: { data: { id?: number; spell?: Spell; en
 
   let rankTitle = 'Spell';
   let rank = spell?.rank;
+  // baseRank tracks the spell's natural rank from the spellbook so
+  // we can render the auto-upcast arrow ("1 → 5") when the effective
+  // rank is higher (cantrip auto-heighten by character level). For
+  // non-cantrips base + cast are the same and no arrow is shown.
+  const baseRank = spell?.rank;
   if (spell && isCantrip(spell)) {
     rankTitle = 'Cantrip';
     if (entity) {
@@ -56,6 +61,14 @@ export function SpellDrawerTitle(props: { data: { id?: number; spell?: Spell; en
     rankTitle = 'Ritual';
   }
 
+  const rankDisplay =
+    typeof rank === 'number' &&
+    typeof baseRank === 'number' &&
+    baseRank > 0 &&
+    baseRank < rank
+      ? `${baseRank} → ${rank}`
+      : rank;
+
   return (
     <>
       {spell && (
@@ -71,7 +84,7 @@ export function SpellDrawerTitle(props: { data: { id?: number; spell?: Spell; en
             )}
           </Group>
           <Text style={{ textWrap: 'nowrap' }}>
-            {rankTitle} {rank}
+            {rankTitle} {rankDisplay}
           </Text>
         </Group>
       )}

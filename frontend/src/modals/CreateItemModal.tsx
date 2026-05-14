@@ -3,12 +3,12 @@ import { ItemMultiSelect, ItemSelect } from '@common/ItemSelect';
 import TraitsInput from '@common/TraitsInput';
 import { OperationSection } from '@common/operations/Operations';
 import RichTextInput from '@common/rich_text_input/RichTextInput';
-import { selectContent } from '@common/select/SelectContent';
+import { SelectContentButton, selectContent } from '@common/select/SelectContent';
 import { EDIT_MODAL_HEIGHT } from '@constants/data';
 import { DISCORD_URL } from '@constants/urls';
 import { fetchContentById, fetchTraits, getCachedContent } from '@content/content-store';
 import { toHTML } from '@content/content-utils';
-import { isItemFundamentalRune } from '@items/inv-utils';
+import { getFillableSpellHolder, isItemFundamentalRune } from '@items/inv-utils';
 import { valueForLevel, monsterPartsCategoryFor, levelFromValue } from '@items/monster-parts';
 import {
   Accordion,
@@ -48,6 +48,7 @@ import {
   ItemMetaCategoryWeapon,
   ItemMetaGroupArmor,
   ItemMetaGroupWeapon,
+  Spell,
   Trait,
 } from '@schemas/content';
 import { toLabel } from '@utils/strings';
@@ -1215,6 +1216,71 @@ export function CreateItemModal(props: {
                         </Stack>
                       </Accordion.Panel>
                     </Accordion.Item>
+                    {/* Generic scroll / wand spell-picker. Conditional
+                        on the item name matching "Magic Wand (Nth-rank
+                        Spell)" or "Magic Scroll (Nth-rank Spell)" —
+                        pre-baked items like "Wand of Shardstorm" don't
+                        match (they already have a fixed spell). The
+                        rank in the name caps the picker: a 3rd-rank
+                        wand shows rank 1, 2, AND 3 spells (PF2e auto-
+                        heightens lower-rank picks up to the holder's
+                        rank). Cantrips, focus, and ritual spells are
+                        excluded — they can't be put on scrolls/wands. */}
+                    {(() => {
+                      const holder = getFillableSpellHolder(form.values as Item);
+                      if (!holder) return null;
+                      const chosen = form.values.meta_data?.scroll_wand;
+                      return (
+                        <Accordion.Item value={'scroll-wand'}>
+                          <Accordion.Control>
+                            <Text fz='sm'>
+                              {holder.kind === 'wand' ? 'Wand' : 'Scroll'} Spell
+                            </Text>
+                          </Accordion.Control>
+                          <Accordion.Panel>
+                            <Stack gap={10}>
+                              <Text size='xs' c='dimmed'>
+                                Choose any spell of rank {holder.maxRank} or lower.
+                                The spell is cast at rank {holder.maxRank}, so lower-
+                                rank picks are automatically heightened up to the
+                                {holder.kind === 'wand' ? ' wand' : ' scroll'}'s rank.
+                              </Text>
+                              <SelectContentButton<Spell>
+                                type='spell'
+                                selectedId={chosen?.spell_id}
+                                onClick={(spell) => {
+                                  form.setFieldValue('meta_data.scroll_wand', {
+                                    spell_id: spell.id,
+                                    spell_name: spell.name,
+                                    // Always cast at the holder's rank.
+                                    spell_rank: holder.maxRank,
+                                    // Spell's natural rank — drives the
+                                    // "Nth → Mth" upcast arrow in the
+                                    // drawer description.
+                                    base_rank: spell.rank,
+                                  });
+                                }}
+                                onClear={() => {
+                                  form.setFieldValue('meta_data.scroll_wand', undefined);
+                                }}
+                                options={{
+                                  // PF2e rules: scrolls/wands accept rank-1+
+                                  // spells of rank ≤ holder's rank. No
+                                  // cantrips (rank 0), no focus, no rituals.
+                                  filterFn: (spell) => {
+                                    if (typeof spell.rank !== 'number') return false;
+                                    if (spell.rank < 1 || spell.rank > holder.maxRank) return false;
+                                    if (spell.meta_data?.focus) return false;
+                                    if (spell.meta_data?.ritual) return false;
+                                    return true;
+                                  },
+                                }}
+                              />
+                            </Stack>
+                          </Accordion.Panel>
+                        </Accordion.Item>
+                      );
+                    })()}
                     <Accordion.Item value={'other'}>
                       <Accordion.Control>
                         <Text fz='sm'>Other</Text>
