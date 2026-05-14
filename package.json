@@ -1,0 +1,74 @@
+{
+  "name": "wanderers-guide",
+  "version": "1.0.0",
+  "private": true,
+  "main": "electron/main.cjs",
+  "scripts": {
+    "postinstall": "node scripts/patch-embedded-postgres.js",
+    "start": "electron .",
+    "app": "electron .",
+    "backend": "node electron/backend/index.mjs",
+    "frontend:build": "cd frontend && cross-env VITE_SUPABASE_URL=http://localhost:9000 VITE_SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc3NzgwODAwLCJleHAiOjE5MzU1NDcyMDB9.vp6J2oNVQgHMzZG6B6iuTTb_gFPD7jzTyVoxiw0nhf0 npm run build",
+    "frontend:install": "cd frontend && npm install --no-audit --no-fund --legacy-peer-deps",
+    "build:installer": "electron-builder --win",
+    "build:portable": "electron-builder --win portable",
+    "docs:dev": "npm --prefix docs run dev",
+    "docs:build": "npm --prefix docs run build",
+    "docs:check": "npm --prefix docs run broken-links"
+  },
+  "devDependencies": {
+    "electron": "^42.0.1",
+    "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "embedded-postgres": "^18.3.0-beta.17",
+    "express": "^5.2.1",
+    "http-proxy-middleware": "^4.0.0",
+    "pg-copy-streams": "^7.0.0"
+  },
+  "build": {
+    "appId": "com.local.wanderersguide",
+    "productName": "Wanderer's Guide",
+    "directories": {
+      "output": "release"
+    },
+    "asarUnpack": [
+      "node_modules/@embedded-postgres/**",
+      "electron/bin/**"
+    ],
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "data/schema.sql",
+      "data/data.sql",
+      "data/auth-trigger.sql",
+      "package.json",
+      "node_modules/**/*",
+      "!node_modules/electron/**",
+      "!node_modules/electron-builder/**",
+      "!node_modules/app-builder-lib/**",
+      "!node_modules/app-builder-bin/**",
+      "!node_modules/dmg-builder/**",
+      "!node_modules/**/{__tests__,test,tests,docs,example,examples,benchmark,benchmarks,.bin}/**",
+      "!node_modules/**/*.{md,markdown,ts,map,html.template,d.ts.map}",
+      "!**/.DS_Store",
+      "!**/.git/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Wanderer's Guide"
+    }
+  }
+}

@@ -1,0 +1,325 @@
+import { characterState } from '@atoms/characterAtoms';
+import { drawerState } from '@atoms/navAtoms';
+import { ActionSymbol } from '@common/Actions';
+import IndentedText from '@common/IndentedText';
+import RichText from '@common/RichText';
+import TraitsDisplay from '@common/TraitsDisplay';
+import { TEXT_INDENT_AMOUNT } from '@constants/data';
+import { fetchAllPrereqs, fetchContentById } from '@content/content-store';
+import ShowOperationsButton from '@drawers/ShowOperationsButton';
+import { Title, Text, Loader, Group, Divider, Box, Anchor, useMantineTheme, Button } from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
+import { AbilityBlock } from '@schemas/content';
+import { toLabel } from '@utils/strings';
+import { meetsPrerequisites } from '@variables/prereq-detection';
+import { ReactNode } from 'react';
+import { useAtom, useAtomValue } from 'jotai';
+import { DisplayOperationSelectionOptions } from './ActionDrawer';
+import ShowInjectedText from '@drawers/ShowInjectedText';
+import { DisplayIcon } from '@common/IconDisplay';
+import { listToLabel } from '@utils/display-strings';
+
+export function FeatDrawerTitle(props: { data: { id?: number; feat?: AbilityBlock; onSelect?: () => void } }) {
+  const id = props.data.id;
+
+  const [_drawer, openDrawer] = useAtom(drawerState);
+
+  const { data: _feat } = useQuery({
+    queryKey: [`find-feat-${id}`, { id }],
+    queryFn: async ({ queryKey }) => {
+      // @ts-ignore
+       
+      const [_key, { id }] = queryKey;
+      return await fetchContentById<AbilityBlock>('ability-block', id);
+    },
+    enabled: !!id,
+  });
+  const feat = props.data.feat ?? _feat;
+
+  let type = `Feat ${feat?.level}`;
+  if (feat?.meta_data?.unselectable) {
+    if (feat?.actions === null) {
+      type = '';
+    } else {
+      type = 'Action';
+    }
+  }
+
+  return (
+    <>
+      {feat && (
+        <Group justify='space-between' wrap='nowrap'>
+          <Group wrap='nowrap' gap={10}>
+            <Box>
+              <Title order={3}>{toLabel(feat.name)}</Title>
+            </Box>
+            <Box>
+              <ActionSymbol cost={feat.actions} size={'2.1rem'} />
+            </Box>
+          </Group>
+          {props.data.onSelect ? (
+            <Button
+              variant='filled'
+              radius='xl'
+              mb={5}
+              size='compact-sm'
+              onClick={() => {
+                props.data.onSelect?.();
+                openDrawer(null);
+              }}
+            >
+              Select {type}
+            </Button>
+          ) : (
+            <Text style={{ textWrap: 'nowrap' }}>{type}</Text>
+          )}
+        </Group>
+      )}
+    </>
+  );
+}
+
+export function FeatDrawerContent(props: { data: { id?: number; feat?: AbilityBlock; showOperations?: boolean } }) {
+  const id = props.data.id;
+  const theme = useMantineTheme();
+
+  const character = useAtomValue(characterState);
+  const DETECT_PREREQUS = character?.options?.auto_detect_prerequisites ?? false;
+
+  const { data: _feat } = useQuery({
+    queryKey: [`find-feat-${id}`, { id }],
+    queryFn: async ({ queryKey }) => {
+      // @ts-ignore
+       
+      const [_key, { id }] = queryKey;
+      return await fetchContentById<AbilityBlock>('ability-block', id);
+    },
+    enabled: !!id,
+  });
+  const feat = props.data.feat ?? _feat;
+
+  if (!feat) {
+    return (
+      <Loader
+        type='bars'
+        style={{
+          position: 'absolute',
+          top: '35%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+        }}
+      />
+    );
+  }
+
+  const prereqMet = DETECT_PREREQUS && meetsPrerequisites('CHARACTER', feat.prerequisites ?? undefined);
+  const prereqUI: ReactNode[] = [];
+  if (prereqMet && prereqMet.meetMap.size > 0) {
+    for (const [prereq, met] of prereqMet.meetMap.entries()) {
+      if (!met) {
+        prereqUI.push(<>{prereq}</>);
+      } else if (met === 'FULLY') {
+        prereqUI.push(
+          <>
+            <Text
+              style={{
+                textDecoration: 'underline',
+                textDecorationColor: theme.colors[theme.primaryColor][4],
+              }}
+              span
+            >
+              {prereq}
+            </Text>
+          </>
+        );
+      } else if (met === 'PARTIALLY') {
+        prereqUI.push(
+          <>
+            <Text
+              style={{
+                textDecoration: 'underline',
+                textDecorationColor: theme.colors[theme.primaryColor][2],
+              }}
+              span
+            >
+              {prereq}
+            </Text>
+          </>
+        );
+      } else if (met === 'NOT') {
+        prereqUI.push(
+          <>
+            <Text
+              style={{
+                textDecoration: 'underline',
+                textDecorationColor: theme.colors.red[4],
+              }}
+              span
+            >
+              {prereq}
+            </Text>
+          </>
+        );
+      } else if (met === 'UNKNOWN') {
+        prereqUI.push(
+          <>
+            <Text
+              style={{
+                textDecoration: 'underline',
+                textDecorationColor: theme.colors.yellow[2],
+              }}
+              span
+            >
+              {prereq}
+            </Text>
+          </>
+        );
+      }
+    }
+  } else {
+    prereqUI.push(...(feat.prerequisites ?? []).map((prereq) => <>{prereq}</>));
+  }
+
+  const hasTopSection =
+    (feat.prerequisites && feat.prerequisites.length > 0) ||
+    feat.frequency ||
+    feat.trigger ||
+    feat.cost ||
+    feat.requirements ||
+    feat.access;
+
+  return (
+    <Box>
+      <DisplayIcon strValue={feat.meta_data?.image_url} />
+      <Box>
+        {/* Note: Can't use a Stack here as it breaks the floating image */}
+        <Box pb={2}>
+          <TraitsDisplay
+            traitIds={feat.traits ?? []}
+            rarity={feat.rarity}
+            availability={feat.availability ?? undefined}
+            interactable
+          />
+        </Box>
+        {prereqUI && prereqUI.length > 0 && (
+          <IndentedText ta='justify'>
+            <Text fw={600} c='gray.2' span>
+              Prerequisites
+            </Text>{' '}
+            {prereqUI.flatMap((node, index) => (index < prereqUI.length - 1 ? [node, '; '] : [node]))}
+          </IndentedText>
+        )}
+        {feat.frequency && (
+          <IndentedText ta='justify'>
+            <Text fw={600} c='gray.2' span>
+              Frequency
+            </Text>{' '}
+            {feat.frequency}
+          </IndentedText>
+        )}
+        {feat.trigger && (
+          <IndentedText ta='justify'>
+            <Text fw={600} c='gray.2' span>
+              Trigger
+            </Text>{' '}
+            {feat.trigger}
+          </IndentedText>
+        )}
+        {feat.cost && (
+          <IndentedText ta='justify'>
+            <Text fw={600} c='gray.2' span>
+              Cost
+            </Text>{' '}
+            {feat.cost}
+          </IndentedText>
+        )}
+        {feat.requirements && (
+          <IndentedText ta='justify'>
+            <Text fw={600} c='gray.2' span>
+              Requirements
+            </Text>{' '}
+            {feat.requirements}
+          </IndentedText>
+        )}
+        {feat.access && (
+          <IndentedText ta='justify'>
+            <Text fw={600} c='gray.2' span>
+              Access
+            </Text>{' '}
+            {feat.access}
+          </IndentedText>
+        )}
+        {hasTopSection && <Divider />}
+        <RichText ta='justify'>{feat.description}</RichText>
+        {feat.special && (
+          <Text ta='justify' style={{ textIndent: TEXT_INDENT_AMOUNT }}>
+            <Text fw={600} c='gray.2' span>
+              Special
+            </Text>{' '}
+            <RichText span>{feat.special}</RichText>
+          </Text>
+        )}
+
+        {<PrerequisiteForSection name={feat.name} />}
+      </Box>
+      <ShowInjectedText varId='CHARACTER' type='feat' id={feat.id} />
+      <DisplayOperationSelectionOptions operations={feat.operations ?? undefined} />
+      {props.data.showOperations && <ShowOperationsButton name={feat.name} operations={feat.operations ?? undefined} />}
+    </Box>
+  );
+}
+
+export function PrerequisiteForSection(props: { name: string }) {
+  const { data } = useQuery({
+    queryKey: [`find-prereqs-for-${props.name}`, { name: props.name }],
+    queryFn: async ({ queryKey }) => {
+      // @ts-ignore
+       
+      const [_key, { name }] = queryKey;
+      return await fetchAllPrereqs(name);
+    },
+  });
+
+  const [_drawer, openDrawer] = useAtom(drawerState);
+
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  const options = data.sort((a, b) => {
+    if (a.level === undefined || b.level === undefined) {
+      return a.name.localeCompare(b.name);
+    }
+    return (a.level ?? 0) - (b.level ?? 0);
+  });
+
+  return (
+    <Box pt='sm'>
+      <Divider />
+      <IndentedText>
+        <Text fw={600} c='gray.2' span>
+          Prerequisite for
+        </Text>{' '}
+        {listToLabel(
+          options.map((feat, index) => (
+            <Text key={index} span>
+              <Anchor
+                onClick={() => {
+                  openDrawer({
+                    type: 'feat',
+                    data: { id: feat.id },
+                    extra: { addToHistory: true },
+                  });
+                }}
+              >
+                {feat.name}
+              </Anchor>{' '}
+              ({feat.level})
+            </Text>
+          )),
+          'and'
+        )}
+      </IndentedText>
+    </Box>
+  );
+}

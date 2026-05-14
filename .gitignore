@@ -1,0 +1,44 @@
+# Local env (contains keys/passwords; not portable across machines)
+.env
+.env.local
+
+# Node / build artifacts
+node_modules/
+dist/
+build/
+.cache/
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+
+# Editor / harness
+.vscode/
+.idea/
+*.swp
+.claude/
+.mcp.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local docker volumes (if anyone bind-mounts them in)
+db-data/
+storage-data/
+
+# Embedded postgres data dir (created on first run; large, machine-specific)
+data/embedded-pg/
+
+# Local storage shim (uploaded files; user-specific)
+data/storage/
+
+# Bundled binary (downloaded by setup, large, platform-specific)
+electron/bin/postgrest.exe
+electron/bin/postgrest.zip
+
+# electron-builder output (packaged installer + win-unpacked, large)
+release/
+
+# Cleaned imports we generate from data/
+/tmp/

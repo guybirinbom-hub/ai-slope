@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@assets/*": ["src/assets/*"],
+      "@atoms/*": ["src/atoms/*"],
+      "@common/*": ["src/common/*"],
+      "@drawers/*": ["src/drawers/*"],
+      "@nav/*": ["src/nav/*"],
+      "@pages/*": ["src/pages/*"],
+      "@modals/*": ["src/modals/*"],
+      "@constants/*": ["src/constants/*"],
+      "@contexts/*": ["src/contexts/*"],
+      "@utils/*": ["src/utils/*"],
+      "@auth/*": ["src/auth/*"],
+      "@schemas/*": ["src/schemas/*"],
+      "@operations/*": ["src/process/operations/*"],
+      "@variables/*": ["src/process/variables/*"],
+      "@requests/*": ["src/request/*"],
+      "@upload/*": ["src/process/upload/*"],
+      "@content/*": ["src/process/content/*"],
+      "@items/*": ["src/process/items/*"],
+      "@specializations/*": ["src/process/specializations/*"],
+      "@import/*": ["src/process/import/*"],
+      "@export/*": ["src/process/export/*"],
+      "@homebrew/*": ["src/process/homebrew/*"],
+      "@conditions/*": ["src/process/conditions/*"],
+      "@spells/*": ["src/process/spells/*"],
+      "@character/*": ["src/process/character/*"],
+      "@css/*": ["src/css/*"],
+      "@ai/*": ["src/ai/*"]
+    }
+  }
+}

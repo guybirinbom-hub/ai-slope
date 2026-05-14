@@ -1,0 +1,707 @@
+import {
+  Badge,
+  Text,
+  Box,
+  CloseButton,
+  Container,
+  Group,
+  Paper,
+  Select,
+  Stack,
+  useMantineTheme,
+  Title,
+  Tooltip,
+  ScrollArea,
+  Autocomplete,
+  ActionIcon,
+  HoverCard,
+} from '@mantine/core';
+import { modals } from '@mantine/modals';
+import { createDefaultOperation } from '@operations/operation-utils';
+import { AbilityBlockType, Spell } from '@schemas/content';
+import {
+  Operation,
+  OperationAddBonusToValue,
+  OperationAdjValue,
+  OperationBindValue,
+  OperationConditional,
+  OperationCreateValue,
+  OperationDefineCastingSource,
+  OperationGiveAbilityBlock,
+  OperationGiveItem,
+  OperationGiveLanguage,
+  OperationGiveSpell,
+  OperationGiveSpellSlot,
+  OperationGiveTrait,
+  OperationInjectSelectOption,
+  OperationInjectText,
+  OperationSelect,
+  OperationSendNotification,
+  OperationSetValue,
+  OperationType,
+} from '@schemas/operations';
+import { cloneDeep } from 'lodash-es';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import ConditionalOperation from './conditional/ConditionalOperation';
+import { GiveActionOperation } from './ability_block/GiveActionOperation';
+import { GiveClassFeatureOperation } from './ability_block/GiveClassFeatureOperation';
+import { GiveFeatOperation } from './ability_block/GiveFeatOperation';
+import { GiveSpellOperation } from './spell/GiveSpellOperation';
+import { AdjValOperation } from './variables/AdjValOperation';
+import { SetValOperation } from './variables/SetValOperation';
+import { CreateValOperation } from './variables/CreateValOperation';
+import { useDidUpdate } from '@mantine/hooks';
+import { SelectionOperation } from './selection/SelectionOperation';
+import { GiveLanguageOperation } from './language/GiveLanguageOperation';
+import { GiveSenseOperation } from './ability_block/GiveSenseOperation';
+import { GivePhysicalFeatureOperation } from './ability_block/GivePhysicalFeatureOperation';
+import { addVariable, getVariable, resetVariables } from '@variables/variable-manager';
+import { GiveHeritageOperation } from './ability_block/GiveHeritageOperation';
+import { AddBonusToValOperation } from './variables/AddBonusToValOperation';
+import { GiveSpellSlotOperation } from './spell/GiveSpellSlotOperation';
+import { DefineCastingSourceOperation } from './spell/DefineCastingSourceOperation';
+import { GiveItemOperation } from './item/GiveItemOperation';
+import { GiveTraitOperation } from './trait/GiveTraitOperation';
+import useRefresh from '@utils/use-refresh';
+import { InjectSelectOptionOperation } from './selection/InjectSelectOptionOperation';
+import { InjectTextOperation } from './variables/InjectTextOperation';
+import { GiveModeOperation } from './ability_block/GiveModeOperation';
+import { BindValOperation } from './variables/BindValOperation';
+import { IconCopy, IconFileUpload } from '@tabler/icons-react';
+import { showNotification } from '@mantine/notifications';
+import { SendNotificationOperation } from './variables/SendNotificationOperation';
+import { ProficiencyType } from '@schemas/variables';
+
+export function OperationWrapper(props: { children: React.ReactNode; title: string; onRemove: () => void }) {
+  const theme = useMantineTheme();
+
+  const openConfirmModal = () =>
+    modals.openConfirmModal({
+      title: <Title order={4}>Remove Operation</Title>,
+      children: <Text size='sm'>Are you sure you want to remove this operation?</Text>,
+      labels: { confirm: 'Confirm', cancel: 'Cancel' },
+      onCancel: () => {},
+      onConfirm: () => props.onRemove(),
+    });
+
+  return (
+    <Container w={'calc(min(700px, 100%))'}>
+      <Paper
+        py='xs'
+        pl='xs'
+        pr={40}
+        radius='xl'
+        style={{
+          position: 'relative',
+        }}
+      >
+        {/* wrap='nowrap' */}
+        <Group align='flex-start'>
+          <Group align='flex-start'>
+            <Badge
+              variant='dot'
+              size='lg'
+              styles={{
+                root: {
+                  // @ts-ignore
+                  '--badge-dot-size': 0,
+                  textTransform: 'initial',
+                },
+              }}
+              style={{
+                borderRadius: 0,
+                borderTopLeftRadius: theme.radius.xl,
+                borderBottomLeftRadius: theme.radius.xl,
+                borderTopRightRadius: 11,
+                borderBottomRightRadius: 11,
+              }}
+            >
+              {props.title}
+            </Badge>
+          </Group>
+          {props.children}
+        </Group>
+        <Box
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            zIndex: 100,
+          }}
+        >
+          <Tooltip label='Remove Operation' position='right' withArrow withinPortal>
+            <CloseButton
+              size='sm'
+              radius='xl'
+              onClick={() => {
+                openConfirmModal();
+              }}
+            />
+          </Tooltip>
+        </Box>
+      </Paper>
+    </Container>
+  );
+}
+
+export function OperationSection(props: {
+  title: ReactNode;
+  blacklist?: string[];
+  operations?: Operation[];
+  onChange: (operations: Operation[]) => void;
+  allowCopyPaste?: boolean;
+}) {
+  const [searchValue, setSearchValue] = useState('');
+  const [displaySelect, refreshSelect] = useRefresh();
+
+  useDidUpdate(() => {
+    // Make sure all the variables are created
+    for (let op of props.operations ?? []) {
+      if (op.type === 'createValue') {
+        addVariable('CHARACTER', op.data.type, op.data.variable, op.data.value as ProficiencyType);
+      } else if (op.type === 'conditional') {
+        for (const check of op.data.conditions ?? []) {
+          if (check.operator && check.value && !getVariable('CHARACTER', check.name)) {
+            addVariable('CHARACTER', 'prof', check.name);
+          }
+        }
+      }
+    }
+  }, [props.operations]);
+
+  const copyOps = () => {
+    const copyString = JSON.stringify(props.operations ?? []);
+    navigator.clipboard.writeText(copyString).then(() => {
+      showNotification({
+        title: 'Copied Operations',
+        message: `Copied ${props.operations?.length ?? 0} operations to clipboard.`,
+        color: 'blue',
+        icon: null,
+        autoClose: 2000,
+      });
+    });
+  };
+
+  const pasteOps = async () => {
+    try {
+      const clipboardString = await navigator.clipboard.readText();
+      const clipboardOperations = JSON.parse(clipboardString) as Operation[];
+
+      const giveUniqueIds = (ops: Operation[]) => {
+        return ops.map((op) => {
+          return {
+            ...op,
+            id: crypto.randomUUID(),
+          };
+        });
+      };
+
+      props.onChange([...(props.operations ?? []), ...giveUniqueIds(clipboardOperations)]);
+      showNotification({
+        title: 'Pasted Operations',
+        message: `Pasted ${clipboardOperations.length} operations from clipboard.`,
+        color: 'blue',
+        icon: null,
+        autoClose: 2000,
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Error Pasting Operations',
+        message: 'Failed to paste operations from clipboard.',
+        color: 'red',
+        icon: null,
+        autoClose: 2000,
+      });
+    }
+  };
+
+  return (
+    <Stack gap={10}>
+      <Group justify='space-between'>
+        <Box>{props.title}</Box>
+        <Group gap={15}>
+          {props.allowCopyPaste !== false && (
+            <Group gap={5}>
+              <HoverCard shadow='md' openDelay={500} position='top' withinPortal>
+                <HoverCard.Target>
+                  <ActionIcon
+                    variant='subtle'
+                    color='gray.6'
+                    radius='lg'
+                    aria-label='Copy Operations'
+                    onClick={copyOps}
+                    disabled={props.operations?.length === 0}
+                  >
+                    <IconCopy style={{ width: '70%', height: '70%' }} stroke={1.5} />
+                  </ActionIcon>
+                </HoverCard.Target>
+                <HoverCard.Dropdown py={5} px={10}>
+                  <Text c='gray.0' size='sm'>
+                    Copy Operations
+                  </Text>
+                </HoverCard.Dropdown>
+              </HoverCard>
+
+              <HoverCard shadow='md' openDelay={500} position='top' withinPortal>
+                <HoverCard.Target>
+                  <ActionIcon
+                    variant='subtle'
+                    color='gray.6'
+                    radius='lg'
+                    aria-label='Paste Operations'
+                    onClick={pasteOps}
+                  >
+                    <IconFileUpload style={{ width: '70%', height: '70%' }} stroke={1.5} />
+                  </ActionIcon>
+                </HoverCard.Target>
+                <HoverCard.Dropdown py={5} px={10}>
+                  <Text c='gray.0' size='sm'>
+                    Paste Operations
+                  </Text>
+                </HoverCard.Dropdown>
+              </HoverCard>
+            </Group>
+          )}
+          {displaySelect && (
+            <Select
+              variant='default'
+              size='xs'
+              placeholder='+ Add Operation'
+              data={[
+                { value: 'select', label: 'Selection' },
+                { value: 'conditional', label: 'Conditional' },
+                { value: 'adjValue', label: 'Adjust Value' },
+                { value: 'addBonusToValue', label: 'Add Bonus to Value' },
+                { value: 'giveAbilityBlock:::feat', label: 'Give Feat' },
+                { value: 'giveLanguage', label: 'Give Language' },
+                { value: 'giveSpell', label: 'Give Spell' },
+                { value: 'giveSpellSlot', label: 'Give Spell Slots' },
+                { value: 'defineCastingSource', label: 'Define Casting Source' },
+                { value: 'giveAbilityBlock:::sense', label: 'Give Sense' },
+                {
+                  value: 'giveAbilityBlock:::physical-feature',
+                  label: 'Give Physical Feature',
+                },
+                { value: 'giveItem', label: 'Give Item' },
+                { value: 'giveTrait', label: 'Give Trait' },
+                { value: 'giveAbilityBlock:::heritage', label: 'Give Heritage' },
+                { value: 'giveAbilityBlock:::mode', label: 'Give Mode' },
+                {
+                  value: 'giveAbilityBlock:::class-feature',
+                  label: 'Give Other Class Feature',
+                },
+                { value: 'createValue', label: 'Create Value' },
+                { value: 'setValue', label: 'Override Value' },
+                { value: 'bindValue', label: 'Bind Value' },
+                { value: 'injectSelectOption', label: 'Inject Select Option' },
+                { value: 'injectText', label: 'Inject Text' },
+                { value: 'sendNotification', label: 'Send Notification' },
+                // { value: 'giveSelectOption', label: 'Give Select Option' }, // TODO
+                // { value: 'RESO', label: 'RESO' }, // TODO
+              ].filter((option) => !(props.blacklist ?? []).includes(option.value))}
+              searchable
+              searchValue={searchValue}
+              onSearchChange={setSearchValue}
+              value={null}
+              onChange={(value) => {
+                if (value) {
+                  let abilBlockType = null;
+                  if (value.includes('giveAbilityBlock:::')) {
+                    abilBlockType = value.split(':::')[1];
+                    value = 'giveAbilityBlock';
+                  }
+
+                  const newOp = createDefaultOperation(value as OperationType);
+
+                  if (newOp) {
+                    if (abilBlockType) {
+                      (newOp as OperationGiveAbilityBlock).data.type = abilBlockType as AbilityBlockType;
+                    }
+
+                    props.onChange([...(props.operations ?? []), newOp]);
+                    setSearchValue('');
+                    refreshSelect();
+                  }
+                }
+              }}
+              styles={(t) => ({
+                dropdown: {
+                  zIndex: 1500,
+                },
+              })}
+            />
+          )}
+        </Group>
+      </Group>
+      <Stack gap={10}>
+        {(props.operations ?? []).map((op, index) => (
+          <Paper withBorder key={index}>
+            <OperationDisplay
+              operation={op}
+              onChange={(option) => {
+                const newOp = cloneDeep(op);
+                newOp.data = option.data;
+
+                props.onChange(
+                  (props.operations ?? []).map((p_op) => {
+                    if (p_op.id === op.id) {
+                      return newOp;
+                    } else {
+                      return p_op;
+                    }
+                  })
+                );
+              }}
+              onRemove={(id) => {
+                props.onChange((props.operations ?? []).filter((p_op) => p_op.id !== id));
+              }}
+            />
+          </Paper>
+        ))}
+        {(props.operations ?? []).length === 0 && (
+          <Text size='sm' c='gray.7' ta='center' fs='italic'>
+            No operations
+          </Text>
+        )}
+      </Stack>
+    </Stack>
+  );
+}
+
+export function OperationDisplay(props: {
+  operation: Operation;
+  onChange: (op: Operation) => void;
+  onRemove: (id: string) => void;
+}) {
+  switch (props.operation.type) {
+    case 'giveAbilityBlock':
+      let opGiveAbilBlock = props.operation as OperationGiveAbilityBlock;
+      switch (opGiveAbilBlock.data.type) {
+        case 'feat':
+          return (
+            <GiveFeatOperation
+              selectedId={opGiveAbilBlock.data.abilityBlockId}
+              onSelect={(option) => {
+                opGiveAbilBlock.data.abilityBlockId = option.id;
+                props.onChange(cloneDeep(opGiveAbilBlock));
+              }}
+              onRemove={() => props.onRemove(props.operation.id)}
+            />
+          );
+        case 'action':
+          return (
+            <GiveActionOperation
+              selectedId={opGiveAbilBlock.data.abilityBlockId}
+              onSelect={(option) => {
+                opGiveAbilBlock.data.abilityBlockId = option.id;
+                props.onChange(cloneDeep(opGiveAbilBlock));
+              }}
+              onRemove={() => props.onRemove(props.operation.id)}
+            />
+          );
+        case 'class-feature':
+          return (
+            <GiveClassFeatureOperation
+              selectedId={opGiveAbilBlock.data.abilityBlockId}
+              onSelect={(option) => {
+                opGiveAbilBlock.data.abilityBlockId = option.id;
+                props.onChange(cloneDeep(opGiveAbilBlock));
+              }}
+              onRemove={() => props.onRemove(props.operation.id)}
+            />
+          );
+        case 'sense':
+          return (
+            <GiveSenseOperation
+              selectedId={opGiveAbilBlock.data.abilityBlockId}
+              onSelect={(option) => {
+                opGiveAbilBlock.data.abilityBlockId = option.id;
+                props.onChange(cloneDeep(opGiveAbilBlock));
+              }}
+              onRemove={() => props.onRemove(props.operation.id)}
+            />
+          );
+        case 'mode':
+          return (
+            <GiveModeOperation
+              selectedId={opGiveAbilBlock.data.abilityBlockId}
+              onSelect={(option) => {
+                opGiveAbilBlock.data.abilityBlockId = option.id;
+                props.onChange(cloneDeep(opGiveAbilBlock));
+              }}
+              onRemove={() => props.onRemove(props.operation.id)}
+            />
+          );
+        case 'physical-feature':
+          return (
+            <GivePhysicalFeatureOperation
+              selectedId={opGiveAbilBlock.data.abilityBlockId}
+              onSelect={(option) => {
+                opGiveAbilBlock.data.abilityBlockId = option.id;
+                props.onChange(cloneDeep(opGiveAbilBlock));
+              }}
+              onRemove={() => props.onRemove(props.operation.id)}
+            />
+          );
+        case 'heritage':
+          return (
+            <GiveHeritageOperation
+              selectedId={opGiveAbilBlock.data.abilityBlockId}
+              onSelect={(option) => {
+                opGiveAbilBlock.data.abilityBlockId = option.id;
+                props.onChange(cloneDeep(opGiveAbilBlock));
+              }}
+              onRemove={() => props.onRemove(props.operation.id)}
+            />
+          );
+        default:
+          return null;
+      }
+    case 'giveSpell':
+      let opGiveSpell = props.operation as OperationGiveSpell;
+      return (
+        <GiveSpellOperation
+          data={opGiveSpell.data}
+          onSelect={(data) => {
+            opGiveSpell.data = cloneDeep(data);
+            props.onChange(cloneDeep(opGiveSpell));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'giveSpellSlot':
+      let opGiveSpellSlot = props.operation as OperationGiveSpellSlot;
+      return (
+        <GiveSpellSlotOperation
+          castingSource={opGiveSpellSlot.data.castingSource}
+          slots={opGiveSpellSlot.data.slots?.map((s) => ({ ...s, amt: s.amt ?? 0 }))}
+          onSelect={(source, slots) => {
+            opGiveSpellSlot.data.castingSource = source;
+            opGiveSpellSlot.data.slots = slots;
+            props.onChange(cloneDeep(opGiveSpellSlot));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'defineCastingSource':
+      let opDefineCastingSource = props.operation as OperationDefineCastingSource;
+      return (
+        <DefineCastingSourceOperation
+          value={opDefineCastingSource.data.value as string}
+          onSelect={(value) => {
+            opDefineCastingSource.data.value = value;
+
+            props.onChange(cloneDeep(opDefineCastingSource));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'injectSelectOption':
+      let opInjectSelectOption = props.operation as OperationInjectSelectOption;
+      return (
+        <InjectSelectOptionOperation
+          value={opInjectSelectOption.data.value as string}
+          onSelect={(value) => {
+            opInjectSelectOption.data.value = value;
+
+            props.onChange(cloneDeep(opInjectSelectOption));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'injectText':
+      let opInjectText = props.operation as OperationInjectText;
+      return (
+        <InjectTextOperation
+          type={opInjectText.data.type}
+          id={opInjectText.data.id}
+          text={opInjectText.data.text}
+          onChange={(type, id, text) => {
+            opInjectText.data.type = type;
+            opInjectText.data.id = id;
+            opInjectText.data.text = text;
+
+            props.onChange(cloneDeep(opInjectText));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'sendNotification':
+      let opSendNotification = props.operation as OperationSendNotification;
+      return (
+        <SendNotificationOperation
+          title={opSendNotification.data.title}
+          message={opSendNotification.data.message}
+          color={opSendNotification.data.color}
+          onChange={(title, message, color) => {
+            opSendNotification.data.title = title;
+            opSendNotification.data.message = message;
+            opSendNotification.data.color = color;
+
+            props.onChange(cloneDeep(opSendNotification));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'giveLanguage':
+      let opGiveLanguage = props.operation as OperationGiveLanguage;
+      return (
+        <GiveLanguageOperation
+          selectedId={opGiveLanguage.data.languageId}
+          onSelect={(option) => {
+            opGiveLanguage.data.languageId = option.id;
+            props.onChange(cloneDeep(opGiveLanguage));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'giveItem':
+      let opGiveItem = props.operation as OperationGiveItem;
+      return (
+        <GiveItemOperation
+          selectedId={opGiveItem.data.itemId}
+          onSelect={(option) => {
+            opGiveItem.data.itemId = option.id;
+            props.onChange(cloneDeep(opGiveItem));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'giveTrait':
+      let opGiveTrait = props.operation as OperationGiveTrait;
+      return (
+        <GiveTraitOperation
+          selectedId={opGiveTrait.data.traitId}
+          onSelect={(option) => {
+            opGiveTrait.data.traitId = option.id;
+            props.onChange(cloneDeep(opGiveTrait));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'conditional':
+      let opConditional = props.operation as OperationConditional;
+      return (
+        <ConditionalOperation
+          conditions={opConditional.data.conditions}
+          trueOperations={opConditional.data.trueOperations}
+          falseOperations={opConditional.data.falseOperations}
+          onChange={(conditions, trueOperations, falseOperations) => {
+            opConditional.data.conditions = conditions;
+            opConditional.data.trueOperations = trueOperations;
+            opConditional.data.falseOperations = falseOperations;
+            props.onChange(cloneDeep(opConditional));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'select':
+      let opSelection = props.operation as OperationSelect;
+      return (
+        <SelectionOperation
+          data={opSelection.data}
+          onChange={(data) => {
+            opSelection.data = cloneDeep(data);
+            props.onChange(cloneDeep(opSelection));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'adjValue':
+      let opAdjValue = props.operation as OperationAdjValue;
+      return (
+        <AdjValOperation
+          variable={opAdjValue.data.variable}
+          value={opAdjValue.data.value}
+          onSelect={(variable) => {
+            opAdjValue.data.variable = variable;
+            props.onChange(cloneDeep(opAdjValue));
+          }}
+          onValueChange={(value) => {
+            opAdjValue.data.value = value;
+            props.onChange(cloneDeep(opAdjValue));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'setValue':
+      let opSetValue = props.operation as OperationSetValue;
+      return (
+        <SetValOperation
+          variable={opSetValue.data.variable}
+          value={opSetValue.data.value}
+          onSelect={(variable) => {
+            opSetValue.data.variable = variable;
+            props.onChange(cloneDeep(opSetValue));
+          }}
+          onValueChange={(value) => {
+            opSetValue.data.value = value;
+            props.onChange(cloneDeep(opSetValue));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'bindValue':
+      let opBindValue = props.operation as OperationBindValue;
+      return (
+        <BindValOperation
+          variable={opBindValue.data.variable}
+          value={opBindValue.data.value}
+          onSelect={(variable) => {
+            opBindValue.data.variable = variable;
+            props.onChange(cloneDeep(opBindValue));
+          }}
+          onValueChange={(value) => {
+            opBindValue.data.value = value;
+            props.onChange(cloneDeep(opBindValue));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'createValue':
+      let opCreateValue = props.operation as OperationCreateValue;
+      return (
+        <CreateValOperation
+          variable={opCreateValue.data.variable}
+          onNameChange={(variable) => {
+            opCreateValue.data.variable = variable;
+            props.onChange(cloneDeep(opCreateValue));
+          }}
+          variableType={opCreateValue.data.type}
+          onTypeChange={(variableType) => {
+            opCreateValue.data.type = variableType;
+            props.onChange(cloneDeep(opCreateValue));
+          }}
+          value={opCreateValue.data.value as ProficiencyType}
+          onValueChange={(value) => {
+            opCreateValue.data.value = value;
+            props.onChange(cloneDeep(opCreateValue));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'addBonusToValue':
+      let opAddBonusToValue = props.operation as OperationAddBonusToValue;
+      return (
+        <AddBonusToValOperation
+          variable={opAddBonusToValue.data.variable}
+          bonusValue={opAddBonusToValue.data.value ?? undefined}
+          bonusType={opAddBonusToValue.data.type}
+          text={opAddBonusToValue.data.text}
+          onSelect={(variable) => {
+            opAddBonusToValue.data.variable = variable;
+            props.onChange(cloneDeep(opAddBonusToValue));
+          }}
+          onValueChange={(data) => {
+            opAddBonusToValue.data.value = data.bonusValue;
+            opAddBonusToValue.data.type = data.bonusType;
+            opAddBonusToValue.data.text = data.text;
+            props.onChange(cloneDeep(opAddBonusToValue));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    default:
+      return null;
+  }
+}

@@ -1,0 +1,1038 @@
+import { drawerState } from '@atoms/navAtoms';
+import { ActionSymbol } from '@common/Actions';
+import { EllipsisText } from '@common/EllipsisText';
+import TraitsDisplay from '@common/TraitsDisplay';
+import { IMPRINT_BG_COLOR, IMPRINT_BG_COLOR_HOVER, IMPRINT_BORDER_COLOR } from '@constants/data';
+import { collectEntityAbilityBlocks } from '@content/collect-content';
+import { isAbilityBlockVisible } from '@content/content-hidden';
+import { getContentFast } from '@content/content-store';
+import { handleDeleteItem, handleMoveItem, handleUpdateItem } from '@items/inv-handlers';
+import { getFavorites, lookupFavoriteName } from '@character/favorites';
+import { isItemWeapon } from '@items/inv-utils';
+import { getWeaponStats, parseOtherDamage } from '@items/weapon-handler';
+import {
+  useMantineTheme,
+  useMantineColorScheme,
+  Group,
+  Stack,
+  TextInput,
+  ScrollArea,
+  Badge,
+  ActionIcon,
+  Accordion,
+  Box,
+  Text,
+  Tabs,
+} from '@mantine/core';
+import { useDebouncedValue, useHover, useMediaQuery } from '@mantine/hooks';
+import { StatButton } from '@pages/character_builder/CharBuilderCreation';
+import { IconSearch, IconX } from '@tabler/icons-react';
+import {
+  ActionCost,
+  Rarity,
+  ContentPackage,
+  Inventory,
+  AbilityBlock,
+  InventoryItem,
+  LivingEntity,
+  Trait,
+} from '@schemas/content';
+import { DrawerType } from '@schemas/index';
+import { StoreID } from '@schemas/variables';
+import { findActions } from '@utils/actions';
+import { isPhoneSized, mobileQuery } from '@utils/mobile-responsive';
+import { sign } from '@utils/numbers';
+import { toLabel } from '@utils/strings';
+import { hasTraitType } from '@utils/traits';
+import { isTruthy } from '@utils/type-fixing';
+import { displayFinalProfValue } from '@variables/variable-display';
+import { getAllSkillVariables } from '@variables/variable-manager';
+import { compileProficiencyType, variableToLabel } from '@variables/variable-utils';
+import { cloneDeep, flattenDeep } from 'lodash-es';
+import { useState, useMemo, useEffect } from 'react';
+import { useAtomValue, useAtom } from 'jotai';
+import { SetterOrUpdater } from '@utils/type-fixing';
+
+interface ActionItem {
+  id: number;
+  name: string;
+  drawerType: DrawerType;
+  drawerData: any;
+  cost: ActionCost;
+  level?: number;
+  traits?: number[];
+  rarity?: Rarity;
+  skill?: string | string[] | undefined;
+  leftSection?: React.ReactNode;
+}
+export default function SkillsActionsPanel(props: {
+  id: StoreID;
+  entity: LivingEntity | null;
+  setEntity: SetterOrUpdater<LivingEntity | null>;
+  content: ContentPackage;
+  panelHeight: number;
+  panelWidth: number;
+}) {
+  const isPhone = isPhoneSized(props.panelWidth);
+
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+  const [skillsSearch, setSkillsSearch] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const [skillsSearchDebounced] = useDebouncedValue(skillsSearch, 200);
+  const [searchQueryDebounced] = useDebouncedValue(searchQuery, 200);
+
+  const [_drawer, openDrawer] = useAtom(drawerState);
+
+  const [actionTypeFilter, setActionTypeFilter] = useState<ActionCost | 'ALL'>('ALL');
+  const [actionSectionValue, setActionSectionValue] = useState<string>('weapon-attacks');
+
+  // This is a hack to fix a bug where variables are updated on init load but the sheet state hasn't updated yet
+  // const forceUpdate = useForceUpdate();
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     forceUpdate();
+  //   }, 1000);
+  //   return () => clearTimeout(timer);
+  // }, []);
+
+  const actions = useMemo(() => {
+    const allActions = props.content.abilityBlocks
+      .filter((ab) => ab.type === 'action')
+      .filter((ab) => isAbilityBlockVisible(props.id, ab))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    // Filter actions
+    return searchQueryDebounced.trim() || actionTypeFilter !== 'ALL'
+      ? allActions.filter((action) => {
+          // Custom search, alt could be to use JsSearch here
+          const query = searchQueryDebounced.trim().toLowerCase();
+
+          const checkAction = (action: AbilityBlock) => {
+            if (actionTypeFilter !== 'ALL' && action.actions !== actionTypeFilter) return false;
+
+            const searchStr = JSON.stringify({
+              _: action.name,
+              ___: getContentFast<Trait>('trait', action.traits ?? []).map((t) => t.name),
+              ____: action.meta_data?.skill,
+              _____: action.rarity,
+            }).toLowerCase();
+
+            return searchStr.includes(query);
+          };
+
+          if (checkAction(action)) return true;
+          return false;
+        })
+      : allActions;
+  }, [props.content.abilityBlocks, actionTypeFilter, searchQueryDebounced, props.id]);
+
+  const entityAbilityBlocks = useMemo(() => {
+    if (!props.entity) return [];
+
+    const allAbs = flattenDeep(
+      Object.values(collectEntityAbilityBlocks(props.id, props.entity, props.content.abilityBlocks))
+    );
+
+    // Filter ability blocks
+    return searchQueryDebounced.trim() || actionTypeFilter !== 'ALL'
+      ? allAbs.filter((action) => {
+          // Custom search, alt could be to use JsSearch here
+          const query = searchQueryDebounced.trim().toLowerCase();
+
+          const checkAbs = (action: AbilityBlock) => {
+            if (actionTypeFilter !== 'ALL' && action.actions !== actionTypeFilter) return false;
+
+            const searchStr = JSON.stringify({
+              _: action.name,
+              ___: getContentFast<Trait>('trait', action.traits ?? []).map((t) => t.name),
+              ____: action.meta_data?.skill,
+              _____: action.rarity,
+            }).toLowerCase();
+
+            return searchStr.includes(query);
+          };
+
+          if (checkAbs(action)) return true;
+          return false;
+        })
+      : allAbs;
+  }, [props.content.abilityBlocks, actionTypeFilter, searchQueryDebounced, props.id, props.entity]);
+
+  const weapons = useMemo(() => {
+    const weapons =
+      props.entity?.inventory?.items
+        .filter((invItem) => invItem.is_equipped && isItemWeapon(invItem.item))
+        .sort((a, b) => a.item.name.localeCompare(b.item.name)) ?? [];
+
+    // Filter weapons
+    return searchQueryDebounced.trim() || actionTypeFilter !== 'ALL'
+      ? weapons.filter((invItem) => {
+          // Custom search, alt could be to use JsSearch here
+          const query = searchQueryDebounced.trim().toLowerCase();
+
+          const checkInvItem = (invItem: InventoryItem) => {
+            if (actionTypeFilter !== 'ALL') return false;
+
+            const searchStr = JSON.stringify({
+              _: invItem.item.name,
+              ___: getContentFast<Trait>('trait', invItem.item.traits ?? []).map((t) => t.name),
+              ____: invItem.item.description,
+              _____: invItem.item.group,
+              ______: invItem.item.rarity,
+            }).toLowerCase();
+
+            return searchStr.includes(query);
+          };
+
+          if (checkInvItem(invItem)) return true;
+          return false;
+        })
+      : weapons;
+  }, [props.entity?.inventory?.items, actionTypeFilter, searchQueryDebounced]);
+
+  const [updateWeaponAttacks, setUpdateWeaponAttacks] = useState(0);
+  const weaponAttacks = useMemo(() => {
+    return weapons.map((invItem) => {
+      const weaponStats = getWeaponStats(props.id, invItem.item);
+      return {
+        invItem: invItem,
+        leftSection: (
+          <Group wrap='nowrap' gap={10} maw={300}>
+            <Text c='gray.5' fz='xs' fs='italic' span>
+              {sign(weaponStats.attack_bonus.total[0])}
+            </Text>
+            <EllipsisText c='gray.5' fz='xs' fs='italic' span>
+              {weaponStats.damage.dice}
+              {weaponStats.damage.die}
+              {weaponStats.damage.bonus.total > 0 ? ` + ${weaponStats.damage.bonus.total}` : ``}{' '}
+              {weaponStats.damage.damageType}
+              {parseOtherDamage(weaponStats.damage.other)}
+              {weaponStats.damage.extra ? ` + ${weaponStats.damage.extra}` : ''}
+            </EllipsisText>
+          </Group>
+        ),
+      };
+    });
+  }, [weapons, updateWeaponAttacks, props.id]);
+
+  // Build ActionItems for the Favorites accordion. Each stored favorite
+  // (drawerType + id + name) is mapped to an ActionItem the same way
+  // the other accordion sections build them. Inv-item favorites look
+  // up the live invItem from inventory and inject the standard
+  // update/delete/move handlers so the drawer behaves identically to
+  // opening the item from the inventory panel.
+  const favoriteActions: ActionItem[] = useMemo(() => {
+    const favs = getFavorites(props.entity);
+    if (favs.length === 0) return [];
+
+    // Flatten container contents so favorited items inside bags resolve.
+    const allInvItems: InventoryItem[] = (props.entity?.inventory?.items ?? []) as InventoryItem[];
+    const flatInv: InventoryItem[] = [];
+    for (const it of allInvItems) {
+      flatInv.push(it);
+      const contents = (it as any).container_contents as InventoryItem[] | undefined;
+      if (contents) flatInv.push(...contents);
+    }
+
+    return favs
+      .map((fav: { type: string; id: number | string; name: string }): ActionItem | null => {
+        if (fav.type === 'inv-item') {
+          const invItem = flatInv.find((i) => String(i.id) === String(fav.id));
+          if (!invItem) return null;
+          return {
+            id: parseInt(invItem.id),
+            name: invItem.item.name,
+            drawerType: 'inv-item',
+            drawerData: {
+              storeId: props.id,
+              zIndex: 100,
+              invItem: cloneDeep(invItem),
+              onItemUpdate: (newInvItem: InventoryItem) => {
+                handleUpdateItem(props.setEntity, newInvItem);
+              },
+              onItemDelete: (newInvItem: InventoryItem) => {
+                handleDeleteItem(props.setEntity, newInvItem);
+                openDrawer(null);
+              },
+              onItemMove: (invItem: InventoryItem, containerItem: InventoryItem | null) => {
+                handleMoveItem(props.setEntity, invItem, containerItem);
+              },
+            },
+            cost: null,
+            traits: invItem.item.traits ?? undefined,
+            rarity: invItem.item.rarity,
+          };
+        }
+        // Generic content drawer — id is the content row id (number).
+        const id = typeof fav.id === 'number' ? fav.id : parseInt(String(fav.id));
+        if (Number.isNaN(id)) return null;
+        // Backfill stale names: if the stored name is just the id
+        // (because the favorite was created before the content cache
+        // had loaded the row), look it up from cache now. Falls back
+        // to the stored name if cache still misses.
+        const liveName =
+          fav.name && fav.name !== String(fav.id)
+            ? fav.name
+            : lookupFavoriteName(fav.type, id) ?? fav.name;
+        return {
+          id,
+          name: liveName,
+          drawerType: fav.type as DrawerType,
+          drawerData: { id },
+          cost: null,
+        };
+      })
+      .filter((x): x is ActionItem => x !== null);
+  }, [props.entity, props.id, props.setEntity, openDrawer]);
+
+  // Update the weapon attacks after entity is updated (delay so operations are -roughly- executed first)
+  useEffect(() => {
+    setTimeout(() => {
+      setUpdateWeaponAttacks((x) => x + 1);
+    }, 500);
+  }, [props.entity]);
+
+  const basicActions = useMemo(() => {
+    return actions.filter(
+      (a) =>
+        !a.meta_data?.skill &&
+        (!a.requirements || a.requirements.trim().length === 0) &&
+        !hasTraitType('EXPLORATION', a.traits ?? undefined) &&
+        !hasTraitType('DOWNTIME', a.traits ?? undefined)
+    );
+  }, [actions]);
+
+  const basicSpecialityActions = useMemo(() => {
+    return actions.filter((a) => !a.meta_data?.skill && a.requirements && a.requirements.trim().length > 0);
+  }, [actions]);
+
+  const skillActions = useMemo(() => {
+    // const skillActions: { [key: string]: AbilityBlock[] } = {};
+    // for (const action of actions.filter((a) => a.meta_data?.skill)) {
+    //   const skills = Array.isArray(action.meta_data!.skill!) ? action.meta_data!.skill! : [action.meta_data!.skill!];
+    //   for (const sss of skills) {
+    //     for (const ss of sss.split(',')) {
+    //       const skill = ss.trim();
+    //       if (!skillActions[skill]) {
+    //         skillActions[skill] = [];
+    //       }
+    //       skillActions[skill].push(action);
+    //     }
+    //   }
+    // }
+
+    // // Sort by skill name
+    // const sortedSkillActions: { [key: string]: AbilityBlock[] } = {};
+    // Object.keys(skillActions)
+    //   .sort()
+    //   .forEach((key) => {
+    //     sortedSkillActions[key] = skillActions[key];
+    //   });
+
+    // // Merge to single array
+    // const mergedSkillActions: AbilityBlock[] = [];
+    // for (const key in sortedSkillActions) {
+    //   mergedSkillActions.push(...sortedSkillActions[key]);
+    // }
+
+    // // Remove dupes
+    // const uniqueMergedSkillActions = mergedSkillActions.filter(
+    //   (action, index, self) => index === self.findIndex((t) => t.id === action.id)
+    // );
+
+    return actions.filter((a) => a.meta_data?.skill);
+  }, [actions]);
+
+  const explorationActions = useMemo(() => {
+    let explorationFeats: AbilityBlock[] = [];
+    if (props.entity) {
+      explorationFeats = entityAbilityBlocks.filter((ab) => hasTraitType('EXPLORATION', ab.traits ?? undefined));
+    }
+    return [...actions.filter((a) => hasTraitType('EXPLORATION', a.traits ?? undefined)), ...explorationFeats].sort(
+      (a, b) => a.name.localeCompare(b.name)
+    );
+  }, [actions, props.entity, entityAbilityBlocks]);
+
+  const downtimeActions = useMemo(() => {
+    let downtimeFeats: AbilityBlock[] = [];
+    if (props.entity) {
+      downtimeFeats = entityAbilityBlocks.filter((ab) => hasTraitType('DOWNTIME', ab.traits ?? undefined));
+    }
+    return [...actions.filter((a) => hasTraitType('DOWNTIME', a.traits ?? undefined)), ...downtimeFeats].sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [actions, props.entity, entityAbilityBlocks]);
+
+  const itemsWithActions = useMemo(() => {
+    const actionItems =
+      props.entity?.inventory?.items.filter((invItem) => {
+        return findActions(invItem.item.description).length > 0;
+      }) ?? [];
+
+    // Filter items
+    return searchQueryDebounced.trim() || actionTypeFilter !== 'ALL'
+      ? actionItems.filter((invItem) => {
+          // Custom search, alt could be to use JsSearch here
+          const query = searchQueryDebounced.trim().toLowerCase();
+
+          const checkInvItem = (invItem: InventoryItem) => {
+            if (actionTypeFilter !== 'ALL') {
+              const actions = findActions(invItem.item.description);
+              const hasAction = actions.find((action) => action === actionTypeFilter);
+              if (!hasAction) return false;
+            }
+
+            const searchStr = JSON.stringify({
+              _: invItem.item.name,
+              ___: getContentFast<Trait>('trait', invItem.item.traits ?? []).map((t) => t.name),
+              ____: invItem.item.description,
+              _____: invItem.item.group,
+              ______: invItem.item.rarity,
+            }).toLowerCase();
+
+            return searchStr.includes(query);
+          };
+
+          if (checkInvItem(invItem)) return true;
+          if (invItem.container_contents.some((containedItem) => checkInvItem(containedItem))) return true;
+          return false;
+        })
+      : actionItems;
+  }, [props.entity?.inventory?.items, actionTypeFilter, searchQueryDebounced]);
+
+  const featsWithActions = useMemo(() => {
+    if (!props.entity) return [];
+    const feats = entityAbilityBlocks.filter((ab) => ab.actions !== null);
+
+    // Filter feats
+    return searchQueryDebounced.trim() || actionTypeFilter !== 'ALL'
+      ? feats.filter((feat) => {
+          // Custom search, alt could be to use JsSearch here
+          const query = searchQueryDebounced.trim().toLowerCase();
+
+          const checkFeat = (feat: AbilityBlock) => {
+            if (actionTypeFilter !== 'ALL' && feat.actions !== actionTypeFilter) return false;
+
+            const searchStr = JSON.stringify({
+              _: feat.name,
+              ___: getContentFast<Trait>('trait', feat.traits ?? []).map((t) => t.name),
+              ____: feat.meta_data?.skill,
+              _____: feat.rarity,
+            }).toLowerCase();
+
+            return searchStr.includes(query);
+          };
+
+          if (checkFeat(feat)) return true;
+          return false;
+        })
+      : feats;
+  }, [props.entity, actionTypeFilter, searchQueryDebounced, entityAbilityBlocks]);
+
+  // Auto-open the single visible section when searching/filtering
+  useEffect(() => {
+    if (!searchQueryDebounced.trim() && actionTypeFilter === 'ALL') return;
+
+    const sections = [
+      { id: 'weapon-attacks', data: weaponAttacks },
+      { id: 'feats', data: featsWithActions },
+      { id: 'items', data: itemsWithActions },
+      { id: 'basic-actions', data: basicActions },
+      { id: 'skill-actions', data: skillActions },
+      { id: 'speciality-basic-actions', data: basicSpecialityActions },
+      { id: 'exploration-activities', data: explorationActions },
+      { id: 'downtime-activities', data: downtimeActions },
+    ];
+
+    const nonEmptySections = sections.filter((s) => s.data.length > 0);
+    if (nonEmptySections.length === 1) {
+      setActionSectionValue(nonEmptySections[0].id);
+    }
+  }, [
+    searchQueryDebounced,
+    actionTypeFilter,
+    weaponAttacks,
+    featsWithActions,
+    itemsWithActions,
+    basicActions,
+    skillActions,
+    basicSpecialityActions,
+    explorationActions,
+    downtimeActions,
+  ]);
+
+  const getSkillsSection = () => (
+    <Box>
+      <Stack gap={5}>
+        <TextInput
+          style={{ flex: 1 }}
+          leftSection={<IconSearch size='0.9rem' />}
+          placeholder={`Search skills`}
+          value={skillsSearch}
+          onChange={(e) => setSkillsSearch(e.target.value)}
+          rightSection={
+            skillsSearch.trim() ? (
+              <ActionIcon
+                variant='subtle'
+                size='md'
+                color='gray'
+                radius='xl'
+                aria-label='Clear search'
+                onClick={() => {
+                  setSkillsSearch('');
+                }}
+              >
+                <IconX size='1.2rem' stroke={2} />
+              </ActionIcon>
+            ) : undefined
+          }
+          styles={{
+            input: {
+              backgroundColor: IMPRINT_BG_COLOR,
+              borderColor: skillsSearch.trim().length > 0 ? theme.colors['guide'][8] : 'transparent',
+            },
+          }}
+        />
+        <ScrollArea h={props.panelHeight - 50} scrollbars='y'>
+          <Stack gap={5}>
+            {getAllSkillVariables(props.id)
+              .filter((skill) => skill.name !== 'SKILL_LORE____')
+              .filter(
+                (skill) =>
+                  variableToLabel(skill) // Normal filter by query
+                    .toLowerCase()
+                    .includes(skillsSearchDebounced.toLowerCase().trim()) || // If it starts with "Strength" find those skills
+                  toLabel(skill.value.attribute ?? '')
+                    .toLowerCase()
+                    .endsWith(skillsSearchDebounced.toLowerCase().trim()) || // If it starrts with "Str" find those skills
+                  skill.value.attribute?.toLowerCase().endsWith(skillsSearchDebounced.toLowerCase().trim())
+              )
+              .map((skill, index) => (
+                <StatButton
+                  key={index}
+                  onClick={() => {
+                    openDrawer({
+                      type: 'stat-prof',
+                      data: { id: props.id, variableName: skill.name },
+                      extra: { addToHistory: true },
+                    });
+                  }}
+                >
+                  <Box>
+                    <Text c='gray.0' fz='sm'>
+                      {variableToLabel(skill)}
+                    </Text>
+                  </Box>
+                  <Group wrap='nowrap'>
+                    <Text c='gray.0'>{displayFinalProfValue(props.id, skill.name)}</Text>
+                    <Badge variant='default'>{compileProficiencyType(skill?.value)}</Badge>
+                  </Group>
+                </StatButton>
+              ))}
+          </Stack>
+        </ScrollArea>
+      </Stack>
+    </Box>
+  );
+
+  const getActionsSection = () => (
+    <Box>
+      <Stack gap={5}>
+        <Group>
+          <TextInput
+            style={{ flex: 1 }}
+            leftSection={isPhone ? undefined : <IconSearch size='0.9rem' />}
+            placeholder={`Search actions & activities`}
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            rightSection={
+              searchQuery.trim() ? (
+                <ActionIcon
+                  variant='subtle'
+                  size='md'
+                  color='gray'
+                  radius='xl'
+                  aria-label='Clear search'
+                  onClick={() => {
+                    setSearchQuery('');
+                  }}
+                >
+                  <IconX size='1.2rem' stroke={2} />
+                </ActionIcon>
+              ) : undefined
+            }
+            styles={{
+              input: {
+                backgroundColor: IMPRINT_BG_COLOR,
+                borderColor: searchQuery.trim().length > 0 ? theme.colors['guide'][8] : 'transparent',
+              },
+            }}
+          />
+          <Group gap={5}>
+            <ActionIcon
+              variant='subtle'
+              color='dark'
+              radius='xl'
+              size='lg'
+              aria-label='Filter One Action'
+              style={{
+                backgroundColor: actionTypeFilter === 'ALL' ? IMPRINT_BG_COLOR : undefined,
+                borderColor: actionTypeFilter === 'ALL' ? IMPRINT_BORDER_COLOR : undefined,
+              }}
+              onClick={() => {
+                setActionTypeFilter('ALL');
+              }}
+            >
+              <Text c='gray.2'>All</Text>
+            </ActionIcon>
+            <ActionIcon
+              variant='subtle'
+              color='dark'
+              radius='xl'
+              size='lg'
+              aria-label='Filter One Action'
+              style={{
+                backgroundColor: actionTypeFilter === 'ONE-ACTION' ? IMPRINT_BG_COLOR : undefined,
+                borderColor: actionTypeFilter === 'ONE-ACTION' ? theme.colors['guide'][8] : undefined,
+              }}
+              onClick={() => {
+                setActionTypeFilter('ONE-ACTION');
+              }}
+            >
+              <ActionSymbol cost={'ONE-ACTION'} size={'1.9rem'} />
+            </ActionIcon>
+            <ActionIcon
+              variant='subtle'
+              color='dark'
+              radius='xl'
+              size='lg'
+              aria-label='Filter Two Actions'
+              style={{
+                backgroundColor: actionTypeFilter === 'TWO-ACTIONS' ? IMPRINT_BG_COLOR : undefined,
+                borderColor: actionTypeFilter === 'TWO-ACTIONS' ? theme.colors['guide'][8] : undefined,
+              }}
+              onClick={() => {
+                setActionTypeFilter('TWO-ACTIONS');
+              }}
+            >
+              <ActionSymbol cost={'TWO-ACTIONS'} size={'1.9rem'} />
+            </ActionIcon>
+            <ActionIcon
+              variant='subtle'
+              color='dark'
+              radius='xl'
+              size='lg'
+              aria-label='Filter Three Actions'
+              style={{
+                backgroundColor: actionTypeFilter === 'THREE-ACTIONS' ? IMPRINT_BG_COLOR : undefined,
+                borderColor: actionTypeFilter === 'THREE-ACTIONS' ? theme.colors['guide'][8] : undefined,
+              }}
+              onClick={() => {
+                setActionTypeFilter('THREE-ACTIONS');
+              }}
+            >
+              <ActionSymbol cost={'THREE-ACTIONS'} size={'1.9rem'} />
+            </ActionIcon>
+            <ActionIcon
+              variant='subtle'
+              color='dark'
+              radius='xl'
+              size='lg'
+              aria-label='Filter Free Action'
+              style={{
+                backgroundColor: actionTypeFilter === 'FREE-ACTION' ? IMPRINT_BG_COLOR : undefined,
+                borderColor: actionTypeFilter === 'FREE-ACTION' ? theme.colors['guide'][8] : undefined,
+              }}
+              onClick={() => {
+                setActionTypeFilter('FREE-ACTION');
+              }}
+            >
+              <ActionSymbol cost={'FREE-ACTION'} size={'1.9rem'} />
+            </ActionIcon>
+            <ActionIcon
+              variant='subtle'
+              color='dark'
+              radius='xl'
+              size='lg'
+              aria-label='Filter Reaction'
+              style={{
+                backgroundColor: actionTypeFilter === 'REACTION' ? IMPRINT_BG_COLOR : undefined,
+                borderColor: actionTypeFilter === 'REACTION' ? theme.colors['guide'][8] : undefined,
+              }}
+              onClick={() => {
+                setActionTypeFilter('REACTION');
+              }}
+            >
+              <ActionSymbol cost={'REACTION'} size={'1.9rem'} />
+            </ActionIcon>
+          </Group>
+        </Group>
+        <ScrollArea h={props.panelHeight - 50} scrollbars='y'>
+          <Accordion
+            value={actionSectionValue}
+            onChange={(value) => setActionSectionValue(value ?? '')}
+            variant='filled'
+            styles={{
+              label: {
+                paddingTop: 5,
+                paddingBottom: 5,
+              },
+              control: {
+                paddingLeft: 13,
+                paddingRight: 13,
+              },
+              item: {
+                marginTop: 0,
+                marginBottom: 5,
+              },
+            }}
+          >
+            {/* Favorites accordion — entries the player has starred
+                from a drawer. ActionAccordionItem renders nothing when
+                the list is empty, so this stays out of the way until
+                the player stars something. */}
+            <ActionAccordionItem
+              id='favorites'
+              title='Favorites'
+              isPhone={isPhone}
+              opened={actionSectionValue === 'favorites'}
+              actions={favoriteActions}
+            />
+            <ActionAccordionItem
+              id='weapon-attacks'
+              title='Weapon Attacks'
+              isPhone={isPhone}
+              opened={actionSectionValue === 'weapon-attacks'}
+              actions={weaponAttacks.map((weapon) => {
+                return {
+                  id: parseInt(weapon.invItem.id),
+                  name: weapon.invItem.item.name,
+                  drawerType: 'inv-item',
+                  drawerData: {
+                    storeId: props.id,
+                    zIndex: 100,
+                    invItem: cloneDeep(weapon.invItem),
+                    onItemUpdate: (newInvItem: InventoryItem) => {
+                      handleUpdateItem(props.setEntity, newInvItem);
+                    },
+                    onItemDelete: (newInvItem: InventoryItem) => {
+                      handleDeleteItem(props.setEntity, newInvItem);
+                      openDrawer(null);
+                    },
+                    onItemMove: (invItem: InventoryItem, containerItem: InventoryItem | null) => {
+                      handleMoveItem(props.setEntity, invItem, containerItem);
+                    },
+                  },
+                  cost: null,
+                  traits: weapon.invItem.item.traits ?? undefined,
+                  rarity: weapon.invItem.item.rarity,
+                  leftSection: weapon.leftSection,
+                };
+              })}
+            />
+            <ActionAccordionItem
+              id='feats'
+              title='Feats (with Actions)'
+              isPhone={isPhone}
+              opened={actionSectionValue === 'feats'}
+              actions={featsWithActions.map((feat) => {
+                return {
+                  id: feat.id,
+                  name: feat.name,
+                  drawerType: feat.type,
+                  drawerData: { id: feat.id },
+                  cost: feat.actions,
+                  traits: feat.traits ?? undefined,
+                  rarity: feat.rarity,
+                  skill: feat.meta_data?.skill,
+                };
+              })}
+            />
+            <ActionAccordionItem
+              id='items'
+              title='Items (with Actions)'
+              isPhone={isPhone}
+              opened={actionSectionValue === 'items'}
+              actions={itemsWithActions
+                .map((invItem) => {
+                  const actions = findActions(invItem.item.description);
+                  const action = actions.length > 0 ? actions[0] : 'ONE-ACTION';
+
+                  // if (action === 'ONE-ACTION' && isItemWeapon(invItem.item) && invItem.is_equipped) {
+                  //   // It's a weapon with one action, we already have a section for weapons
+                  //   return null;
+                  // }
+
+                  return {
+                    id: parseInt(invItem.id),
+                    name: invItem.item.name,
+                    drawerType: 'inv-item',
+                    drawerData: {
+                      storeId: props.id,
+                      zIndex: 100,
+                      invItem: cloneDeep(invItem),
+                      onItemUpdate: (newInvItem: InventoryItem) => {
+                        handleUpdateItem(props.setEntity, newInvItem);
+                      },
+                      onItemDelete: (newInvItem: InventoryItem) => {
+                        handleDeleteItem(props.setEntity, newInvItem);
+                        openDrawer(null);
+                      },
+                      onItemMove: (invItem: InventoryItem, containerItem: InventoryItem | null) => {
+                        handleMoveItem(props.setEntity, invItem, containerItem);
+                      },
+                    },
+                    cost: action,
+                    traits: invItem.item.traits ?? undefined,
+                    rarity: invItem.item.rarity,
+                  } satisfies ActionItem;
+                })
+                .filter(isTruthy)}
+            />
+            <ActionAccordionItem
+              id='basic-actions'
+              title='Basic Actions'
+              isPhone={isPhone}
+              opened={actionSectionValue === 'basic-actions'}
+              actions={basicActions.map((action) => {
+                return {
+                  id: action.id,
+                  name: action.name,
+                  drawerType: 'action',
+                  drawerData: { id: action.id },
+                  cost: action.actions,
+                  traits: action.traits ?? undefined,
+                  rarity: action.rarity,
+                  skill: action.meta_data?.skill,
+                };
+              })}
+            />
+            <ActionAccordionItem
+              id='skill-actions'
+              title='Skill Actions'
+              isPhone={isPhone}
+              opened={actionSectionValue === 'skill-actions'}
+              actions={skillActions.map((action) => {
+                return {
+                  id: action.id,
+                  name: action.name,
+                  drawerType: 'action',
+                  drawerData: { id: action.id },
+                  cost: action.actions,
+                  traits: action.traits ?? undefined,
+                  rarity: action.rarity,
+                  skill: action.meta_data?.skill,
+                };
+              })}
+            />
+            <ActionAccordionItem
+              id='speciality-basic-actions'
+              title='Speciality Basics'
+              isPhone={isPhone}
+              opened={actionSectionValue === 'speciality-basic-actions'}
+              actions={basicSpecialityActions.map((action) => {
+                return {
+                  id: action.id,
+                  name: action.name,
+                  drawerType: 'action',
+                  drawerData: { id: action.id },
+                  cost: action.actions,
+                  traits: action.traits ?? undefined,
+                  rarity: action.rarity,
+                  skill: action.meta_data?.skill,
+                };
+              })}
+            />
+            <ActionAccordionItem
+              id='exploration-activities'
+              title='Exploration Activities'
+              isPhone={isPhone}
+              opened={actionSectionValue === 'exploration-activities'}
+              actions={explorationActions.map((action) => {
+                return {
+                  id: action.id,
+                  name: action.name,
+                  drawerType: 'action',
+                  drawerData: { id: action.id },
+                  cost: action.actions,
+                  traits: action.traits ?? undefined,
+                  rarity: action.rarity,
+                  skill: action.meta_data?.skill,
+                };
+              })}
+            />
+            <ActionAccordionItem
+              id='downtime-activities'
+              title='Downtime Activities'
+              isPhone={isPhone}
+              opened={actionSectionValue === 'downtime-activities'}
+              actions={downtimeActions.map((action) => {
+                return {
+                  id: action.id,
+                  name: action.name,
+                  drawerType: 'action',
+                  drawerData: { id: action.id },
+                  cost: action.actions,
+                  traits: action.traits ?? undefined,
+                  rarity: action.rarity,
+                  skill: action.meta_data?.skill,
+                };
+              })}
+            />
+          </Accordion>
+        </ScrollArea>
+      </Stack>
+    </Box>
+  );
+
+  if (isPhone) {
+    return (
+      <Tabs defaultValue='skills' style={{ minHeight: props.panelHeight }}>
+        <Tabs.List style={{ flexWrap: 'nowrap' }} grow>
+          <Tabs.Tab value='skills'>Skills</Tabs.Tab>
+          <Tabs.Tab value='actions'>Actions / Abilities</Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value='skills' pt={5}>
+          {getSkillsSection()}
+        </Tabs.Panel>
+
+        <Tabs.Panel value='actions' pt={5}>
+          {getActionsSection()}
+        </Tabs.Panel>
+      </Tabs>
+    );
+  } else {
+    return (
+      <Group gap={10} align='flex-start' justify='center' style={{ minHeight: props.panelHeight }}>
+        <Box style={{ flexBasis: 'calc(30% - 10px)' }} h='100%'>
+          {getSkillsSection()}
+        </Box>
+        <Box style={{ flexBasis: '70%' }} h='100%'>
+          {getActionsSection()}
+        </Box>
+      </Group>
+    );
+  }
+}
+
+function ActionAccordionItem(props: {
+  id: string;
+  title: string;
+  opened: boolean;
+  actions: ActionItem[];
+  isPhone?: boolean;
+}) {
+  const theme = useMantineTheme();
+  const { hovered, ref } = useHover();
+
+  if (props.actions.length === 0) return null;
+
+  return (
+    <Accordion.Item
+      ref={ref}
+      value={props.id}
+      style={{
+        backgroundColor: hovered && !props.opened ? IMPRINT_BG_COLOR_HOVER : undefined,
+      }}
+    >
+      <Accordion.Control>
+        <Group wrap='nowrap' justify='space-between' gap={0}>
+          <Text c='gray.2' fw={700} fz='sm'>
+            {props.title}
+          </Text>
+          <Badge mr='sm' variant='outline' color='gray.5' size='sm'>
+            <Text c='gray.2' span inherit>
+              {props.actions.length}
+            </Text>
+          </Badge>
+        </Group>
+      </Accordion.Control>
+      <Accordion.Panel>
+        <Stack gap={5}>
+          {props.actions.map((action, index) => (
+            <ActionSelectionOption key={index} action={action} onClick={() => {}} isPhone={props.isPhone} />
+          ))}
+        </Stack>
+      </Accordion.Panel>
+    </Accordion.Item>
+  );
+}
+
+function ActionSelectionOption(props: {
+  action: ActionItem;
+  onClick: (action: ActionItem) => void;
+  isPhone?: boolean;
+}) {
+  const theme = useMantineTheme();
+  const { hovered, ref } = useHover();
+  const [_drawer, openDrawer] = useAtom(drawerState);
+
+  return (
+    <StatButton
+      darkVersion
+      onClick={() => {
+        openDrawer({
+          type: props.action.drawerType,
+          data: props.action.drawerData,
+          extra: { addToHistory: true },
+        });
+      }}
+    >
+      <Group
+        ref={ref}
+        py='sm'
+        style={{
+          cursor: 'pointer',
+          borderBottom: '1px solid ' + theme.colors.dark[6],
+          // backgroundColor: hovered ? theme.colors.dark[6] : 'transparent',
+          position: 'relative',
+        }}
+        onClick={() => props.onClick(props.action)}
+        justify='space-between'
+        w='100%'
+        wrap='nowrap'
+      >
+        {props.action.level && (
+          <Text
+            fz={10}
+            c='dimmed'
+            ta='right'
+            w={14}
+            style={{
+              position: 'absolute',
+              top: 15,
+              left: 1,
+            }}
+          >
+            {props.action.level}.
+          </Text>
+        )}
+        <Group wrap='nowrap' gap={5}>
+          <Box pl={8}>
+            <Text fz='sm'>{props.action.name}</Text>
+          </Box>
+          <Box>
+            <ActionSymbol cost={props.action.cost} />
+          </Box>
+          {props.action.leftSection && <Box>{props.action.leftSection}</Box>}
+        </Group>
+        {!props.isPhone && (
+          <Group wrap='nowrap' justify='flex-end' style={{ marginLeft: 'auto' }}>
+            <Box>
+              <TraitsDisplay
+                justify='flex-end'
+                size='xs'
+                traitIds={props.action.traits ?? []}
+                rarity={props.action.rarity}
+                skill={props.action.skill}
+              />
+            </Box>
+          </Group>
+        )}
+      </Group>
+    </StatButton>
+  );
+}

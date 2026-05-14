@@ -1,0 +1,302 @@
+import HeroPointIcon from '@assets/images/HeroPointIcon';
+import { drawerState } from '@atoms/navAtoms';
+import BlurBox from '@common/BlurBox';
+import ConditionPill from '@common/ConditionPill';
+import TokenSelect from '@common/TokenSelect';
+import { selectContent } from '@common/select/SelectContent';
+import { getConditionByName, getAllConditions, compiledConditions } from '@conditions/condition-handler';
+import { IMPRINT_BG_COLOR_2 } from '@constants/data';
+import { useMantineTheme, Group, ActionIcon, ScrollArea, Title, Button, Box, Text, GroupProps } from '@mantine/core';
+import { openContextModal, modals } from '@mantine/modals';
+import { IconPlus, IconJewishStar, IconJewishStarFilled } from '@tabler/icons-react';
+import { Condition, LivingEntity } from '@schemas/content';
+import { StoreID } from '@schemas/variables';
+import { isCharacter } from '@utils/type-fixing';
+import { cloneDeep } from 'lodash-es';
+import { useNavigate } from 'react-router-dom';
+import { useAtom } from 'jotai';
+import { SetterOrUpdater } from '@utils/type-fixing';
+
+export function selectCondition(currentConditions: Condition[], addCondition: (condition: Condition) => void) {
+  selectContent(
+    'ability-block',
+    (option) => {
+      const condition = getConditionByName(option.name);
+      if (!condition) return;
+      const hasCondition = currentConditions?.find((c) => c.name === condition.name);
+      if (hasCondition) return;
+      addCondition(condition);
+    },
+    {
+      overrideOptions: getAllConditions()
+        .filter((condition) => condition.for_creature)
+        .map((condition, index) => ({
+          id: index,
+          name: condition.name,
+          _custom_select: {
+            title: condition.name,
+            description: condition.description,
+          },
+        })),
+      overrideLabel: 'Select a Condition',
+      selectedId: -1,
+    }
+  );
+}
+
+export function ConditionSection(props: {
+  id: StoreID;
+  entity: LivingEntity | null;
+  setEntity: SetterOrUpdater<LivingEntity | null>;
+  w: number;
+  zIndex?: number;
+}) {
+  return (
+    <Box w={props.w}>
+      <Group wrap='nowrap' gap={5} justify='center'>
+        <Text ta='center' fz='md' fw={500} c='gray.0'>
+          Conditions
+        </Text>
+        <ActionIcon
+          variant='light'
+          aria-label='Add Condition'
+          size='xs'
+          radius='xl'
+          color='gray'
+          onClick={() => {
+            selectCondition(props.entity?.details?.conditions ?? [], (condition) => {
+              if (!props.entity) return;
+              props.setEntity({
+                ...props.entity,
+                details: {
+                  ...props.entity.details,
+                  conditions: [...(props.entity.details?.conditions ?? []), condition],
+                },
+              });
+            });
+          }}
+        >
+          <IconPlus size='1rem' stroke={1.5} />
+        </ActionIcon>
+      </Group>
+      <ScrollArea h={70} scrollbars='y'>
+        <ConditionPills
+          displayNoneActive
+          id={props.id}
+          entity={props.entity}
+          setEntity={props.setEntity}
+          zIndex={props.zIndex}
+        />
+      </ScrollArea>
+    </Box>
+  );
+}
+
+export function ConditionPills(props: {
+  id: StoreID;
+  entity: LivingEntity | null;
+  setEntity: SetterOrUpdater<LivingEntity | null>;
+  groupProps?: GroupProps;
+  displayNoneActive?: boolean;
+  zIndex?: number;
+}) {
+  return (
+    <Group {...props.groupProps} gap={5} justify='center'>
+      {compiledConditions(props.entity?.details?.conditions ?? []).map((condition, index) => (
+        <ConditionPill
+          key={index}
+          text={condition.name}
+          amount={condition.value}
+          onClick={() => {
+            //// Unneeded code because 'Over Bulk Limit' is already set ////
+            // Check if the condition is from being over bulk limit
+            // const isEncumberedFromBulk =
+            //   condition.name === 'Encumbered' &&
+            //   props.entity?.inventory &&
+            //   Math.floor(getInvBulk(props.entity.inventory)) > getBulkLimit(props.id);
+            // if (
+            //   isCharacter(props.entity) &&
+            //   props.entity?.options?.ignore_bulk_limit !== true &&
+            //   isEncumberedFromBulk
+            // ) {
+            //   source = 'Over Bulk Limit';
+            // }
+
+            openContextModal({
+              modal: 'condition',
+              title: (
+                <Group justify='space-between'>
+                  <Title order={3}>{condition.name}</Title>
+                  {condition.source ? (
+                    <Text fs='italic' fz='sm' mr={15}>
+                      From: <Text span>{condition.source}</Text>
+                    </Text>
+                  ) : (
+                    <Button
+                      variant='light'
+                      color='dark.4'
+                      size='compact-xs'
+                      mr={15}
+                      onClick={() => {
+                        modals.closeAll();
+
+                        let newConditions = cloneDeep(props.entity?.details?.conditions ?? []);
+                        // Remove condition
+                        newConditions = newConditions.filter((c) => c.name !== condition.name);
+                        // Add wounded condition if we're removing dying
+                        if (condition.name === 'Dying') {
+                          const wounded = newConditions.find((c) => c.name === 'Wounded');
+                          if (wounded) {
+                            wounded.value = 1 + wounded.value!;
+                          } else {
+                            newConditions.push(getConditionByName('Wounded')!);
+                          }
+                        }
+
+                        props.setEntity((c) => {
+                          if (!c) return c;
+                          return {
+                            ...c,
+                            details: {
+                              ...c.details,
+                              conditions: newConditions,
+                            },
+                          };
+                        });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </Group>
+              ),
+              innerProps: {
+                condition: condition,
+                onValueChange: (condition: Condition, value: number) => {
+                  props.setEntity((c) => {
+                    if (!c) return c;
+                    return {
+                      ...c,
+                      details: {
+                        ...c.details,
+                        conditions: c.details?.conditions?.map((c) => {
+                          if (c.name === condition.name) {
+                            return {
+                              ...c,
+                              value: value,
+                            };
+                          } else {
+                            return c;
+                          }
+                        }),
+                      },
+                    };
+                  });
+                },
+              },
+              styles: {
+                title: {
+                  width: '100%',
+                },
+              },
+              zIndex: props.zIndex ?? 499,
+            });
+          }}
+        />
+      ))}
+      {(props.entity?.details?.conditions ?? []).length === 0 && props.displayNoneActive && (
+        <Text c='gray.6' fz='xs' fs='italic'>
+          None active
+        </Text>
+      )}
+    </Group>
+  );
+}
+
+export default function MainConditionSection(props: {
+  id: StoreID;
+  entity: LivingEntity | null;
+  setEntity: SetterOrUpdater<LivingEntity | null>;
+}) {
+  const navigate = useNavigate();
+  const theme = useMantineTheme();
+
+  const [_drawer, openDrawer] = useAtom(drawerState);
+
+  return (
+    <BlurBox>
+      <Box
+        pt='xs'
+        pb={5}
+        px='xs'
+        style={{
+          borderTopLeftRadius: theme.radius.md,
+          borderTopRightRadius: theme.radius.md,
+          position: 'relative',
+        }}
+        h='100%'
+      >
+        <Group align='flex-start' justify='space-between' wrap='nowrap' gap={0}>
+          <ConditionSection w={200} id={props.id} entity={props.entity} setEntity={props.setEntity} />
+          <Box w={100} style={{ position: 'relative' }}>
+            <Box
+              style={{
+                position: 'absolute',
+                top: 20,
+                left: '50%',
+                transform: 'translate(-50%, 0px)',
+              }}
+            >
+              <HeroPointIcon size={75} color={IMPRINT_BG_COLOR_2} />
+            </Box>
+            <Group justify='flex-start' style={{ flexDirection: 'column' }} h={100} gap={15}>
+              <Text ta='center' fz='md' fw={500} c='gray.0' style={{ whiteSpace: 'nowrap' }}>
+                Hero Points
+              </Text>
+              <Group justify='center'>
+                {isCharacter(props.entity) && (
+                  <TokenSelect
+                    count={3}
+                    value={props.entity.hero_points ?? 0}
+                    onChange={(v) => {
+                      props.setEntity((c) => {
+                        if (!c) return c;
+                        return {
+                          ...c,
+                          hero_points: v,
+                        };
+                      });
+                    }}
+                    size='xs'
+                    emptySymbol={
+                      <ActionIcon
+                        variant='transparent'
+                        color='gray.1'
+                        aria-label='Hero Point, Empty'
+                        size='xs'
+                        style={{ opacity: 0.7 }}
+                      >
+                        <IconJewishStar size='0.8rem' />
+                      </ActionIcon>
+                    }
+                    fullSymbol={
+                      <ActionIcon
+                        variant='transparent'
+                        color='gray.1'
+                        aria-label='Hero Point, Full'
+                        size='xs'
+                        style={{ opacity: 0.7 }}
+                      >
+                        <IconJewishStarFilled size='0.8rem' />
+                      </ActionIcon>
+                    }
+                  />
+                )}
+              </Group>
+            </Group>
+          </Box>
+        </Group>
+      </Box>
+    </BlurBox>
+  );
+}

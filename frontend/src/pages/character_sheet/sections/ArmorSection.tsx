@@ -1,0 +1,234 @@
+import ArmorIcon from '@assets/images/ArmorIcon';
+import ShieldIcon from '@assets/images/ShieldIcon';
+import { drawerState } from '@atoms/navAtoms';
+import BlurBox from '@common/BlurBox';
+import { IMPRINT_BG_COLOR_HOVER_2, IMPRINT_BG_COLOR_2 } from '@constants/data';
+import { handleDeleteItem, handleMoveItem, handleUpdateItem } from '@items/inv-handlers';
+import { getBestArmor, getBestShield, getItemHealth } from '@items/inv-utils';
+import { useMantineTheme, Group, Stack, Center, RingProgress, Button, Badge, Text, Box } from '@mantine/core';
+import { useHover } from '@mantine/hooks';
+import { InventoryItem, LivingEntity } from '@schemas/content';
+import { StoreID, VariableProf } from '@schemas/variables';
+import { sign } from '@utils/numbers';
+import { displayFinalAcValue, displayFinalProfValue } from '@variables/variable-display';
+import { getAllSaveVariables } from '@variables/variable-manager';
+import { compileProficiencyType, variableToLabel } from '@variables/variable-utils';
+import { cloneDeep } from 'lodash-es';
+import { useAtom } from 'jotai';
+import { SetterOrUpdater } from '@utils/type-fixing';
+import { glassStyle } from '@utils/colors';
+import ImprintButton from '@common/ImprintButton';
+
+export default function ArmorSection(props: {
+  id: StoreID;
+  entity: LivingEntity | null;
+  setEntity: SetterOrUpdater<LivingEntity | null>;
+}) {
+  const theme = useMantineTheme();
+
+  const [_drawer, openDrawer] = useAtom(drawerState);
+
+  const { hovered: armorHovered, ref: armorRef } = useHover();
+  const { hovered: shieldHovered, ref: shieldRef } = useHover();
+
+  const handleSaveOpen = (save: VariableProf) => {
+    openDrawer({
+      type: 'stat-prof',
+      data: { id: props.id, variableName: save.name },
+      extra: { addToHistory: true },
+    });
+  };
+
+  const inventory = props.entity?.inventory ?? undefined;
+
+  const bestArmor = getBestArmor(props.id, inventory);
+  const bestShield = getBestShield(props.id, inventory);
+  const bestShieldHealth = bestShield ? getItemHealth(bestShield.item) : null;
+
+  return (
+    <BlurBox>
+      <Box
+        pt='xs'
+        pb={5}
+        px='xs'
+        style={{
+          borderTopLeftRadius: theme.radius.md,
+          borderTopRightRadius: theme.radius.md,
+          position: 'relative',
+        }}
+        h='100%'
+      >
+        <Group wrap='nowrap' gap={5} justify='space-between'>
+          <Group wrap='nowrap' gap={0} justify='center' style={{ flex: 1 }}>
+            <Box
+              style={{ position: 'relative', cursor: 'pointer' }}
+              ref={armorRef}
+              onClick={() => {
+                openDrawer({
+                  type: 'stat-ac',
+                  data: {
+                    id: props.id,
+                    inventory: inventory,
+                    onViewItem: (invItem: InventoryItem) => {
+                      openDrawer({
+                        type: 'inv-item',
+                        data: {
+                          storeId: props.id,
+                          zIndex: 100,
+                          invItem: cloneDeep(invItem),
+                          onItemUpdate: (newInvItem: InventoryItem) => {
+                            handleUpdateItem(props.setEntity, newInvItem);
+                          },
+                          onItemDelete: (newInvItem: InventoryItem) => {
+                            handleDeleteItem(props.setEntity, newInvItem);
+                            openDrawer(null);
+                          },
+                          onItemMove: (invItem: InventoryItem, containerItem: InventoryItem | null) => {
+                            handleMoveItem(props.setEntity, invItem, containerItem);
+                          },
+                        },
+                        extra: { addToHistory: true },
+                      });
+                    },
+                  },
+                  extra: { addToHistory: true },
+                });
+              }}
+            >
+              <ArmorIcon size={85} color={armorHovered ? IMPRINT_BG_COLOR_HOVER_2 : IMPRINT_BG_COLOR_2} />
+              <Stack
+                gap={0}
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                <Text ta='center' fz='lg' c='gray.0' fw={500} lh='1.1em'>
+                  {displayFinalAcValue(props.id, bestArmor?.item)}
+                </Text>
+                <Text ta='center' c='gray.2' fz='xs'>
+                  AC
+                </Text>
+              </Stack>
+            </Box>
+            <Box ref={shieldRef}>
+              {bestShield && (
+                <Box
+                  style={{ position: 'relative', cursor: 'pointer' }}
+                  onClick={() => {
+                    openDrawer({
+                      type: 'inv-item',
+                      data: {
+                        storeId: props.id,
+                        zIndex: 100,
+                        invItem: cloneDeep(bestShield),
+                        onItemUpdate: (newInvItem: InventoryItem) => {
+                          handleUpdateItem(props.setEntity, newInvItem);
+                          openDrawer(null); // Patch fix for shield item drawer reverting updates
+                        },
+                        onItemDelete: (newInvItem: InventoryItem) => {
+                          handleDeleteItem(props.setEntity, newInvItem);
+                          openDrawer(null);
+                        },
+                        onItemMove: (invItem: InventoryItem, containerItem: InventoryItem | null) => {
+                          handleMoveItem(props.setEntity, invItem, containerItem);
+                        },
+                      },
+                      extra: { addToHistory: true },
+                    });
+                  }}
+                >
+                  <ShieldIcon size={85} color={shieldHovered ? IMPRINT_BG_COLOR_HOVER_2 : IMPRINT_BG_COLOR_2} />
+                  <Stack
+                    gap={0}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    <Text ta='center' fz='lg' c='gray.0' fw={500} lh='1.1em' pr={5}>
+                      {sign(bestShield.item.meta_data?.ac_bonus ?? 0)}
+                    </Text>
+                    <Text ta='center' fz={8} style={{ whiteSpace: 'nowrap' }}>
+                      Hardness {bestShieldHealth?.hardness ?? 0}
+                    </Text>
+                    <Center>
+                      <RingProgress
+                        size={30}
+                        thickness={3}
+                        sections={[
+                          {
+                            value: Math.ceil(
+                              ((bestShieldHealth?.hp_current ?? 0) / (Number(bestShieldHealth?.hp_max) || 1)) * 100
+                            ),
+                            color: 'guide',
+                          },
+                        ]}
+                        label={
+                          <Text fz={8} ta='center' style={{ pointerEvents: 'none' }}>
+                            HP
+                          </Text>
+                        }
+                      />
+                    </Center>
+                  </Stack>
+                </Box>
+              )}
+            </Box>
+          </Group>
+          <Stack gap={8}>
+            {getAllSaveVariables(props.id).map((save, index) => (
+              <Button.Group key={index}>
+                <ImprintButton
+                  radius='xl'
+                  size='compact-xs'
+                  fw={400}
+                  c='gray.0'
+                  noBorder
+                  style={{
+                    flex: 1,
+                  }}
+                  onClick={() => handleSaveOpen(save)}
+                >
+                  {variableToLabel(save)}
+                </ImprintButton>
+                <ImprintButton
+                  radius='xl'
+                  size='compact-xs'
+                  multiplier={2}
+                  w={55}
+                  noBorder
+                  onClick={() => handleSaveOpen(save)}
+                >
+                  <Text c='gray.0' fz='xs' pr={15}>
+                    {displayFinalProfValue(props.id, save.name)}
+                  </Text>
+                  <Badge
+                    size='xs'
+                    variant='light'
+                    bg='rgba(0, 0, 0, 0.15)'
+                    w={20}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '80%',
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    <Text c='gray.0' fz={8}>
+                      {compileProficiencyType(save?.value)}
+                    </Text>
+                  </Badge>
+                </ImprintButton>
+              </Button.Group>
+            ))}
+          </Stack>
+        </Group>
+      </Box>
+    </BlurBox>
+  );
+}
