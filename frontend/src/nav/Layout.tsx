@@ -60,6 +60,17 @@ export default function Layout(props: { children: React.ReactNode }) {
             // via no-drag so clicks register as a button press, not a
             // window-drag gesture.
             WebkitAppRegion: 'drag',
+            // Opaque dark fill so the Mantine BackgroundImage at
+            // z-index:-1000 doesn't bleed the upstream mountain art
+            // through this 32 px gap above the page content. Matches
+            // the codex --bg (#15110b); blends fine with the existing
+            // Mantine dark theme on non-codex routes too.
+            background: '#15110b',
+            borderBottom: '1px solid rgba(201, 161, 59, 0.12)',
+            // Sit above the BackgroundImage. Codex-root is z:1; we go
+            // higher so the drag strip wins over both.
+            position: 'relative',
+            zIndex: 10,
           } as React.CSSProperties
         }
       >
