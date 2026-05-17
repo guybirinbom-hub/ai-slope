@@ -76,6 +76,8 @@ export function Component() {
   // simple set of dropdown-style buttons; we control opened state to
   // dodge the Mantine v9 ref-forwarding quirks we hit before.
   const [importMenuOpened, setImportMenuOpened] = useState(false);
+  // App-header hamburger menu (Characters/Homebrew/Settings).
+  const [navMenuOpened, setNavMenuOpened] = useState(false);
 
   const jsonImportRef = useRef<HTMLButtonElement>(null);
   const guidecharImportRef = useRef<HTMLButtonElement>(null);
@@ -159,13 +161,60 @@ export function Component() {
           <span className='sigil'>❦</span>
           <span className='bn'>Wanderer's Codex</span>
         </div>
-        <div className='menu' title='Open menu — Characters, Homebrew, Settings'>
-          <div className='lines'>
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-        </div>
+        {/* Hamburger menu — controlled Mantine Menu wrapping the codex
+            .menu visual shell. Same pattern as the sheet topbar. */}
+        <Menu
+          opened={navMenuOpened}
+          onClose={() => setNavMenuOpened(false)}
+          position='bottom-end'
+          width={180}
+          withinPortal
+          shadow='md'
+        >
+          <Menu.Target>
+            <div
+              className='menu'
+              title='Open menu'
+              onClick={(e) => {
+                e.stopPropagation();
+                setNavMenuOpened((o) => !o);
+              }}
+            >
+              <div className='lines'>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Label>Navigate</Menu.Label>
+            <Menu.Item
+              onClick={() => {
+                setNavMenuOpened(false);
+                navigate('/characters');
+              }}
+            >
+              Characters
+            </Menu.Item>
+            <Menu.Item
+              onClick={() => {
+                setNavMenuOpened(false);
+                navigate('/homebrew');
+              }}
+            >
+              Homebrew
+            </Menu.Item>
+            <Menu.Item
+              onClick={() => {
+                setNavMenuOpened(false);
+                navigate('/account');
+              }}
+            >
+              Settings
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
       </div>
 
       <div className='hero'>

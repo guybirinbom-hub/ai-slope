@@ -8,7 +8,7 @@ import {
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconAsset, IconMenu2, IconSettings, IconUsers } from '@tabler/icons-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { isTouchDevice, tabletQuery } from '@utils/mobile-responsive';
 
 // Title-bar overlay height — matches `titleBarOverlay.height` in
@@ -45,6 +45,15 @@ export default function Layout(props: { children: React.ReactNode }) {
   const theme = useMantineTheme();
   const isMobileTouch = useMediaQuery(tabletQuery()) && isTouchDevice();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Routes that ship their own codex topbar/header with a working
+  // hamburger menu — render the drag strip without one to avoid the
+  // duplicate-menu the user saw. Path tests are prefix-based so /sheet/67
+  // and /sheet/142 both match.
+  const codexRoutes = ['/sheet/', '/characters'];
+  const hasOwnMenu = codexRoutes.some((p) => location.pathname.startsWith(p)) ||
+    location.pathname === '/';
 
   return (
     <>
@@ -74,72 +83,77 @@ export default function Layout(props: { children: React.ReactNode }) {
           } as React.CSSProperties
         }
       >
-        <Menu
-          width={180}
-          position='bottom-end'
-          transitionProps={{ transition: 'pop-top-right' }}
-          withinPortal
-        >
-          <Menu.Target>
-            <ActionIcon
-              variant='subtle'
-              color='gray'
-              size='md'
-              radius='md'
-              aria-label='Menu'
-              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            >
-              <IconMenu2 size={18} stroke={1.5} />
-            </ActionIcon>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Item
-              leftSection={
-                <IconUsers
-                  style={{ width: rem(16), height: rem(16) }}
-                  color={theme.colors.blue[5]}
-                  stroke={1.5}
-                />
-              }
-              component='a'
-              href='/characters'
-              onClick={(e) => {
-                e.preventDefault();
-                navigate('/characters');
-              }}
-            >
-              Characters
-            </Menu.Item>
-            <Menu.Item
-              leftSection={
-                <IconAsset
-                  style={{ width: rem(16), height: rem(16) }}
-                  color={theme.colors.yellow[6]}
-                  stroke={1.5}
-                />
-              }
-              component='a'
-              href='/homebrew'
-              onClick={(e) => {
-                e.preventDefault();
-                navigate('/homebrew');
-              }}
-            >
-              Homebrew
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<IconSettings style={{ width: rem(16), height: rem(16) }} stroke={1.5} />}
-              component='a'
-              href='/account'
-              onClick={(e) => {
-                e.preventDefault();
-                navigate('/account');
-              }}
-            >
-              Settings
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
+        {/* Only render the hamburger here on routes that don't ship
+            their own codex topbar with a menu — otherwise the user
+            sees two hamburgers. */}
+        {!hasOwnMenu && (
+          <Menu
+            width={180}
+            position='bottom-end'
+            transitionProps={{ transition: 'pop-top-right' }}
+            withinPortal
+          >
+            <Menu.Target>
+              <ActionIcon
+                variant='subtle'
+                color='gray'
+                size='md'
+                radius='md'
+                aria-label='Menu'
+                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              >
+                <IconMenu2 size={18} stroke={1.5} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item
+                leftSection={
+                  <IconUsers
+                    style={{ width: rem(16), height: rem(16) }}
+                    color={theme.colors.blue[5]}
+                    stroke={1.5}
+                  />
+                }
+                component='a'
+                href='/characters'
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/characters');
+                }}
+              >
+                Characters
+              </Menu.Item>
+              <Menu.Item
+                leftSection={
+                  <IconAsset
+                    style={{ width: rem(16), height: rem(16) }}
+                    color={theme.colors.yellow[6]}
+                    stroke={1.5}
+                  />
+                }
+                component='a'
+                href='/homebrew'
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/homebrew');
+                }}
+              >
+                Homebrew
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconSettings style={{ width: rem(16), height: rem(16) }} stroke={1.5} />}
+                component='a'
+                href='/account'
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/account');
+                }}
+              >
+                Settings
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        )}
       </Box>
 
       {/* Page content. Padding is owned by each route — the codex pages

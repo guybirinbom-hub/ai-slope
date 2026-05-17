@@ -53,6 +53,7 @@ import DetailsPanel from './panels/DetailsPanel';
 import NotesPanel from './panels/NotesPanel';
 import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel, CodexActivitiesPanel } from './CodexPanels';
 import { useNavigate } from 'react-router-dom';
+import { Menu } from '@mantine/core';
 
 type CodexTab =
   | 'main'
@@ -291,13 +292,9 @@ export default function CodexSheet(props: {
               </div>
             </div>
             <AddXpForm onAdd={addXp} />
-            <div className='menu' title='Edit in Builder' onClick={() => navigate(`/builder/${props.characterId}`)}>
-              <div className='lines'>
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </div>
+            {/* Hamburger menu — opens the nav dropdown (Characters,
+                Homebrew, Settings) + Edit in Builder shortcut. */}
+            <CodexNavMenu characterId={props.characterId} navigate={navigate} />
           </div>
         </div>
 
@@ -877,4 +874,91 @@ function discoverLoreSkills(): { var: string; topic: string }[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Codex-styled hamburger menu in the topbar's right cluster.
+ *
+ * The visual shell is the codex `.menu` div (square gold-bordered
+ * box with 3 horizontal lines). Mantine Menu.Target requires a ref-
+ * forwarding element to inject its open/close click handler, but our
+ * decorative div doesn't satisfy that — so we control the menu state
+ * via useDisclosure and toggle it from a manual onClick. This is the
+ * same pattern the import-character button uses on the Characters
+ * page, where the Menu+Tooltip+ActionIcon double-wrapper broke
+ * Mantine v9's automatic forwarding.
+ *
+ * The dropdown items navigate (no full reload) so route state stays
+ * intact. Edit-in-Builder is the last entry — separated from the
+ * nav items with a Divider since it's a sheet-specific shortcut
+ * rather than a global navigation target.
+ */
+function CodexNavMenu(props: {
+  characterId: number;
+  navigate: (path: string) => void;
+}) {
+  const [opened, setOpened] = useState(false);
+  return (
+    <Menu
+      opened={opened}
+      onClose={() => setOpened(false)}
+      position='bottom-end'
+      width={200}
+      withinPortal
+      shadow='md'
+    >
+      <Menu.Target>
+        <div
+          className='menu'
+          title='Menu'
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpened((o) => !o);
+          }}
+        >
+          <div className='lines'>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Label>Navigate</Menu.Label>
+        <Menu.Item
+          onClick={() => {
+            setOpened(false);
+            props.navigate('/characters');
+          }}
+        >
+          Characters
+        </Menu.Item>
+        <Menu.Item
+          onClick={() => {
+            setOpened(false);
+            props.navigate('/homebrew');
+          }}
+        >
+          Homebrew
+        </Menu.Item>
+        <Menu.Item
+          onClick={() => {
+            setOpened(false);
+            props.navigate('/account');
+          }}
+        >
+          Settings
+        </Menu.Item>
+        <Menu.Divider />
+        <Menu.Item
+          onClick={() => {
+            setOpened(false);
+            props.navigate(`/builder/${props.characterId}`);
+          }}
+        >
+          Edit in Builder
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
 }
