@@ -65,6 +65,7 @@ import ModesDrawer from '@common/modes/ModesDrawer';
 import CampaignDrawer from '@pages/campaign/CampaignDrawer';
 import useCharacter from '@utils/use-character';
 import { getAnchorStyles } from '@utils/anchor';
+import CodexSheet from './CodexSheet';
 import { AnimatePresence, motion } from 'framer-motion';
 import { IMPRINT_BG_COLOR, IMPRINT_BORDER_COLOR } from '@constants/data';
 
@@ -211,37 +212,40 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
   }, [character, isLoading, props.content]);
 
   return (
-    <Center>
-      <Box maw={1000} w='100%' pb={isPhone ? 100 : 'sm'}>
-        <Box ref={ref}>
-          <Stack gap='xs' style={{ position: 'relative' }}>
-            {/* Top stat sections: layout collapses from 3 → 2 → 1 columns on smaller screens */}
-            <SimpleGrid cols={isPhone ? 1 : isTablet ? 2 : 3} spacing='xs' verticalSpacing='xs'>
-              <EntityInfoSection id='CHARACTER' entity={character} setEntity={convertToSetEntity(setCharacter)} />
-              {/* On phone, these sections are hidden when a full-screen panel is active */}
-              {!hideSections && (
-                <>
-                  <HealthSection id='CHARACTER' entity={character} setEntity={convertToSetEntity(setCharacter)} />
-                  <ConditionSection id='CHARACTER' entity={character} setEntity={convertToSetEntity(setCharacter)} />
-                  <AttributeSection id='CHARACTER' entity={character} setEntity={convertToSetEntity(setCharacter)} />
-                  <ArmorSection id='CHARACTER' entity={character} setEntity={convertToSetEntity(setCharacter)} />
-                  <SpeedSection id='CHARACTER' entity={character} setEntity={convertToSetEntity(setCharacter)} />
-                </>
-              )}
-            </SimpleGrid>
-            <SectionPanels
-              content={props.content}
-              entity={character}
-              setEntity={convertToSetEntity(setCharacter)}
-              isLoaded={!isLoading}
-              panelHeight={panelHeight}
-              panelWidth={panelWidth}
-              hideSections={hideSections}
-              onHideSections={(hide) => setHideSections(hide)}
-            />
-          </Stack>
+    <Box ref={ref} w='100%'>
+      {/* Codex sheet — full-bleed two-column layout matching
+          codex-sheet-v5.html. Replaces the previous SimpleGrid +
+          SectionPanels. Sub-panels (Spells/Inventory/Feats/etc.)
+          are rendered inside CodexSheet via the tab system; they
+          use the existing panel components for content + the
+          codex-bridge.css for styling. */}
+      <CodexSheet
+        characterId={props.characterId}
+        character={character}
+        setCharacter={setCharacter}
+        content={props.content}
+        panelWidth={panelWidth}
+        panelHeight={panelHeight}
+      />
+      {/* Keep the legacy SectionPanels reachable via the bottom of
+          the page for now — there's still functionality (extras,
+          phone-specific layouts) that CodexSheet doesn't replicate
+          yet. Hidden by default; the codex tabs cover the same
+          panels. */}
+      {hideSections && (
+        <Box style={{ display: 'none' }}>
+          <SectionPanels
+            content={props.content}
+            entity={character}
+            setEntity={convertToSetEntity(setCharacter)}
+            isLoaded={!isLoading}
+            panelHeight={panelHeight}
+            panelWidth={panelWidth}
+            hideSections={hideSections}
+            onHideSections={(hide) => setHideSections(hide)}
+          />
         </Box>
-      </Box>
+      )}
 
       {/* Floating action buttons anchored to the bottom-left corner */}
       <Box style={getAnchorStyles({ l: 20, b: 20 })}>
@@ -321,7 +325,7 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
       {openedCampaign && character?.campaign_id && (
         <CampaignDrawer campaignId={character?.campaign_id} opened={true} onClose={() => setOpenedCampaign(false)} />
       )}
-    </Center>
+    </Box>
   );
 }
 
