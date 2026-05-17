@@ -16,7 +16,7 @@ import { SetterOrUpdater } from '@utils/type-fixing';
 import { useAtom } from 'jotai';
 import { drawerState } from '@atoms/navAtoms';
 import { useState, useMemo } from 'react';
-import { collectEntitySpellcasting } from '@content/collect-content';
+import { collectEntitySpellcasting, collectEntityAbilityBlocks } from '@content/collect-content';
 import { getVariable } from '@variables/variable-manager';
 import { VariableProf } from '@schemas/variables';
 import { getFinalProfValue } from '@variables/variable-helpers';
@@ -25,6 +25,12 @@ import { getInvBulk, getBulkLimit, labelizeBulk } from '@items/inv-utils';
 import { priceToString } from '@items/currency-handler';
 import { isCantrip } from '@spells/spell-utils';
 import { isItemWeapon } from '@items/inv-utils';
+import ManageSpellsModal from '@modals/ManageSpellsModal';
+import { openContextModal } from '@mantine/modals';
+import { Title } from '@mantine/core';
+import { Item } from '@schemas/content';
+import { handleAddItem } from '@items/inv-handlers';
+import { modals } from '@mantine/modals';
 import { getWeaponStats } from '@items/weapon-handler';
 import { isAbilityBlockVisible } from '@content/content-hidden';
 import { hasTraitType } from '@utils/traits';
@@ -149,6 +155,17 @@ export function CodexSpellsPanel(props: {
   const { character, content } = props;
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [searchQuery, setSearchQuery] = useState('');
+  // ManageSpellsModal state — opens when the user clicks the codex
+  // "Manage" button on a tradition. Mirrors what the legacy
+  // SpellsPanel does internally via setManageSpells().
+  const [manageSpells, setManageSpells] = useState<
+    | undefined
+    | {
+        source: string;
+        type: 'SLOTS-ONLY' | 'SLOTS-AND-LIST' | 'LIST-ONLY';
+        filter?: { traditions?: string[]; rank_min?: number; rank_max?: number };
+      }
+  >(undefined);
 
   const charData = useMemo(
     () => (character ? collectEntitySpellcasting('CHARACTER', character) : null),
@@ -196,6 +213,35 @@ export function CodexSpellsPanel(props: {
           }
         : c
     );
+  };
+
+  // Exhaust / refill a spell slot. Used as the onCastSpell callback
+  // for spell-row clicks. For spontaneous casters we find the first
+  // unexhausted slot at the spell's rank (or refill the first
+  // exhausted one). For prepared casters we match by spell_id.
+  const castSpell = (cast: boolean, sourceName: string, spellRank: number, spellId: number, isPreparedSrc: boolean) => {
+    props.setCharacter((c) => {
+      if (!c) return c;
+      const allSlots = (c.spells?.slots ?? []).map((s) => ({ ...s }));
+      if (isPreparedSrc) {
+        const target = allSlots.find(
+          (s) => s.source === sourceName && s.spell_id === spellId && !!s.exhausted !== cast
+        );
+        if (target) target.exhausted = cast;
+      } else {
+        const target = allSlots.find(
+          (s) => s.source === sourceName && s.rank === spellRank && !!s.exhausted !== cast
+        );
+        if (target) target.exhausted = cast;
+      }
+      return {
+        ...c,
+        spells: {
+          ...(c.spells ?? { slots: [], list: [], focus_point_current: 0, innate_casts: [] }),
+          slots: allSlots,
+        },
+      };
+    });
   };
 
   return (
@@ -297,11 +343,22 @@ export function CodexSpellsPanel(props: {
               <span
                 className='add'
                 onClick={() => {
-                  // The manage-spells modal is opened from the existing
-                  // SpellsPanel via setManageSpells; we don't have that
-                  // hook here. Navigate to the builder where the user
-                  // can manage their full spell list as a fallback.
-                  window.location.href = `/builder/${props.characterId}`;
+                  // Open the proper ManageSpellsModal — same one the
+                  // legacy SpellsPanel uses. Type depends on caster:
+                  // prepared-list = SLOTS-AND-LIST (manage spellbook
+                  // and prepare into slots), prepared-tradition =
+                  // SLOTS-ONLY, spontaneous = LIST-ONLY.
+                  const t =
+                    source.type === 'PREPARED-LIST'
+                      ? 'SLOTS-AND-LIST'
+                      : source.type === 'PREPARED-TRADITION'
+                        ? 'SLOTS-ONLY'
+                        : 'LIST-ONLY';
+                  setManageSpells({
+                    source: source.name,
+                    type: t,
+                    filter: { traditions: [source.tradition?.toLowerCase()].filter(Boolean) as string[] },
+                  });
                 }}
               >
                 Manage
@@ -340,7 +397,17 @@ export function CodexSpellsPanel(props: {
                         onClick={() =>
                           openDrawer({
                             type: 'cast-spell',
-                            data: { id: spell.id, spell, exhausted: false, tradition: source.tradition, attribute: source.attribute, storeId: 'CHARACTER', entity: character },
+                            data: {
+                              id: spell.id,
+                              spell,
+                              exhausted: false,
+                              tradition: source.tradition,
+                              attribute: source.attribute,
+                              storeId: 'CHARACTER',
+                              entity: character,
+                              // Focus spells burn a focus point, not a slot.
+                              onCastSpell: (cast: boolean) => setFocusPoints(focusCurrent + (cast ? -1 : 1)),
+                            },
                             extra: { addToHistory: true },
                           })
                         }
@@ -422,16 +489,19 @@ export function CodexSpellsPanel(props: {
                               exhausted={cell.exhausted}
                               onClick={() => {
                                 if (!cell.spell) return;
+                                const spellId = cell.spell.id;
                                 openDrawer({
                                   type: 'cast-spell',
                                   data: {
-                                    id: cell.spell.id,
+                                    id: spellId,
                                     spell: cell.spell,
                                     exhausted: cell.exhausted,
                                     tradition: source.tradition,
                                     attribute: source.attribute,
                                     storeId: 'CHARACTER',
                                     entity: character,
+                                    onCastSpell: (cast: boolean) =>
+                                      castSpell(cast, source.name, rank, spellId, !!isPrepared),
                                   },
                                   extra: { addToHistory: true },
                                 });
@@ -447,6 +517,24 @@ export function CodexSpellsPanel(props: {
           </div>
         );
       })}
+
+      {/* ManageSpellsModal — the same Mantine modal the legacy
+          SpellsPanel uses. The codex-bridge re-themes its internals
+          so it looks parchment-and-gold; the functionality (add to
+          spellbook, prepare into slots, rank picker) is unchanged. */}
+      {manageSpells && (
+        <ManageSpellsModal
+          id='CHARACTER'
+          entity={character}
+          setEntity={props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>}
+          opened={true}
+          onClose={() => setManageSpells(undefined)}
+          source={manageSpells.source}
+          type={manageSpells.type}
+          filter={manageSpells.filter}
+          zIndex={500}
+        />
+      )}
     </div>
   );
 }
@@ -613,10 +701,61 @@ export function CodexInventoryPanel(props: {
         <span
           className='add'
           onClick={() => {
-            // No standalone "add item" drawer exists in this fork —
-            // adding items goes through the existing InventoryPanel's
-            // internal flow. Send the user to the builder for now.
-            window.location.href = `/builder/${props.characterId}`;
+            // Same flow the legacy InventoryPanel uses: open the
+            // addItems context modal, on pick → handleAddItem (or
+            // open the buy modal for purchased items). Re-fetches
+            // the inventory automatically via the setEntity update.
+            openContextModal({
+              modal: 'addItems',
+              title: <Title order={3}>Add Items</Title>,
+              innerProps: {
+                onAddItem: async (
+                  item: Item,
+                  type: 'GIVE' | 'BUY' | 'FORMULA'
+                ) => {
+                  if (!character) return;
+                  if (type === 'BUY') {
+                    // Purchase path — open the buyItem modal which
+                    // deducts coins on confirm.
+                    openContextModal({
+                      modal: 'buyItem',
+                      title: <Title order={3}>Buy {item.name}</Title>,
+                      innerProps: {
+                        inventory: character.inventory,
+                        item,
+                        onConfirm: async (coins: { cp: number; sp: number; gp: number; pp: number }) => {
+                          await handleAddItem(props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>, item, false);
+                          props.setCharacter((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  inventory: {
+                                    ...(prev.inventory ?? {
+                                      coins: { cp: 0, sp: 0, gp: 0, pp: 0 },
+                                      items: [],
+                                    }),
+                                    coins,
+                                  },
+                                }
+                              : prev
+                          );
+                          setTimeout(() => modals.closeAll(), 100);
+                        },
+                      },
+                      zIndex: 1000,
+                    });
+                  } else {
+                    await handleAddItem(
+                      props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>,
+                      item,
+                      type === 'FORMULA'
+                    );
+                    setTimeout(() => modals.closeAll(), 100);
+                  }
+                },
+              },
+              zIndex: 499,
+            });
           }}
         >
           Add Item
@@ -795,63 +934,63 @@ export function CodexFeatsPanel(props: {
   const [searchQuery, setSearchQuery] = useState('');
   const [groupFilter, setGroupFilter] = useState<'all' | 'class' | 'ancestry' | 'skill' | 'general' | 'feature'>('all');
 
-  // The selections store on the character maps choice IDs to picked
-  // content. We pull feat selections and resolve to AbilityBlock
-  // entries from the content package.
-  const selections = character?.operation_data?.selections ?? {};
-  const allBlocks = content.abilityBlocks ?? [];
+  // collectEntityAbilityBlocks is the engine helper the legacy
+  // FeatsFeaturesPanel uses — it cross-references the character's
+  // selections + class/ancestry/heritage choices against the content
+  // pool and returns categorized lists. Much more reliable than
+  // walking operation_data.selections by hand.
+  const collected = useMemo(() => {
+    if (!character) return null;
+    return collectEntityAbilityBlocks(
+      'CHARACTER',
+      character,
+      content.abilityBlocks ?? [],
+      { filterBasicClassFeatures: true }
+    );
+  }, [character, content.abilityBlocks]);
 
-  // Collect every selection whose value points at a feat / class feature.
-  const pickedIds = new Set<number>();
-  Object.values(selections).forEach((sel) => {
-    if (typeof sel === 'number') pickedIds.add(sel);
-    else if (sel && typeof sel === 'object' && 'value' in sel) {
-      const v = (sel as { value: unknown }).value;
-      if (typeof v === 'number') pickedIds.add(v);
-    }
-  });
+  // Trait-id → name lookup, used to bucket general vs skill feats.
+  const traitNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    (content.traits ?? []).forEach((t) => {
+      if (t && typeof t.id === 'number' && t.name) m.set(t.id, t.name.toLowerCase());
+    });
+    return m;
+  }, [content.traits]);
 
-  const featBlocks = allBlocks.filter(
-    (b) =>
-      pickedIds.has(b.id) &&
-      (b.type === 'feat' || b.type === 'class-feature' || b.type === 'heritage' || b.type === 'physical-feature')
-  );
-
-  // Classify a block into a feat-row color category. Trait names need
-  // resolution because the block's `traits` field is an array of trait
-  // *ids*; we cross-reference against content.traits to get names.
-  const traitNameById = new Map<number, string>();
-  (content.traits ?? []).forEach((t) => {
-    if (t && typeof t.id === 'number' && t.name) {
-      traitNameById.set(t.id, t.name.toLowerCase());
-    }
-  });
-  const classify = (block: { type: string; traits?: number[] | null }) => {
-    if (block.type === 'class-feature' || block.type === 'physical-feature') return 'feature';
-    const traitNames = (block.traits ?? []).map((id) => traitNameById.get(id) ?? '');
-    if (traitNames.includes('class')) return 'class';
-    if (traitNames.includes('ancestry') || block.type === 'heritage') return 'ancestry';
-    if (traitNames.includes('skill')) return 'skill';
-    if (traitNames.includes('general')) return 'general';
-    return '';
-  };
+  // Tag each block with its source group so we can filter / color-code.
+  type TaggedBlock = AbilityBlock & { _group: 'class' | 'ancestry' | 'skill' | 'general' | 'feature' };
+  const featBlocks: TaggedBlock[] = useMemo(() => {
+    if (!collected) return [];
+    const tag = (g: TaggedBlock['_group']) => (b: AbilityBlock): TaggedBlock => ({ ...b, _group: g });
+    return [
+      ...(collected.classFeats ?? []).map(tag('class')),
+      ...(collected.ancestryFeats ?? []).map(tag('ancestry')),
+      ...(collected.generalAndSkillFeats ?? []).map((f) => {
+        const isSkill = (f.traits ?? []).some((id) => traitNameById.get(id) === 'skill');
+        return { ...f, _group: (isSkill ? 'skill' : 'general') as TaggedBlock['_group'] };
+      }),
+      ...(collected.otherFeats ?? []).map(tag('general')),
+      ...(collected.classFeatures ?? []).map(tag('feature')),
+      ...(collected.heritages ?? []).map(tag('ancestry')),
+      ...(collected.physicalFeatures ?? []).map(tag('feature')),
+    ];
+  }, [collected, traitNameById]);
 
   const matchesSearch = (b: { name?: string }) =>
-    !searchQuery.trim() ||
-    (b.name ?? '').toLowerCase().includes(searchQuery.trim().toLowerCase());
-  const matchesFilter = (b: { type: string; traits?: number[] | null }) =>
-    groupFilter === 'all' || classify(b) === groupFilter;
+    !searchQuery.trim() || (b.name ?? '').toLowerCase().includes(searchQuery.trim().toLowerCase());
+  const matchesFilter = (b: TaggedBlock) => groupFilter === 'all' || b._group === groupFilter;
 
   const filtered = featBlocks
     .filter((b) => matchesSearch(b) && matchesFilter(b))
     .sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
 
   const summary = {
-    class: featBlocks.filter((b) => classify(b) === 'class').length,
-    ancestry: featBlocks.filter((b) => classify(b) === 'ancestry').length,
-    skill: featBlocks.filter((b) => classify(b) === 'skill').length,
-    general: featBlocks.filter((b) => classify(b) === 'general').length,
-    feature: featBlocks.filter((b) => classify(b) === 'feature').length,
+    class: featBlocks.filter((b) => b._group === 'class').length,
+    ancestry: featBlocks.filter((b) => b._group === 'ancestry').length,
+    skill: featBlocks.filter((b) => b._group === 'skill').length,
+    general: featBlocks.filter((b) => b._group === 'general').length,
+    feature: featBlocks.filter((b) => b._group === 'feature').length,
   };
 
   return (
@@ -926,11 +1065,11 @@ export function CodexFeatsPanel(props: {
           ) : (
             <div className='feat-grid'>
               {filtered.map((b) => {
-                const cls = classify(b);
+                const cls = b._group;
                 const actionGlyph = actionCostToGlyph(b.actions ?? null);
                 return (
                   <div
-                    key={b.id}
+                    key={`${cls}-${b.id}`}
                     className={`feat ${cls}`}
                     onClick={() =>
                       openDrawer({
@@ -976,6 +1115,10 @@ export function CodexActivitiesPanel(props: {
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [searchQuery, setSearchQuery] = useState('');
   const [mode, setMode] = useState<'encounter' | 'exploration' | 'downtime'>('encounter');
+  // Action-cost filter — click a cost glyph (1/2/3/reaction/free) to
+  // show only actions of that cost. Mirrors the AoN filter strip in
+  // the updated codex main mockup.
+  const [costFilter, setCostFilter] = useState<1 | 2 | 3 | 'r' | 'f' | null>(null);
 
   // Equipped weapons → strikes. Each gets attack bonus + damage from
   // the weapon-handler engine.
@@ -1012,6 +1155,11 @@ export function CodexActivitiesPanel(props: {
   const matchesSearch = (a: { name: string }) =>
     !searchQuery.trim() ||
     a.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
+  const matchesCost = (a: { actions?: string | null }) => {
+    if (costFilter === null) return true;
+    const glyph = actionCostToGlyph(a.actions ?? null);
+    return glyph === costFilter;
+  };
 
   // Encounter actions: not exploration, not downtime, no skill metadata,
   // no requirements — the "every character can do this" list (Stride,
@@ -1042,13 +1190,21 @@ export function CodexActivitiesPanel(props: {
       : mode === 'exploration'
         ? explorationActions
         : downtimeActions;
-  const filteredActions = activeActions.filter(matchesSearch);
-  const filteredStrikes = strikes.filter(matchesSearch);
+  const filteredActions = activeActions.filter(matchesSearch).filter(matchesCost);
+  // Strikes are always 1-action; only show them if the cost filter
+  // is null or 1.
+  const filteredStrikes = strikes
+    .filter(matchesSearch)
+    .filter(() => costFilter === null || costFilter === 1);
 
   const openStrike = (invItem: InventoryItem) => {
+    // stat-weapon drawer expects `item` (the bare Item), not the
+    // InventoryItem wrapper. Passing invItem caused the drawer to
+    // crash with "Cannot read properties of undefined (reading 'name')"
+    // when trying to render the title.
     openDrawer({
       type: 'stat-weapon',
-      data: { id: 'CHARACTER', invItem },
+      data: { id: 'CHARACTER', item: invItem.item },
       extra: { addToHistory: true },
     });
   };
@@ -1058,7 +1214,82 @@ export function CodexActivitiesPanel(props: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {/* Mode toggle + search */}
+      {/* Action-cost filter strip — sits ABOVE the mode toggle so a
+          quick "show me only my 1-action options" stays one click away
+          regardless of the mode. Mirrors the AoN filter strip in the
+          codex main mockup. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '4px 10px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--rule-soft)',
+          marginBottom: 4,
+        }}
+      >
+        <input
+          type='text'
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder='Search activities…'
+          style={{
+            flex: 1,
+            background: 'transparent',
+            border: 0,
+            outline: 0,
+            color: 'var(--ink)',
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 13,
+            padding: '4px 6px',
+          }}
+        />
+        {(
+          [
+            { v: 1 as const, label: '1 action' },
+            { v: 2 as const, label: '2 actions' },
+            { v: 3 as const, label: '3 actions' },
+            { v: 'r' as const, label: 'Reaction' },
+            { v: 'f' as const, label: 'Free' },
+          ]
+        ).map(({ v, label }) => (
+          <div
+            key={String(v)}
+            title={label}
+            onClick={() => setCostFilter(costFilter === v ? null : v)}
+            style={{
+              cursor: 'pointer',
+              padding: '4px 6px',
+              border: `1px solid ${costFilter === v ? 'var(--gold-deep)' : 'var(--rule-soft)'}`,
+              background: costFilter === v ? 'rgba(201,161,59,0.08)' : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              minHeight: 28,
+            }}
+          >
+            <ActionGlyph cost={v} />
+          </div>
+        ))}
+        {costFilter !== null && (
+          <span
+            onClick={() => setCostFilter(null)}
+            style={{
+              cursor: 'pointer',
+              color: 'var(--ink-muted)',
+              fontFamily: "'Cinzel', serif",
+              fontSize: 9,
+              letterSpacing: '.2em',
+              textTransform: 'uppercase',
+              padding: '0 6px',
+            }}
+          >
+            Reset
+          </span>
+        )}
+      </div>
+
+      {/* Mode toggle */}
       <div className='mode-toggle'>
         <div className={`mode ${mode === 'encounter' ? 'on' : ''}`} onClick={() => setMode('encounter')}>
           Encounter <small>combat</small>
@@ -1068,15 +1299,6 @@ export function CodexActivitiesPanel(props: {
         </div>
         <div className={`mode ${mode === 'downtime' ? 'on' : ''}`} onClick={() => setMode('downtime')}>
           Downtime <small>rest</small>
-        </div>
-        <div className='search'>
-          <input
-            type='text'
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder='Search activities…'
-          />
-          <span className='kbd'>A</span>
         </div>
       </div>
 

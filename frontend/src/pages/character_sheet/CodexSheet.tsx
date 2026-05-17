@@ -152,8 +152,15 @@ export default function CodexSheet(props: {
 
   const ac = getFinalAcValue('CHARACTER');
   const classDcStr = getFinalProfValue('CHARACTER', 'CLASS_DC', true);
+  const spellDcStr = getFinalProfValue('CHARACTER', 'SPELL_DC', true);
+  const spellAtkStr = getFinalProfValue('CHARACTER', 'SPELL_ATTACK');
   const perceptionStr = getFinalProfValue('CHARACTER', 'PERCEPTION');
   const speed = getVariable<VariableNum>('CHARACTER', 'SPEED')?.value ?? 25;
+  // Show the spell tiles only when the character actually has
+  // spellcasting (otherwise +0 / 10 is just noise).
+  const hasSpellcasting =
+    !!getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value &&
+    compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value) !== 'U';
 
   // Hero points (PF2e CRB caps at 3 — display as 3 diamond pips).
   const heroPoints = Math.max(
@@ -296,77 +303,111 @@ export default function CodexSheet(props: {
 
         {/* ============================ BODY ============================ */}
         <div className='body'>
-          {activeTab === 'main' ? (
-            <>
-              {/* ============ LEFT RAIL ============ */}
-              <div className='col left'>
-                {/* Vitals */}
-                <section className='sec'>
-                  <div className='sec-title compact'>
-                    <span className='lozenge'>♥</span>
-                    <span className='label'>Vitals</span>
-                  </div>
-                  <div className='sec-body'>
-                    <div className='vitals'>
-                      <div
-                        className='vital hp span2'
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => openDrawer({ type: 'stat-hp', data: { id: 'CHARACTER' }, extra: { addToHistory: true } })}
-                      >
-                        <div className='hp-row'>
-                          <div>
-                            <div className='label'>Hit Points</div>
-                            <div className='num'>
-                              <HpInput value={currentHp} onChange={onHpChange} />
-                              {' '}
-                              <small>/ {maxHp}</small>
-                            </div>
-                          </div>
-                          <div
-                            className='temp-hp'
-                            title='Temporary HP'
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className='label'>Temp</div>
-                            <div className='v'>
-                              <input
-                                type='number'
-                                min={0}
-                                value={tempHp}
-                                onChange={(e) => onTempHpChange(parseInt(e.target.value, 10))}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className='hpbar'>
-                          <div className='fill' style={{ right: `${100 - hpPct}%` }}></div>
+          {/* ============ LEFT RAIL (persistent across all tabs) ============ */}
+          <div className='col left'>
+            {/* Vitals — 5 tiles: HP (span-2), Class DC, Spell DC, Armor,
+                Spell Atk. Spell tiles only render when the character
+                actually casts (avoids surfacing meaningless +0 / 10
+                for non-casters). Layout matches the updated codex
+                main mockup. */}
+            <section className='sec'>
+              <div className='sec-title compact'>
+                <span className='lozenge'>♥</span>
+                <span className='label'>Vitals</span>
+              </div>
+              <div className='sec-body'>
+                <div className='vitals'>
+                  <div
+                    className='vital hp span2'
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => openDrawer({ type: 'stat-hp', data: { id: 'CHARACTER' }, extra: { addToHistory: true } })}
+                  >
+                    <div className='hp-row'>
+                      <div>
+                        <div className='label'>Hit Points</div>
+                        <div className='num'>
+                          <HpInput value={currentHp} onChange={onHpChange} />
+                          {' '}
+                          <small>/ {maxHp}</small>
                         </div>
                       </div>
                       <div
-                        className='vital'
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => openDrawer({ type: 'stat-ac', data: { id: 'CHARACTER' }, extra: { addToHistory: true } })}
+                        className='temp-hp'
+                        title='Temporary HP'
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <div className='label'>Armor</div>
-                        <div className='num'>{ac}</div>
-                      </div>
-                      <div
-                        className='vital'
-                        style={{ cursor: 'pointer' }}
-                        onClick={() =>
-                          openDrawer({
-                            type: 'stat-prof',
-                            data: { id: 'CHARACTER', variableName: 'CLASS_DC', isDC: true },
-                            extra: { addToHistory: true },
-                          })
-                        }
-                      >
-                        <div className='label'>Class DC</div>
-                        <div className='num'>{classDcStr}</div>
+                        <div className='label'>Temp</div>
+                        <div className='v'>
+                          <input
+                            type='number'
+                            min={0}
+                            value={tempHp}
+                            onChange={(e) => onTempHpChange(parseInt(e.target.value, 10))}
+                          />
+                        </div>
                       </div>
                     </div>
+                    <div className='hpbar'>
+                      <div className='fill' style={{ right: `${100 - hpPct}%` }}></div>
+                    </div>
                   </div>
-                </section>
+                  <div
+                    className='vital'
+                    style={{ cursor: 'pointer' }}
+                    onClick={() =>
+                      openDrawer({
+                        type: 'stat-prof',
+                        data: { id: 'CHARACTER', variableName: 'CLASS_DC', isDC: true },
+                        extra: { addToHistory: true },
+                      })
+                    }
+                  >
+                    <div className='label'>Class DC</div>
+                    <div className='num'>{classDcStr}</div>
+                  </div>
+                  {hasSpellcasting && (
+                    <div
+                      className='vital'
+                      style={{ cursor: 'pointer' }}
+                      onClick={() =>
+                        openDrawer({
+                          type: 'stat-prof',
+                          data: { id: 'CHARACTER', variableName: 'SPELL_DC', isDC: true },
+                          extra: { addToHistory: true },
+                        })
+                      }
+                    >
+                      <div className='label'>Spell DC</div>
+                      <div className='num'>{spellDcStr}</div>
+                    </div>
+                  )}
+                  <div
+                    className='vital'
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => openDrawer({ type: 'stat-ac', data: { id: 'CHARACTER' }, extra: { addToHistory: true } })}
+                  >
+                    <div className='label'>Armor</div>
+                    <div className='num'>{ac}</div>
+                  </div>
+                  {hasSpellcasting && (
+                    <div
+                      className='vital'
+                      style={{ cursor: 'pointer' }}
+                      onClick={() =>
+                        openDrawer({
+                          type: 'stat-prof',
+                          data: { id: 'CHARACTER', variableName: 'SPELL_ATTACK' },
+                          extra: { addToHistory: true },
+                        })
+                      }
+                    >
+                      <div className='label'>Spell Atk</div>
+                      <div className='num'>{spellAtkStr}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
 
                 {/* Speed & Senses */}
                 <section className='sec'>
@@ -539,7 +580,8 @@ export default function CodexSheet(props: {
                 </section>
               </div>
 
-              {/* ============ MAIN ============ */}
+          {/* ============ MAIN (only on Main tab) ============ */}
+          {activeTab === 'main' && (
               <div className='col main'>
                 {/* Abilities & Skills */}
                 <section className='sec'>
@@ -654,11 +696,12 @@ export default function CodexSheet(props: {
                   </div>
                 </section>
               </div>
-            </>
-          ) : (
-            // Non-main tabs: render the existing sub-panel components
-            // full-width inside .codex-tab-body. They use Mantine but
-            // are rethemed by the codex-bridge.css overrides.
+          )}
+
+          {/* Non-main tabs: render the appropriate codex panel
+              full-width inside .codex-tab-body, sitting next to the
+              persistent sidebar. */}
+          {activeTab !== 'main' && (
             <div className='codex-tab-body'>
               {activeTab === 'spells' && (
                 <CodexSpellsPanel
