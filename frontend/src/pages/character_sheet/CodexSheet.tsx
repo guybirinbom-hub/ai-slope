@@ -51,8 +51,7 @@ import { confirmHealth } from './entity-handler';
 import CompanionsPanel from './panels/CompanionsPanel';
 import DetailsPanel from './panels/DetailsPanel';
 import NotesPanel from './panels/NotesPanel';
-import SkillsActionsPanel from './panels/SkillsActionsPanel';
-import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel } from './CodexPanels';
+import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel, CodexActivitiesPanel } from './CodexPanels';
 import { useNavigate } from 'react-router-dom';
 
 type CodexTab =
@@ -641,25 +640,17 @@ export default function CodexSheet(props: {
                   </div>
                 </section>
 
-                {/* Skills & Actions panel from the existing engine.
-                    Surfaces strikes / actions / activities — wired to
-                    the real character data. The codex bridge themes
-                    its Mantine internals so it visually fits the page. */}
+                {/* Activities — strikes (equipped weapons), universal/
+                    exploration/downtime actions in three modes. Fully
+                    codex-styled .act-grid / .act rows (no Mantine). */}
                 <section className='sec'>
                   <div className='sec-title'>
                     <span className='lozenge'>⚔</span>
-                    <span className='label'>Actions &amp; Activities</span>
-                    <span className='sub'>strikes · actions · modes</span>
+                    <span className='label'>Activities</span>
+                    <span className='sub'>strikes &amp; actions in three modes</span>
                   </div>
-                  <div className='sec-body codex-embed'>
-                    <SkillsActionsPanel
-                      id='CHARACTER'
-                      panelHeight={props.panelHeight}
-                      panelWidth={props.panelWidth}
-                      content={content}
-                      entity={character}
-                      setEntity={setCharacter as unknown as SetterOrUpdater<LivingEntity | null>}
-                    />
+                  <div className='sec-body'>
+                    <CodexActivitiesPanel character={character} content={content} />
                   </div>
                 </section>
               </div>

@@ -24,6 +24,12 @@ import { rankNumber } from '@utils/numbers';
 import { getInvBulk, getBulkLimit, labelizeBulk } from '@items/inv-utils';
 import { priceToString } from '@items/currency-handler';
 import { isCantrip } from '@spells/spell-utils';
+import { isItemWeapon } from '@items/inv-utils';
+import { getWeaponStats } from '@items/weapon-handler';
+import { isAbilityBlockVisible } from '@content/content-hidden';
+import { hasTraitType } from '@utils/traits';
+import { AbilityBlock } from '@schemas/content';
+import { sign } from '@utils/numbers';
 
 // -----------------------------------------------------------------------
 // Shared inline-SVG action-cost sprite — used by both spells + activities.
@@ -463,10 +469,18 @@ function SpellRow(props: {
       </div>
     );
   }
-  const glyph = actionCostToGlyph(
-    (spell as Spell & { cast?: string }).cast ?? null
-  );
-  const traits = spell.traits?.slice(0, 2).map((t) => (typeof t === 'object' ? (t as { name?: string }).name : t)).filter(Boolean).join(' · ') || '';
+  // spell.cast is either an ActionCost enum or a free string. The glyph
+  // helper accepts both.
+  const castStr =
+    typeof spell.cast === 'string' ? spell.cast : (spell.cast as unknown as string | null) ?? null;
+  const glyph = actionCostToGlyph(castStr);
+  // Subtitle: rank + duration if present, e.g. "Rank 3 · 1 minute".
+  // We use real spell fields rather than trait IDs (which would render
+  // as opaque numbers without a trait-lookup roundtrip).
+  const subParts: string[] = [];
+  if (spell.rank > 0) subParts.push(`rank ${spell.rank}`);
+  if (spell.duration) subParts.push(spell.duration);
+  const subtitle = subParts.join(' · ');
   return (
     <div
       className={`sp ${variant ?? ''}`}
@@ -476,10 +490,10 @@ function SpellRow(props: {
       <div className='cost'>{glyph ? <ActionGlyph cost={glyph} /> : '—'}</div>
       <div className='nm'>
         {spell.name}
-        {traits && <small>{traits.toLowerCase()}</small>}
+        {subtitle && <small>{subtitle}</small>}
       </div>
       <div className='stat'>
-        {spell.range || '—'}
+        {spell.range || (spell.area ? spell.area : '—')}
         {spell.defense ? <small>{spell.defense}</small> : null}
       </div>
     </div>
@@ -942,6 +956,211 @@ export function CodexFeatsPanel(props: {
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+// =======================================================================
+// CodexActivitiesPanel
+// =======================================================================
+// Replaces the embedded SkillsActionsPanel inside the Main tab of the
+// codex sheet. Renders strikes (equipped weapons), universal actions,
+// and class actions as codex .act-grid rows. Click a strike → cast/strike
+// drawer; click an action → action drawer.
+
+export function CodexActivitiesPanel(props: {
+  character: Character | null;
+  content: ContentPackage;
+}) {
+  const { character, content } = props;
+  const [_drawer, openDrawer] = useAtom(drawerState);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [mode, setMode] = useState<'encounter' | 'exploration' | 'downtime'>('encounter');
+
+  // Equipped weapons → strikes. Each gets attack bonus + damage from
+  // the weapon-handler engine.
+  const strikes = useMemo(() => {
+    const equipped =
+      character?.inventory?.items?.filter(
+        (i) => i.is_equipped && isItemWeapon(i.item)
+      ) ?? [];
+    return equipped.map((i) => {
+      const stats = getWeaponStats('CHARACTER', i.item);
+      const attack = stats.attack_bonus?.total?.[0] ?? 0;
+      const dmg = stats.damage;
+      const dmgString = `${dmg?.dice ?? 1}${dmg?.die ?? 'd6'}${
+        dmg?.bonus?.total ? `+${dmg.bonus.total}` : ''
+      } ${dmg?.damageType ?? ''}`.trim();
+      return {
+        invItem: i,
+        attack,
+        damage: dmgString,
+        name: i.item.name,
+      };
+    });
+  }, [character?.inventory?.items]);
+
+  // All actions from the content package, visible to the character.
+  // Bucketed by mode (encounter / exploration / downtime).
+  const allActions = useMemo(() => {
+    return (content.abilityBlocks ?? [])
+      .filter((ab) => ab.type === 'action')
+      .filter((ab) => isAbilityBlockVisible('CHARACTER', ab))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [content.abilityBlocks]);
+
+  const matchesSearch = (a: { name: string }) =>
+    !searchQuery.trim() ||
+    a.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
+
+  // Encounter actions: not exploration, not downtime, no skill metadata,
+  // no requirements — the "every character can do this" list (Stride,
+  // Step, Demoralize, Trip, etc.).
+  const encounterActions = useMemo(
+    () =>
+      allActions.filter(
+        (a) =>
+          !a.meta_data?.skill &&
+          (!a.requirements || a.requirements.trim().length === 0) &&
+          !hasTraitType('EXPLORATION', a.traits ?? undefined) &&
+          !hasTraitType('DOWNTIME', a.traits ?? undefined)
+      ),
+    [allActions]
+  );
+  const explorationActions = useMemo(
+    () => allActions.filter((a) => hasTraitType('EXPLORATION', a.traits ?? undefined)),
+    [allActions]
+  );
+  const downtimeActions = useMemo(
+    () => allActions.filter((a) => hasTraitType('DOWNTIME', a.traits ?? undefined)),
+    [allActions]
+  );
+
+  const activeActions =
+    mode === 'encounter'
+      ? encounterActions
+      : mode === 'exploration'
+        ? explorationActions
+        : downtimeActions;
+  const filteredActions = activeActions.filter(matchesSearch);
+  const filteredStrikes = strikes.filter(matchesSearch);
+
+  const openStrike = (invItem: InventoryItem) => {
+    openDrawer({
+      type: 'stat-weapon',
+      data: { id: 'CHARACTER', invItem },
+      extra: { addToHistory: true },
+    });
+  };
+  const openAction = (action: AbilityBlock) => {
+    openDrawer({ type: 'action', data: { id: action.id }, extra: { addToHistory: true } });
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Mode toggle + search */}
+      <div className='mode-toggle'>
+        <div className={`mode ${mode === 'encounter' ? 'on' : ''}`} onClick={() => setMode('encounter')}>
+          Encounter <small>combat</small>
+        </div>
+        <div className={`mode ${mode === 'exploration' ? 'on' : ''}`} onClick={() => setMode('exploration')}>
+          Exploration <small>travel</small>
+        </div>
+        <div className={`mode ${mode === 'downtime' ? 'on' : ''}`} onClick={() => setMode('downtime')}>
+          Downtime <small>rest</small>
+        </div>
+        <div className='search'>
+          <input
+            type='text'
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder='Search activities…'
+          />
+          <span className='kbd'>A</span>
+        </div>
+      </div>
+
+      {/* Strikes — only show in encounter mode (the only mode where they matter) */}
+      {mode === 'encounter' && filteredStrikes.length > 0 && (
+        <>
+          <div className='act-group-label'>
+            ⚔ Strikes <b>·</b> One action each
+          </div>
+          <div className='act-grid'>
+            {filteredStrikes.map(({ invItem, attack, damage }) => (
+              <div
+                key={invItem.id}
+                className='act strike'
+                onClick={() => openStrike(invItem)}
+              >
+                <div className='cost'>
+                  <ActionGlyph cost={1} />
+                </div>
+                <div className='nm'>{invItem.item.name}</div>
+                <div className='stat'>
+                  {sign(attack)}
+                  <small>
+                    <span className='dmg'>{damage}</span>
+                  </small>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Activities for the active mode */}
+      {filteredActions.length > 0 && (
+        <>
+          <div className='act-group-label'>
+            {mode === 'encounter'
+              ? 'Universal'
+              : mode === 'exploration'
+                ? 'Exploration'
+                : 'Downtime'}{' '}
+            <b>·</b> {filteredActions.length} action{filteredActions.length === 1 ? '' : 's'}
+          </div>
+          <div className='act-grid'>
+            {filteredActions.slice(0, 60).map((action) => {
+              const glyph = actionCostToGlyph(action.actions ?? null);
+              return (
+                <div key={action.id} className='act' onClick={() => openAction(action)}>
+                  <div className='cost'>{glyph ? <ActionGlyph cost={glyph} /> : <ActionGlyph cost={1} />}</div>
+                  <div className='nm'>{action.name}</div>
+                  <div className='stat dim'>—</div>
+                </div>
+              );
+            })}
+          </div>
+          {filteredActions.length > 60 && (
+            <div
+              style={{
+                color: 'var(--ink-muted)',
+                fontStyle: 'italic',
+                fontSize: 12,
+                textAlign: 'center',
+                padding: '6px 0',
+              }}
+            >
+              … {filteredActions.length - 60} more (refine search)
+            </div>
+          )}
+        </>
+      )}
+
+      {filteredActions.length === 0 && filteredStrikes.length === 0 && (
+        <div
+          style={{
+            color: 'var(--ink-muted)',
+            fontStyle: 'italic',
+            fontSize: 13,
+            padding: '10px 0',
+            textAlign: 'center',
+          }}
+        >
+          {searchQuery.trim() ? `No matches for "${searchQuery.trim()}"` : 'No actions in this mode.'}
+        </div>
+      )}
     </div>
   );
 }
