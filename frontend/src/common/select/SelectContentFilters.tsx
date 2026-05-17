@@ -722,17 +722,50 @@ function DataDrivenSlider(props: {
 
   const lo = domain[0];
   const hi = domain[domain.length - 1];
-  // Use the underlying values directly as the slider scale — marks at
-  // exactly the data points so `restrictToMarks` snaps the thumbs to
-  // them. We render labels on a sparse subset to keep the axis legible
-  // when the domain is dense (e.g. 30+ distinct spell ranges).
-  const labelStride = Math.max(1, Math.floor(domain.length / 8));
+
+  // We position the slider thumbs by the DOMAIN INDEX (0..N-1), not by
+  // the underlying numeric value. With value-positioning, a domain like
+  // [5, 15, 25, 40, 60, 100, 250, 500, 1_000_000] crams the first eight
+  // marks into the leftmost 0.05% of the bar (because the max is 1M) and
+  // their labels stack on top of each other. Index positioning gives
+  // every data point its own equally-spaced slot — readable regardless
+  // of how non-linear the underlying values are.
+  //
+  // We still expose the real values to the caller via onChange / value
+  // by converting through `domain` at the slider boundary.
+  const idxMin = 0;
+  const idxMax = domain.length - 1;
+  const valueToIdx = (v: number) => {
+    const exact = domain.indexOf(v);
+    if (exact >= 0) return exact;
+    // Snap to nearest index — handles the case where the saved value was
+    // produced under the old (value-positioned) scale or by a different
+    // domain (e.g. switching tabs).
+    let nearest = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < domain.length; i++) {
+      const d = Math.abs(domain[i] - v);
+      if (d < bestDist) {
+        bestDist = d;
+        nearest = i;
+      }
+    }
+    return nearest;
+  };
+  const idxToValue = (i: number) =>
+    domain[Math.max(idxMin, Math.min(idxMax, Math.round(i)))];
+
+  // ~10 evenly-spaced labels; always include the last one so the right
+  // edge is annotated. (With even spacing we have more room than the
+  // old value-positioned layout, so we can afford a couple more.)
+  const labelStride = Math.max(1, Math.floor(domain.length / 10));
   const marks = domain.map((v, idx) => ({
-    value: v,
+    value: idx,
     label: idx % labelStride === 0 || idx === domain.length - 1 ? formatLabel(v) : '',
   }));
 
   const current: [number, number] = value ?? [lo, hi];
+  const currentIdx: [number, number] = [valueToIdx(current[0]), valueToIdx(current[1])];
   const isActive = value !== null && (value[0] !== lo || value[1] !== hi);
 
   return (
@@ -754,15 +787,15 @@ function DataDrivenSlider(props: {
       </Group>
       <Box px={6} pb={20}>
         <RangeSlider
-          min={lo}
-          max={hi}
+          min={idxMin}
+          max={idxMax}
           minRange={0}
           step={1}
           restrictToMarks
           marks={marks}
-          value={current}
-          onChange={(v) => onChange([v[0], v[1]])}
-          label={(v) => formatLabel(v)}
+          value={currentIdx}
+          onChange={(v) => onChange([idxToValue(v[0]), idxToValue(v[1])])}
+          label={(i) => formatLabel(idxToValue(i))}
           size='sm'
         />
       </Box>

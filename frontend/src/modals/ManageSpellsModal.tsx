@@ -373,8 +373,26 @@ const ListSection = (props: {
     props.setEntity((c) => {
       if (!c) return c;
 
+      const existing = c.spells?.list ?? [];
+      // Idempotent add: if a repertoire entry already exists for the
+      // same (spell, rank, source) tuple, do nothing. Two cases this
+      // protects against:
+      //   - The picker fires onClick twice (rapid double-click, React
+      //     StrictMode dev-mount, etc.) — we'd otherwise insert two
+      //     identical entries that render as two rows in the spells
+      //     panel.
+      //   - The player forgets the spell is already in their repertoire
+      //     and re-picks it from the search modal.
+      // We still allow the same spell at *different* ranks, since PF2e
+      // spontaneous repertoires support that explicitly (heightening
+      // without the signature feature).
+      const alreadyPresent = existing.some(
+        (e) => e.spell_id === option.id && e.rank === rank && e.source === props.source
+      );
+      if (alreadyPresent) return c;
+
       const list = [
-        ...(c.spells?.list ?? []),
+        ...existing,
         {
           spell_id: option.id,
           rank: rank, //option.rank,

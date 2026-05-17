@@ -55,6 +55,10 @@ import { ExtendedProficiencyType, ProficiencyType, VariableListStr, VariableProf
 import { isPhoneSized } from '@utils/mobile-responsive';
 import { pluralize, toLabel } from '@utils/strings';
 import { hasTraitType } from '@utils/traits';
+import {
+  getResizableModalContextProps,
+  useModalSizePersistence,
+} from '@utils/use-resizable-modal';
 import { getStatBlockDisplay, getStatDisplay } from '@variables/initial-stats-display';
 import { meetsPrerequisites } from '@variables/prereq-detection';
 import { getFinalProfValue } from '@variables/variable-helpers';
@@ -304,14 +308,28 @@ export function selectContent<T = Record<string, any>>(
   let label = `Select ${toLabel(options?.abilityBlockType || type)}`;
   if (options?.overrideLabel) label = options.overrideLabel;
 
+  // Resizable + size-persistent. We pull the saved size synchronously
+  // here so the modal opens at the user's last chosen dimensions —
+  // no flicker, no jump-to-saved-size after mount. The matching
+  // `useModalSizePersistence('select-content')` call inside
+  // SelectContentModal writes the new size back when the user drags.
+  // Default 1300×800 doubles the old 'xl' footprint, fitting the
+  // multi-column filter panel + option list comfortably on a 1080p
+  // monitor.
+  const resizable = getResizableModalContextProps('select-content', {
+    width: 1300,
+    height: 800,
+  });
+
   openContextModal({
     modal: 'selectContent',
     title: <Title order={3}>{label}</Title>,
     zIndex: options?.zIndex ?? 499,
-    // Bigger modal so the option list + filters panel both fit comfortably.
-    // 'xl' is ~70% of viewport width, leaves room for the multi-column
-    // filters without crowding the option rows.
-    size: 'xl',
+    // Mantine's size= would override our explicit width via CSS vars,
+    // so we pass undefined and let the styles.content width win.
+    size: undefined,
+    classNames: resizable.classNames,
+    styles: resizable.styles,
     innerProps: {
       type,
       onClick: onClick ? (option: any) => onClick(option as T) : undefined,
@@ -341,6 +359,12 @@ export default function SelectContentModal({
   };
 }>) {
   const theme = useMantineTheme();
+
+  // Pairs with `getResizableModalContextProps('select-content', ...)`
+  // in the openContextModal call: the static props seed the initial
+  // size + apply the `resize: both` style; this hook attaches a
+  // ResizeObserver that persists drag-resizes back to localStorage.
+  useModalSizePersistence('select-content');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQueryDebounced] = useDebouncedValue(searchQuery, 200);
@@ -994,7 +1018,16 @@ export default function SelectContentModal({
   return (
     <Stack>
       {innerProps.options?.description}
-      <Box style={{ position: 'relative', height: isClassFeat || isHeritage || isAncestryFeat ? 530 : 470 }}>
+      {/* Inner content area height. Bumped from 530/470 → 700/620 to
+          take advantage of the larger default modal (1300×800).
+          Note: these are fixed pixel heights, so making the modal
+          even bigger via the resize handle won't grow this further —
+          there'll be empty space below. A future pass could flex
+          this chain end-to-end (Stack → Box → SelectionOptions's
+          ScrollArea) so resize translates into more visible rows,
+          but that's a bigger refactor across multiple callsites of
+          SelectionOptions. */}
+      <Box style={{ position: 'relative', height: isClassFeat || isHeritage || isAncestryFeat ? 700 : 620 }}>
         {isClassFeat && (
           <Tabs value={classFeatTab} onChange={setClassFeatTab}>
             <Tabs.List grow mb={10}>
@@ -1460,7 +1493,7 @@ export function SelectionOptionsInner(props: {
 
   return (
     <>
-      <ScrollArea viewportRef={viewport} h={props.h ?? 372} scrollbars='y' style={{ position: 'relative' }}>
+      <ScrollArea viewportRef={viewport} h={props.h ?? 540} scrollbars='y' style={{ position: 'relative' }}>
         {props.isLoading ? (
           <Loader
             type='bars'

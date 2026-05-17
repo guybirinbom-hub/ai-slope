@@ -111,6 +111,14 @@ export const SpellListEntrySchema = z.object({
   spell_id: z.number(),
   rank: z.number(),
   source: z.string(),
+  // Signature spell flag (per PF2e CRB p.298 — spontaneous casters only).
+  // A signature spell can be cast from a higher-rank slot without taking
+  // up another repertoire entry at that rank. Engine-side it's just a
+  // marker on the repertoire row; the spells panel reads it to render
+  // the indicator and enforces "one signature per spell rank per source"
+  // at toggle time. Optional + undefined-means-false so we don't have to
+  // backfill existing characters.
+  signature: z.boolean().optional(),
 });
 export type SpellListEntry = z.infer<typeof SpellListEntrySchema>;
 

@@ -9,6 +9,7 @@ import { IMPRINT_BG_COLOR, IMPRINT_BG_COLOR_HOVER, IMPRINT_BORDER_COLOR } from '
 import { fetchContent, fetchContentPackage, fetchContentSources, getDefaultSources } from '@content/content-store';
 import { getIconFromContentType } from '@content/content-utils';
 import classes from '@css/FaqSimple.module.css';
+import { DRAWER_TITLEBAR_FIX } from '@drawers/DrawerBase';
 import { AncestryInitialOverview, convertAncestryOperationsIntoUI } from '@drawers/types/AncestryDrawer';
 import { BackgroundInitialOverview, convertBackgroundOperationsIntoUI } from '@drawers/types/BackgroundDrawer';
 import { ClassInitialOverview, convertClassOperationsIntoUI } from '@drawers/types/ClassDrawer';
@@ -172,6 +173,7 @@ export function CharBuilderCreationInner(props: {
           }}
           title={<Title order={3}>Character Stats</Title>}
           size='xs'
+          styles={{ ...DRAWER_TITLEBAR_FIX }}
           transitionProps={{ duration: 200 }}
         >
           <CharacterStatSidebar content={props.content} pageHeight={window.innerHeight - 80} />

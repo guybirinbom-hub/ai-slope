@@ -79,6 +79,63 @@ export default function SpontaneousSpellsList(props: {
   const { slots, castSpell, spells, setEntity } = props;
   const [_drawer, openDrawer] = useAtom(drawerState);
 
+  // Signature spells (PF2e CRB p.298) are a spontaneous-caster mechanic.
+  // We expose the right-click toggle for every SPONTANEOUS-REPERTOIRE
+  // source — that's the data shape that carries a repertoire (a curated
+  // list of known spells). Prepared/innate/focus/etc. lists are handled
+  // by their own panel components and never call this code path.
+  const canMarkSignature = props.source?.type === 'SPONTANEOUS-REPERTOIRE';
+
+  // Helper: look up whether a given spell is currently the signature
+  // spell for its source. We match by spell_id + source — not by rank,
+  // since the player toggles the spell itself; rank is implied by where
+  // it sits in the repertoire.
+  const isSignatureSpell = (spellId: number): boolean => {
+    const list = props.entity?.spells?.list ?? [];
+    return !!list.find(
+      (e) => e.spell_id === spellId && e.source === props.source?.name && e.signature === true
+    );
+  };
+
+  // Toggle the signature flag on the repertoire entry for `spell`. If
+  // we're switching ON, also clear any other signature entry that lives
+  // at the same rank under the same source — the rule is one signature
+  // per spell rank per source, and silently swapping is friendlier than
+  // erroring out.
+  const toggleSignature = (spell: Spell) => {
+    setEntity((c) => {
+      if (!c) return c;
+      const sourceName = props.source!.name;
+      const list = c.spells?.list ?? [];
+      const entryIdx = list.findIndex((e) => e.spell_id === spell.id && e.source === sourceName);
+      if (entryIdx === -1) return c;
+
+      const isCurrentlySignature = !!list[entryIdx].signature;
+      const rank = list[entryIdx].rank;
+      const turningOn = !isCurrentlySignature;
+
+      const newList = list.map((e, i) => {
+        if (i === entryIdx) {
+          return { ...e, signature: turningOn };
+        }
+        // 1-per-rank enforcement: clear any other signature at the same
+        // (source, rank) when we're enabling this one.
+        if (turningOn && e.source === sourceName && e.rank === rank && e.signature) {
+          return { ...e, signature: false };
+        }
+        return e;
+      });
+
+      return {
+        ...c,
+        spells: {
+          ...(c.spells ?? { slots: [], list: [], focus_point_current: 0, innate_casts: [] }),
+          list: newList,
+        },
+      };
+    });
+  };
+
   const highestRank = Object.keys(slots || {}).reduce((acc, rank) => (parseInt(rank) > acc ? parseInt(rank) : acc), 0);
   // If there are no spells to display, and there are filters, return null
   if (props.hasFilters && spells && !Object.keys(spells).find((rank) => spells[rank].length > 0)) {
@@ -261,6 +318,14 @@ export default function SpontaneousSpellsList(props: {
                             );
                           }}
                           hasFilters={props.hasFilters}
+                          // Signature-spell wiring: only enabled for
+                          // SPONTANEOUS-REPERTOIRE sources (see above).
+                          // The component itself skips cantrips/rituals
+                          // even when the flag is on, so we don't need
+                          // to check that here.
+                          canMarkSignature={canMarkSignature}
+                          isSignature={canMarkSignature && isSignatureSpell(spell.id)}
+                          onToggleSignature={() => toggleSignature(spell)}
                         />
                       ))}
                       {(!spells[rank] || spells[rank].length === 0) && (

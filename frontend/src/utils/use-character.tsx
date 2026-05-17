@@ -5,7 +5,7 @@ import { defineDefaultSources } from '@content/content-store';
 import { saveCustomization } from '@content/customization-cache';
 import { applyEquipmentPenalties } from '@items/inv-utils';
 import { useDebouncedCallback, useDebouncedValue, useDidUpdate, usePrevious } from '@mantine/hooks';
-import { showNotification } from '@mantine/notifications';
+import { hideNotification, showNotification } from '@mantine/notifications';
 import { executeOperations } from '@operations/operations.main';
 import { confirmHealth } from '@pages/character_sheet/entity-handler';
 import { makeRequest } from '@requests/request-manager';
@@ -286,6 +286,13 @@ export default function useCharacter(
       campaign_id: debouncedCharacter.campaign_id,
     });
   }, [debouncedCharacter]);
+  // We dedup the autosave error toast with a stable id. Without this, every
+  // debounced save during an outage (e.g. typing in the notes tab) pops a
+  // fresh red toast on every keystroke window. The mutation already retries
+  // on the next change, so a single transient failure shouldn't be alarming.
+  // On the next successful save we hide the toast so the user knows it
+  // self-recovered — matching what they actually see ("it still works").
+  const AUTOSAVE_ERROR_ID = 'autosave-character-error';
   const { mutate: mutateCharacter } = useMutation({
     mutationFn: async (data: Record<string, any>) => {
       const resData = await makeRequest('update-character', {
@@ -295,17 +302,23 @@ export default function useCharacter(
       return isArray(resData) && resData.length > 0 ? (resData[0] as Character) : null;
     },
     onSuccess: (c) => {
+      hideNotification(AUTOSAVE_ERROR_ID);
       if (c) {
         console.log('> Fetched updated character: #', getUpdateHash(character), 'vs.', getUpdateHash(c));
       }
     },
     onError: () => {
+      // Mantine dedups by id: while one toast is showing, repeats are no-ops.
+      // autoClose:false keeps it visible until the next successful save
+      // hides it explicitly (above) — so it accurately reflects "saves are
+      // currently failing" rather than flashing for one keystroke.
       showNotification({
+        id: AUTOSAVE_ERROR_ID,
         icon: <IconAlertCircle />,
         title: 'Failed to save character',
         message: 'Your changes could not be saved. Please check your connection and try again.',
         color: 'red',
-        autoClose: 5000,
+        autoClose: false,
       });
     },
   });

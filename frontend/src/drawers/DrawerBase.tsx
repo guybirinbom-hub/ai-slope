@@ -46,18 +46,31 @@ const NO_FEEDBACK_DRAWERS = [
   'inv-item',
 ];
 
-export const DRAWER_STYLES = {
-  // Push the whole drawer down by the title-bar overlay height
-  // (32 px, same as electron/main.cjs `titleBarOverlay.height`).
-  // Mantine v9 renders the drawer panel inside `inner`; shifting
-  // `top` on that slot via the `styles` prop is class-name-
-  // independent (CSS selectors against `.mantine-Drawer-inner`
-  // were unreliable across Mantine versions). Doesn't touch
-  // pointer-events / overlay — so click handling stays exactly as
-  // Mantine ships it.
+// Win11-titlebar accommodations that every Mantine `<Drawer>` in this
+// app needs, regardless of whether it goes through DrawerBase:
+//   - `inner.top: 32` — push the panel down so the OS titlebar overlay
+//     (32 px tall, defined in electron/main.cjs as `titleBarOverlay.height`)
+//     doesn't sit on top of the drawer's header.
+//   - `header.paddingRight: 160` — reserve room on the right so the
+//     drawer's own X button doesn't end up under the native Win11
+//     min/max/close trio in the window corner.
+// Without these, the drawer X is either invisible or sits directly
+// under the OS X — so clicking it closes the whole app instead.
+//
+// Exported so peer drawers (ModesDrawer, CampaignDrawer, DiceRoller, the
+// builder's mobile stat drawer) can spread it into their own `styles` prop
+// without re-deriving the magic numbers.
+export const DRAWER_TITLEBAR_FIX = {
   inner: {
     top: 32,
   },
+  header: {
+    paddingRight: 160,
+  },
+} as const;
+
+export const DRAWER_STYLES = {
+  ...DRAWER_TITLEBAR_FIX,
   content: {
     display: 'flex',
     flexDirection: 'column',
@@ -69,11 +82,8 @@ export const DRAWER_STYLES = {
     width: '100%',
   },
   header: {
+    ...DRAWER_TITLEBAR_FIX.header,
     paddingBottom: 0,
-    // Reserve ~160 px on the right of the header so the drawer's
-    // own close (X) button doesn't hide under the native Win11
-    // min/max/close trio in the top-right corner of the window.
-    paddingRight: 160,
   },
   body: {
     flex: '1 1 auto',

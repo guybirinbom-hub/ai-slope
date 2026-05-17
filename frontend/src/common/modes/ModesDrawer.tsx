@@ -13,6 +13,7 @@ import { getVariable, setVariable } from '@variables/variable-manager';
 import { VariableListStr } from '@schemas/variables';
 import { labelToVariable } from '@variables/variable-utils';
 import { useSwipeGesture } from '@utils/use-swipe-gesture';
+import { DRAWER_TITLEBAR_FIX } from '@drawers/DrawerBase';
 
 export default function ModesDrawer(props: { opened: boolean; onClose: () => void; content: ContentPackage }) {
   const theme = useMantineTheme();
@@ -53,6 +54,7 @@ export default function ModesDrawer(props: { opened: boolean; onClose: () => voi
         closeOnClickOutside={!isWideDesktop}
         withOverlay={!isWideDesktop}
         styles={{
+          ...DRAWER_TITLEBAR_FIX,
           title: {
             width: '100%',
           },

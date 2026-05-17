@@ -630,8 +630,27 @@ function SpellList(props: {
     }
   };
 
-  // Display spells in an ordered list by rank
+  // Display spells in an ordered list by rank.
+  //
+  // Two separate concerns layered here:
+  //
+  //   1. The repertoire is stored as a flat `list` of {spell_id, rank,
+  //      source} entries on the character. Older code iterated all
+  //      entries and pushed one row per entry — so a character with
+  //      duplicate entries (a real possibility before the addSpell
+  //      idempotency fix in ManageSpellsModal) would render the same
+  //      spell twice in the same rank group. We now dedup by the full
+  //      (source, spell_id, rank) tuple so existing duplicate data
+  //      shows correctly without needing a data migration.
+  //
+  //   2. The old loop matched entries via `spellIds.includes(spell.id)`
+  //      with no source check. If a character had the same spell in two
+  //      sources (e.g. arcane bard + occult sorcerer), the bard's panel
+  //      would pick up the sorcerer's entry too. We now require the
+  //      entry's source to match `props.source!.name` (when present)
+  //      before pushing it.
   const spells = useMemo(() => {
+    const sourceName = props.source?.name;
     const filteredSpells = props.spellIds
       .map((id) => {
         const foundSpell = props.allSpells.find((spell) => spell.id === id);
@@ -643,21 +662,26 @@ function SpellList(props: {
       })
       .filter(isTruthy);
 
-    // Add spells from entries (for overridded ranks)
+    // Add spells from entries (for overridden ranks). Dedup as we go —
+    // see the comment above the useMemo for the why.
     if (props.type === 'PREPARED' || props.type === 'SPONTANEOUS') {
+      const seenKeys = new Set<string>();
       for (const entry of props.extra.charData.list) {
+        if (sourceName && entry.source !== sourceName) continue;
         const foundSpell = props.allSpells.find((spell) => spell.id === entry.spell_id);
-        if (foundSpell && props.spellIds.includes(foundSpell.id)) {
-          filteredSpells.push({
-            ...foundSpell,
-            rank: entry.rank,
-          });
-        }
+        if (!foundSpell || !props.spellIds.includes(foundSpell.id)) continue;
+        const key = `${entry.source}|${entry.spell_id}|${entry.rank}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        filteredSpells.push({
+          ...foundSpell,
+          rank: entry.rank,
+        });
       }
     }
 
     return groupBy(filteredSpells, 'rank');
-  }, [props.spellIds, props.allSpells]);
+  }, [props.spellIds, props.allSpells, props.extra.charData.list, props.source?.name, props.type]);
 
   const slots = useMemo(() => {
     if (!props.extra?.slots || props.extra.slots.length === 0) return null;

@@ -19,6 +19,22 @@ import { visualizer } from 'rollup-plugin-visualizer';
 //     and the dev cache can re-use them across builds.
 export default defineConfig({
   base: './',
+  // Dev-server-only proxy. The React app fires RELATIVE fetches like
+  // `/wg/ready`, `/rest/v1/*`, `/auth/v1/*`, `/functions/v1/*`,
+  // `/storage/v1/*` expecting same-origin handling (in the packaged
+  // Electron app that's the in-process gateway on :9000). For
+  // `npm run dev` (port 5173) we proxy those prefixes to the running
+  // Electron gateway so the dev frontend works against the same
+  // backend. Has no effect on the production build.
+  server: {
+    proxy: {
+      '/wg':           { target: 'http://localhost:9000', changeOrigin: true },
+      '/rest/v1':      { target: 'http://localhost:9000', changeOrigin: true },
+      '/auth/v1':      { target: 'http://localhost:9000', changeOrigin: true },
+      '/functions/v1': { target: 'http://localhost:9000', changeOrigin: true },
+      '/storage/v1':   { target: 'http://localhost:9000', changeOrigin: true },
+    },
+  },
   resolve: {
     // Force a single copy of React / react-dom / scheduler across the
     // whole bundle. Without this, Rollup can resolve a peer-depended lib

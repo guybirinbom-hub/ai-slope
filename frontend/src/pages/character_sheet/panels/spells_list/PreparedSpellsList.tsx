@@ -14,9 +14,11 @@ import { StoreID } from '@schemas/variables';
 import { useMediaQuery } from '@mantine/hooks';
 import { phoneQuery } from '@utils/mobile-responsive';
 import ImprintButton from '@common/ImprintButton';
-import { IconSquareRounded, IconSquareRoundedFilled } from '@tabler/icons-react';
-import { isCantrip } from '@spells/spell-utils';
+import { IconReplace, IconSquareRounded, IconSquareRoundedFilled } from '@tabler/icons-react';
+import { isCantrip, isNormalSpell } from '@spells/spell-utils';
 import { collectEntitySpellcasting } from '@content/collect-content';
+import { getDefaultSources } from '@content/content-store';
+import { selectContent } from '@common/select/SelectContent';
 
 export default function PreparedSpellsList(props: {
   id: StoreID;
@@ -69,30 +71,37 @@ export default function PreparedSpellsList(props: {
   const { slots, castSpell } = props;
   const [_drawer, openDrawer] = useAtom(drawerState);
 
+  // Find the absolute index in entity.spells.slots that corresponds to
+  // the N-th slot displayed under this source+rank header. We can't match
+  // by spell_id because the same spell can be prepared into multiple
+  // slots — we need the exact slot the player clicked. The display order
+  // in `slots[rank]` mirrors the order in `entity.spells.slots`
+  // (groupBy is order-preserving), so the display index uniquely
+  // identifies the slot within its (source, rank) group.
+  const findAbsoluteSlotIdx = (
+    allSlots: SpellSlot[],
+    rank: string,
+    displayIdx: number
+  ) => {
+    const sourceName = props.source?.name;
+    const rankNum = parseInt(rank);
+    let matchCount = 0;
+    for (let i = 0; i < allSlots.length; i++) {
+      const s = allSlots[i];
+      if (s.source === sourceName && s.rank === rankNum) {
+        if (matchCount === displayIdx) return i;
+        matchCount++;
+      }
+    }
+    return -1;
+  };
+
   // Flip the `exhausted` flag on the N-th slot of the given source+rank.
-  // We can't match by spell_id because the same spell can be prepared
-  // into multiple slots — we need to target the exact slot the player
-  // clicked. The display order in `slots[rank]` mirrors the order in
-  // `entity.spells.slots` (groupBy is order-preserving), so the display
-  // index uniquely identifies the slot within its (source, rank) group.
   const toggleSlotExhausted = (rank: string, displayIdx: number) => {
     props.setEntity((c) => {
       if (!c) return c;
       const allSlots = collectEntitySpellcasting(props.id, c).slots;
-      const sourceName = props.source?.name;
-      const rankNum = parseInt(rank);
-      let matchCount = 0;
-      let targetIdx = -1;
-      for (let i = 0; i < allSlots.length; i++) {
-        const s = allSlots[i];
-        if (s.source === sourceName && s.rank === rankNum) {
-          if (matchCount === displayIdx) {
-            targetIdx = i;
-            break;
-          }
-          matchCount++;
-        }
-      }
+      const targetIdx = findAbsoluteSlotIdx(allSlots, rank, displayIdx);
       if (targetIdx === -1) return c;
       const newSlots = [...allSlots];
       newSlots[targetIdx] = { ...newSlots[targetIdx], exhausted: !newSlots[targetIdx].exhausted };
@@ -104,6 +113,83 @@ export default function PreparedSpellsList(props: {
         },
       };
     });
+  };
+
+  // Write a specific spell into the N-th slot of the given source+rank.
+  // Used by the replace flow: picker → assignSlotSpell. Also resets
+  // `exhausted` so the new spell starts available regardless of what
+  // the previous one's state was.
+  const assignSlotSpell = (rank: string, displayIdx: number, spellId: number) => {
+    props.setEntity((c) => {
+      if (!c) return c;
+      const allSlots = collectEntitySpellcasting(props.id, c).slots;
+      const targetIdx = findAbsoluteSlotIdx(allSlots, rank, displayIdx);
+      if (targetIdx === -1) return c;
+      const newSlots = [...allSlots];
+      newSlots[targetIdx] = { ...newSlots[targetIdx], spell_id: spellId, exhausted: false };
+      return {
+        ...c,
+        spells: {
+          ...(c.spells ?? { slots: [], list: [], focus_point_current: 0, innate_casts: [] }),
+          slots: newSlots,
+        },
+      };
+    });
+  };
+
+  // Open a spell picker pre-filtered to spells that could legally be
+  // prepared in this slot, then write the chosen spell into the slot.
+  //
+  // For PREPARED-LIST casters (wizard, magus): the player only knows
+  // the spells in their spellbook (the entries in `charData.list` for
+  // this source). We render those as the picker's options, filtered to
+  // rank ≤ slot rank so heightened casting is supported.
+  //
+  // For PREPARED-TRADITION casters (cleric, druid): the player can
+  // prepare any spell of the tradition. We hand off to the standard
+  // `selectContent` with tradition + rank constraints — same machinery
+  // the "Manage" modal uses for its Add-Spell button.
+  //
+  // We deliberately don't filter for `slot.spell` — passing the slot's
+  // current spell is fine, the user can re-pick the same one as a no-op
+  // (the picker treats it as a fresh selection).
+  const handleReplace = (rank: string, displayIdx: number) => {
+    const rankNum = parseInt(rank);
+    const tradition = props.source!.tradition.toLowerCase();
+    const isListBased = props.source!.type === 'PREPARED-LIST';
+
+    if (isListBased) {
+      const spellbookSpells = props.extra.charData.list
+        .filter((e) => e.source === props.source!.name && e.rank <= rankNum)
+        .map((e) => props.allSpells.find((s) => s.id === e.spell_id))
+        .filter((s): s is Spell => !!s);
+
+      selectContent<Spell>(
+        'spell',
+        (option) => assignSlotSpell(rank, displayIdx, option.id),
+        {
+          overrideOptions: spellbookSpells,
+          overrideLabel: 'Replace Spell',
+        }
+      );
+    } else {
+      selectContent<Spell>(
+        'spell',
+        (option) => assignSlotSpell(rank, displayIdx, option.id),
+        {
+          overrideLabel: 'Replace Spell',
+          filterFn: (spellRec) => isNormalSpell(spellRec as Spell),
+          advancedPresetFilters: {
+            type: 'spell',
+            spell_type: 'NORMAL',
+            traditions: [tradition],
+            rank_min: 0,
+            rank_max: rankNum,
+            content_sources: getDefaultSources('PAGE'),
+          },
+        }
+      );
+    }
   };
 
   const highestRank = Object.keys(slots || {}).reduce((acc, rank) => (parseInt(rank) > acc ? parseInt(rank) : acc), 0);
@@ -295,6 +381,34 @@ export default function PreparedSpellsList(props: {
                                 ) : (
                                   <IconSquareRounded size='1rem' />
                                 )}
+                              </ActionIcon>
+                            </Tooltip>
+                            {/* Replace: opens a spell picker filtered to
+                                spells that could legally be prepared in this
+                                slot, and writes the chosen spell straight in
+                                — no unprepare-then-pick round-trip. Shown on
+                                every non-cantrip prepared slot (the parent
+                                `PreparedSpellsList` is itself only mounted
+                                for `source.type` starting with `PREPARED-`,
+                                so spontaneous/innate/focus casters never see
+                                this button. Cantrips are excluded inside
+                                `canToggle` since they auto-fill from the
+                                repertoire and have nothing to replace.) */}
+                            <Tooltip label='Replace spell' withinPortal openDelay={400}>
+                              <ActionIcon
+                                variant='subtle'
+                                color='gray.1'
+                                size='sm'
+                                radius='xl'
+                                aria-label='Replace prepared spell'
+                                style={{ opacity: 0.85 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleReplace(rank, index);
+                                }}
+                              >
+                                <IconReplace size='1rem' />
                               </ActionIcon>
                             </Tooltip>
                           </Group>

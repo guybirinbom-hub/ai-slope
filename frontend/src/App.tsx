@@ -10,7 +10,6 @@ import { convertContentLink } from '@drawers/drawer-utils';
 import {
   Anchor,
   BackgroundImage,
-  Box,
   Button,
   MantineProvider,
   Text,
@@ -90,17 +89,22 @@ export default function App() {
   const [_creatureDrawer, openCreatureDrawer] = useAtom(creatureDrawerState);
   const isPhone = useMediaQuery(phoneQuery());
 
-  // Ctrl+Wheel zoom for the whole app UI. The page already has a
-  // CSS `zoom` wrapper around <Layout> (driven by the Settings
-  // UI-Size slider via getCachedCustomization()); we just need to
-  // mutate that value on Ctrl+Wheel for browser-style zoom-in/out.
-  // Initial value comes from the saved customization so the slider
-  // and Ctrl+Wheel stay in sync. Clamp to [0.5, 2.0] to avoid
-  // unusable extremes. Step size 0.1 per scroll tick — a single
-  // bump is noticeable but not jarring. localStorage persistence is
-  // intentionally NOT done here; the Settings slider is the source
-  // of truth for "permanent" zoom, and Ctrl+Wheel is a per-session
-  // adjustment.
+  // Ctrl+Wheel zoom for the whole app UI. Applied to
+  // `document.documentElement` (the <html> element) rather than a
+  // React-rendered <Box> wrapper, so it also scales Mantine drawers,
+  // modals, tooltips, popovers, and notifications — all of which
+  // render via React Portal to `document.body` and therefore live
+  // outside any in-tree wrapper. Without this, Ctrl+Wheel would zoom
+  // the character sheet but leave the search modal, advanced filters,
+  // spell drawer descriptions, etc. at their original size.
+  //
+  // Initial value comes from the saved customization so the Settings
+  // UI-Size slider and Ctrl+Wheel stay in sync. Clamp to [0.5, 2.0]
+  // to avoid unusable extremes. Step size 0.1 per scroll tick — a
+  // single bump is noticeable but not jarring. localStorage
+  // persistence is intentionally NOT done here; the Settings slider
+  // is the source of truth for "permanent" zoom, and Ctrl+Wheel is a
+  // per-session adjustment.
   const [zoom, setZoom] = useState<number>(() => getCachedCustomization()?.sheet_theme?.zoom ?? 1);
   useEffect(() => {
     const onWheel = (e: WheelEvent) => {
@@ -117,6 +121,22 @@ export default function App() {
     window.addEventListener('wheel', onWheel, { passive: false });
     return () => window.removeEventListener('wheel', onWheel);
   }, []);
+
+  // Sync the zoom value onto <html>. CSS `zoom` (non-standard but
+  // well-supported in Chromium, which is all Electron runs) scales
+  // both the visual output and the layout box model, so portals get
+  // the same scale and click targets stay aligned with what the user
+  // sees. Runs on every zoom change, including the initial render
+  // (so the saved customization is honored without needing the old
+  // <Box> wrapper).
+  useEffect(() => {
+    document.documentElement.style.zoom = String(zoom);
+    return () => {
+      // Reset on unmount so dev hot-reload doesn't strand a zoom
+      // value if the App component remounts at a different scale.
+      document.documentElement.style.zoom = '';
+    };
+  }, [zoom]);
 
   const [session, setSession] = useAtom(sessionState);
   useEffect(() => {
@@ -437,12 +457,13 @@ export default function App() {
         <SearchSpotlight />
         <Notifications position='top-right' zIndex={9400} containerWidth={350} />
         <DrawerBase />
-        <Box style={{ zoom }}>
-          <Layout>
-            {/* Outlet is where react-router will render child routes */}
-            <Outlet />
-          </Layout>
-        </Box>
+        {/* Zoom is applied to <html> in the useEffect above, not here,
+            so that portaled UI (drawers, modals, tooltips, popovers,
+            notifications) scales along with the in-tree Layout. */}
+        <Layout>
+          {/* Outlet is where react-router will render child routes */}
+          <Outlet />
+        </Layout>
       </ModalsProvider>
     </MantineProvider>
   );

@@ -48,6 +48,7 @@ import { rollDie } from '@utils/random';
 import { Dice } from '@schemas/content';
 import { openContextModal } from '@mantine/modals';
 import { useSwipeGesture } from '@utils/use-swipe-gesture';
+import { DRAWER_TITLEBAR_FIX } from '@drawers/DrawerBase';
 
 const AUTH_KEY = (import.meta.env.VITE_DDDICE_AUTH_KEY ?? '') as string;
 const OVERLAY_INDEX = 99999;
@@ -609,6 +610,7 @@ export default function DiceRoller(props: {
         withOverlay={!isWideDesktop}
         overlayProps={{ backgroundOpacity: 0.5, blur: 2 }}
         styles={{
+          ...DRAWER_TITLEBAR_FIX,
           title: {
             width: '100%',
           },

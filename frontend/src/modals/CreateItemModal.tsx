@@ -4,7 +4,7 @@ import TraitsInput from '@common/TraitsInput';
 import { OperationSection } from '@common/operations/Operations';
 import RichTextInput from '@common/rich_text_input/RichTextInput';
 import { SelectContentButton, selectContent } from '@common/select/SelectContent';
-import { EDIT_MODAL_HEIGHT } from '@constants/data';
+import { useResizableModalProps } from '@utils/use-resizable-modal';
 import { DISCORD_URL } from '@constants/urls';
 import { fetchContentById, fetchTraits, getCachedContent } from '@content/content-store';
 import { toHTML } from '@content/content-utils';
@@ -393,6 +393,16 @@ export function CreateItemModal(props: {
     (form.values.meta_data?.quantity && form.values.meta_data.quantity > 0 ? 1 : 0) +
     (form.values.meta_data?.image_url && form.values.meta_data.image_url.length > 0 ? 1 : 0);
 
+  // Resizable + size-persistent modal. Default of 1100×800 is roughly
+  // double the old footprint (which was capped at md/xl + 530 px
+  // ScrollArea) and fits everything in the item form — name, level,
+  // traits, description, monster parts, etc. — without scrolling on
+  // most monitors. The user can drag the bottom-right corner to
+  // resize; the size persists across opens via localStorage. The old
+  // `openedOperations ? 'xl' : 'md'` toggle is gone because the
+  // user's saved size now owns the dimensions.
+  const resizable = useResizableModalProps('create-item', { width: 1100, height: 800 });
+
   return (
     <Modal
       opened={props.opened}
@@ -406,18 +416,25 @@ export function CreateItemModal(props: {
           {' Item'}
         </Title>
       }
+      classNames={resizable.classNames}
       styles={{
+        content: resizable.styles.content,
         body: {
+          ...resizable.styles.body,
           paddingRight: 2,
         },
       }}
-      size={openedOperations ? 'xl' : 'md'}
       closeOnClickOutside={false}
       closeOnEscape={false}
       keepMounted={false}
       zIndex={props.zIndex}
     >
-      <ScrollArea h={`calc(min(80dvh, ${EDIT_MODAL_HEIGHT}px))`} pr={14} scrollbars='y'>
+      {/* `h='100%'` so the scroll area fills whatever vertical space
+          the user drags the modal to — flexed via `body.flex: 1` from
+          the resizable hook. The old `calc(min(80dvh, 530px))` would
+          have capped this at 530 px and left empty space below in a
+          resized panel. */}
+      <ScrollArea h='100%' pr={14} scrollbars='y'>
         <LoadingOverlay visible={loading || isFetching} />
         <form onSubmit={form.onSubmit(onSubmit)}>
           <Stack gap={10}>

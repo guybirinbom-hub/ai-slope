@@ -29,6 +29,7 @@ import RichTextInput from '@common/rich_text_input/RichTextInput';
 import { JSONContent } from '@tiptap/react';
 import { useSwipeGesture } from '@utils/use-swipe-gesture';
 import { IMPRINT_BG_COLOR } from '@constants/data';
+import { DRAWER_TITLEBAR_FIX } from '@drawers/DrawerBase';
 
 export default function CampaignDrawer(props: { opened: boolean; onClose: () => void; campaignId: number }) {
   const theme = useMantineTheme();
@@ -129,6 +130,7 @@ export default function CampaignDrawer(props: { opened: boolean; onClose: () => 
         closeOnClickOutside={!isWideDesktop}
         withOverlay={!isWideDesktop}
         styles={{
+          ...DRAWER_TITLEBAR_FIX,
           title: {
             width: '100%',
           },
