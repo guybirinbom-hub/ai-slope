@@ -239,6 +239,24 @@ body {
   border-left: 1px solid var(--rule) !important;
   color: var(--ink);
 }
+
+/* Drawer floating buttons — DrawerBase + InvItemDrawer anchor a
+   favorite star (left, b:50), an edit/delete/move row (right, b:50),
+   and a charges/uses tracker via getAnchorStyles({position:'fixed'}).
+   The codex page wrappers set high z-indices and overflow:hidden;
+   without an explicit z-index on the buttons they can render BEHIND
+   the drawer overlay or get clipped by an ancestor's transform. The
+   user's "favorite/edit/delete/move/uses missing" report traces here. */
+.mantine-Drawer-root [style*='position: fixed'],
+.mantine-Drawer-root [style*='position:fixed'] {
+  z-index: 9500 !important;
+}
+/* Make subtle-variant action icons inside drawers more visible against
+   the dark bg-2 — the favorite star defaults to color='dark.3' which
+   the bridge maps to a brownish mute. Bump opacity to ensure it reads. */
+.mantine-Drawer-root .mantine-ActionIcon-root[data-variant='subtle'] {
+  opacity: 1;
+}
 .mantine-Drawer-header {
   background-color: var(--bg-2) !important;
   border-bottom: 1px solid var(--rule-soft) !important;

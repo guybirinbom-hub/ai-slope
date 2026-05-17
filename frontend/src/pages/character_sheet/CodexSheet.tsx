@@ -53,7 +53,7 @@ import DetailsPanel from './panels/DetailsPanel';
 import NotesPanel from './panels/NotesPanel';
 import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel, CodexActivitiesPanel } from './CodexPanels';
 import { useNavigate } from 'react-router-dom';
-import { Box, Menu } from '@mantine/core';
+import { Menu, UnstyledButton } from '@mantine/core';
 
 type CodexTab =
   | 'main'
@@ -202,14 +202,31 @@ export default function CodexSheet(props: {
   // Conditions list from the character entity.
   const conditions = character?.details?.conditions ?? [];
 
-  // Languages from variables.
-  const languages = getVariable<VariableListStr>('CHARACTER', 'LANGUAGES')?.value ?? [];
+  // Languages — variable is LANGUAGE_NAMES (a string list). The
+  // entries are already proper names ("Common", "Elven", "Sylvan"…)
+  // so we render them as-is.
+  const languages =
+    getVariable<VariableListStr>('CHARACTER', 'LANGUAGE_NAMES')?.value ?? [];
 
-  // Senses (currently just low-light/darkvision flags lumped together — the
-  // engine doesn't expose a clean enum for this. Worst case we render '—'.)
-  const sensesVar = getVariable<VariableListStr>('CHARACTER', 'SENSES');
-  const senses =
-    sensesVar?.value && sensesVar.value.length > 0 ? sensesVar.value.join(', ') : '—';
+  // Senses are split into precise / imprecise / vague variables in
+  // the engine. We concatenate the unique non-default ones for the
+  // display (NORMAL_VISION is the default for precise — we skip it so
+  // "Normal Vision" isn't listed as a special sense).
+  const sensesPrecise = getVariable<VariableListStr>('CHARACTER', 'SENSES_PRECISE')?.value ?? [];
+  const sensesImprecise = getVariable<VariableListStr>('CHARACTER', 'SENSES_IMPRECISE')?.value ?? [];
+  const sensesVague = getVariable<VariableListStr>('CHARACTER', 'SENSES_VAGUE')?.value ?? [];
+  const formatSense = (s: string) =>
+    s
+      .toLowerCase()
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  const sensesList = [
+    ...sensesPrecise.filter((s) => s !== 'NORMAL_VISION'),
+    ...sensesImprecise.filter((s) => s !== 'HEARING'),
+    ...sensesVague.filter((s) => s !== 'SMELL'),
+  ].map(formatSense);
+  const senses = sensesList.length > 0 ? sensesList.join(', ') : '—';
 
   // Saves + perception list (used in the sidebar Save&Perception section).
   const saves: { label: string; var: string }[] = [
@@ -1031,29 +1048,20 @@ function CodexNavMenu(props: {
   characterId: number;
   navigate: (path: string) => void;
 }) {
+  // UnstyledButton is Mantine's canonical Menu.Target host — it
+  // forwards refs cleanly and Mantine's auto-injected click handler
+  // attaches without ambiguity. Bare divs / Box component='button'
+  // both failed silently in earlier rounds; UnstyledButton works.
   return (
     <Menu position='bottom-end' width={200} withinPortal shadow='md'>
       <Menu.Target>
-        <Box
-          component='button'
-          type='button'
-          className='menu'
-          title='Menu'
-          style={{
-            // strip the native button defaults so it looks like the
-            // codex `.menu` div but is still a real <button> for
-            // accessibility / Mantine's ref forwarding.
-            padding: 0,
-            font: 'inherit',
-            color: 'inherit',
-          }}
-        >
+        <UnstyledButton className='menu' title='Menu' aria-label='Menu'>
           <div className='lines'>
             <span></span>
             <span></span>
             <span></span>
           </div>
-        </Box>
+        </UnstyledButton>
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>Navigate</Menu.Label>

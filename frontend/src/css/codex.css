@@ -166,18 +166,22 @@
     text-transform: uppercase;
   }
   .who .label .sub i { color: var(--gold); font-style: normal; padding: 0 3px; }
-  /* Tabs (center). Stretches across the empty space between the .who
-     identity cluster and the .right XP/menu cluster; each .tab gets
-     flex:1 to share that space evenly so there's no dead gap. */
+  /* Tabs (center). Each tab gets a min-width so its full label fits
+     unsquished, and the .tabs container scrolls horizontally when
+     the row doesn't fit the available width. flex:1 makes them
+     share extra space when there IS room. */
   .tabs {
     display: flex; align-items: stretch;
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
+    min-width: 0;
   }
   .tabs::-webkit-scrollbar { display: none; }
   .tab {
-    flex: 1 1 0;
-    padding: 0 14px;
+    flex: 1 0 auto;
+    min-width: max-content;
+    padding: 0 18px;
     height: 100%;
     display: flex; align-items: center; justify-content: center;
     font-family: 'Cinzel', serif;

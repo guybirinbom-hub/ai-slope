@@ -17,6 +17,7 @@ import {
   Menu,
   Text,
   Title,
+  UnstyledButton,
   VisuallyHidden,
 } from '@mantine/core';
 import { useForceUpdate } from '@mantine/hooks';
@@ -170,25 +171,18 @@ export function Component() {
           <span className='sigil'>❦</span>
           <span className='bn'>Wanderer's Codex</span>
         </div>
-        {/* Hamburger menu — uncontrolled Mantine Menu wrapping a
-            Mantine Box (rendered as a button) so refs and click
-            handling work cleanly. Controlled mode raced the
-            click-outside event and re-opened on close. */}
+        {/* Hamburger menu — uncontrolled Mantine Menu wrapping
+            UnstyledButton (Mantine's canonical Menu.Target host).
+            Refs forward cleanly; auto-injected click handler attaches. */}
         <Menu position='bottom-end' width={180} withinPortal shadow='md'>
           <Menu.Target>
-            <Box
-              component='button'
-              type='button'
-              className='menu'
-              title='Open menu'
-              style={{ padding: 0, font: 'inherit', color: 'inherit' }}
-            >
+            <UnstyledButton className='menu' title='Open menu' aria-label='Menu'>
               <div className='lines'>
                 <span></span>
                 <span></span>
                 <span></span>
               </div>
-            </Box>
+            </UnstyledButton>
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Label>Navigate</Menu.Label>

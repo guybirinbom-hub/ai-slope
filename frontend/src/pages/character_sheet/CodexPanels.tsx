@@ -44,88 +44,52 @@ import { sign } from '@utils/numbers';
 // -----------------------------------------------------------------------
 
 export function ActionGlyph(props: { cost: 1 | 2 | 3 | 'r' | 'f' | string }) {
-  // The codex mockup embeds an SVG <defs> block at body root with
-  // symbol IDs. We inline the relevant <symbol> per glyph instead so
-  // this works without needing the sprite at the page level.
+  // Use the bundled Pathfinder2eActions.ttf font (loaded via index.css
+  // as font-family: ActionIcons). The font maps:
+  //   '1' → 1-action diamond
+  //   '2' → 2-action chevron
+  //   '3' → 3-action triple chevron
+  //   '4' → free-action outline diamond
+  //   '5' → reaction curved arrow
+  // These are the canonical PF2e icons used everywhere on Archives of
+  // Nethys + the Foundry / Pathbuilder ecosystem.
   const c = props.cost;
-  if (c === 1) {
-    return (
-      <svg className='ai' viewBox='0 0 24 24'>
-        <path
-          d='M12,2 C13.4,7.2 16.8,10.6 22,12 C16.8,13.4 13.4,16.8 12,22 C10.6,16.8 7.2,13.4 2,12 C7.2,10.6 10.6,7.2 12,2 Z'
-          fill='currentColor'
-        />
-      </svg>
-    );
+  const ch =
+    c === 1
+      ? '1'
+      : c === 2
+        ? '2'
+        : c === 3
+          ? '3'
+          : c === 'f'
+            ? '4'
+            : c === 'r'
+              ? '5'
+              : null;
+  if (ch === null) {
+    return <span style={{ color: 'var(--ink-muted)', fontSize: 12 }}>—</span>;
   }
-  if (c === 2) {
-    return (
-      <svg className='ai' viewBox='0 0 44 24' style={{ width: 26 }}>
-        <path
-          d='M10,2 C11.4,7.2 14.8,10.6 20,12 C14.8,13.4 11.4,16.8 10,22 C8.6,16.8 5.2,13.4 0,12 C5.2,10.6 8.6,7.2 10,2 Z'
-          fill='currentColor'
-        />
-        <path
-          d='M34,2 C35.4,7.2 38.8,10.6 44,12 C38.8,13.4 35.4,16.8 34,22 C32.6,16.8 29.2,13.4 24,12 C29.2,10.6 32.6,7.2 34,2 Z'
-          fill='currentColor'
-        />
-      </svg>
-    );
-  }
-  if (c === 3) {
-    return (
-      <svg className='ai' viewBox='0 0 64 24' style={{ width: 40 }}>
-        <path
-          d='M10,2 C11.4,7.2 14.8,10.6 20,12 C14.8,13.4 11.4,16.8 10,22 C8.6,16.8 5.2,13.4 0,12 C5.2,10.6 8.6,7.2 10,2 Z'
-          fill='currentColor'
-        />
-        <path
-          d='M32,2 C33.4,7.2 36.8,10.6 42,12 C36.8,13.4 33.4,16.8 32,22 C30.6,16.8 27.2,13.4 22,12 C27.2,10.6 30.6,7.2 32,2 Z'
-          fill='currentColor'
-        />
-        <path
-          d='M54,2 C55.4,7.2 58.8,10.6 64,12 C58.8,13.4 55.4,16.8 54,22 C52.6,16.8 49.2,13.4 44,12 C49.2,10.6 52.6,7.2 54,2 Z'
-          fill='currentColor'
-        />
-      </svg>
-    );
-  }
-  if (c === 'r') {
-    return (
-      <svg className='ai ar' viewBox='0 0 24 24'>
-        <path
-          d='M20,12 A8,8 0 1,0 12,20'
-          fill='none'
-          stroke='currentColor'
-          strokeWidth={2.6}
-          strokeLinecap='round'
-        />
-        <path
-          d='M9,18 L12,20 L13.5,17'
-          fill='none'
-          stroke='currentColor'
-          strokeWidth={2.6}
-          strokeLinecap='round'
-          strokeLinejoin='round'
-        />
-        <circle cx={20} cy={12} r={1.6} fill='currentColor' />
-      </svg>
-    );
-  }
-  if (c === 'f') {
-    return (
-      <svg className='ai af' viewBox='0 0 24 24'>
-        <path
-          d='M12,2 C13.4,7.2 16.8,10.6 22,12 C16.8,13.4 13.4,16.8 12,22 C10.6,16.8 7.2,13.4 2,12 C7.2,10.6 10.6,7.2 12,2 Z'
-          fill='none'
-          stroke='currentColor'
-          strokeWidth={2.2}
-        />
-      </svg>
-    );
-  }
-  // Unknown / no-cost (passive abilities, etc.) — render an em-dash.
-  return <span style={{ color: 'var(--ink-muted)', fontSize: 12 }}>—</span>;
+  const color =
+    c === 'r' ? 'var(--crimson)' : c === 'f' ? 'var(--gold-bright)' : 'var(--gold)';
+  return (
+    <span
+      className='ai'
+      style={{
+        fontFamily: 'ActionIcons, sans-serif',
+        fontSize: 18,
+        color,
+        lineHeight: 1,
+        filter:
+          c === 'r'
+            ? 'drop-shadow(0 0 3px rgba(168,58,37,.45))'
+            : c === 'f'
+              ? 'none'
+              : 'drop-shadow(0 0 3px rgba(201,161,59,.35))',
+      }}
+    >
+      {ch}
+    </span>
+  );
 }
 
 // Map a textual action cost from data to a glyph identifier.
@@ -608,7 +572,13 @@ export function CodexInventoryPanel(props: {
 
   const totalBulk = getInvBulk(inv ?? undefined);
   const bulkLimit = getBulkLimit('CHARACTER');
+  // In PF2e a character is encumbered above 5 + Str mod bulk and
+  // can carry at most 10 + Str mod. bulkLimit already accounts for
+  // Str + bonuses; encumbered is 5 less (the standard delta).
+  const encumberedAt = Math.max(1, bulkLimit - 5);
   const bulkPct = bulkLimit > 0 ? Math.min(100, (totalBulk / bulkLimit) * 100) : 0;
+  const encumberedMarkerPct = bulkLimit > 0 ? Math.min(100, (encumberedAt / bulkLimit) * 100) : 0;
+  const isEncumbered = totalBulk > encumberedAt;
 
   // Classify an item — drives the left-border color. We don't have
   // a clean worn/held/consumable enum on items in this fork; equipped
@@ -669,12 +639,33 @@ export function CodexInventoryPanel(props: {
           </div>
         </div>
         <div className='bulk-block'>
-          <div className='k'>Bulk</div>
-          <div className='v'>
-            {labelizeBulk(totalBulk, true)} <small>/ {bulkLimit}</small>
+          <div className='k'>Bulk Carried</div>
+          <div className='v' style={{ color: isEncumbered ? 'var(--crimson)' : undefined }}>
+            {labelizeBulk(totalBulk, true)} <small>/ {bulkLimit} (max {bulkLimit})</small>
           </div>
           <div className='bulk-bar'>
             <div className='fill' style={{ right: `${100 - bulkPct}%` }}></div>
+            {/* Red tick marking the encumbered threshold so the user can
+                see how much more they can carry before the bulk penalty
+                kicks in. Position is percent-of-max-bulk, not absolute. */}
+            <div
+              className='marker'
+              style={{ left: `${encumberedMarkerPct}%` }}
+              title={`Encumbered when bulk exceeds ${encumberedAt}`}
+            ></div>
+          </div>
+          <div
+            style={{
+              fontFamily: "'Cinzel', serif",
+              fontSize: 9,
+              letterSpacing: '.22em',
+              color: 'var(--ink-muted)',
+              textTransform: 'uppercase',
+              marginTop: 4,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Encumbered &gt; {encumberedAt} · Max {bulkLimit}
           </div>
         </div>
       </div>
@@ -1355,7 +1346,13 @@ export function CodexActivitiesPanel(props: {
               const glyph = actionCostToGlyph(action.actions ?? null);
               return (
                 <div key={action.id} className='act' onClick={() => openAction(action)}>
-                  <div className='cost'>{glyph ? <ActionGlyph cost={glyph} /> : <ActionGlyph cost={1} />}</div>
+                  {/* Render an action glyph ONLY when the action has a
+                      real cost. Many exploration / downtime activities
+                      have no per-cast cost (e.g. Cover Tracks, Repair) —
+                      previously we fell back to a 1-action glyph which
+                      mislabeled them. Now those rows show no glyph in
+                      the .cost slot. */}
+                  <div className='cost'>{glyph ? <ActionGlyph cost={glyph} /> : null}</div>
                   <div className='nm'>{action.name}</div>
                   <div className='stat dim'>—</div>
                 </div>
