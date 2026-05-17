@@ -11,6 +11,7 @@ import importFromJSON from '@import/json/import-from-json';
 import PathbuilderInputModal from '@import/pathbuilder/PathbuilderInputModal';
 import { importFromPathbuilder } from '@import/pathbuilder/import-from-pathbuilder';
 import {
+  Box,
   Button,
   FileButton,
   Menu,
@@ -76,8 +77,6 @@ export function Component() {
   // simple set of dropdown-style buttons; we control opened state to
   // dodge the Mantine v9 ref-forwarding quirks we hit before.
   const [importMenuOpened, setImportMenuOpened] = useState(false);
-  // App-header hamburger menu (Characters/Homebrew/Settings).
-  const [navMenuOpened, setNavMenuOpened] = useState(false);
 
   const jsonImportRef = useRef<HTMLButtonElement>(null);
   const guidecharImportRef = useRef<HTMLButtonElement>(null);
@@ -152,67 +151,48 @@ export function Component() {
 
   return (
     <div className='codex-root'>
-      {/* Hidden winbar slot — Electron's native titlebar already
-          renders min/max/close at the OS level. The page below leaves
-          26px of space at the top via .page → grid-template-rows. */}
+      {/* Styled winbar — labeled band beneath Electron's OS controls. */}
+      <div className='winbar'>
+        <div className='title'>
+          <span className='dot'></span>
+          <span>
+            <b>Wanderer's Codex</b> · Atlas
+          </span>
+        </div>
+        <div className='center'>All your wanderers, in one tome</div>
+        <div></div>
+      </div>
 
       <div className='app-header'>
         <div className='brand-line'>
           <span className='sigil'>❦</span>
           <span className='bn'>Wanderer's Codex</span>
         </div>
-        {/* Hamburger menu — controlled Mantine Menu wrapping the codex
-            .menu visual shell. Same pattern as the sheet topbar. */}
-        <Menu
-          opened={navMenuOpened}
-          onClose={() => setNavMenuOpened(false)}
-          position='bottom-end'
-          width={180}
-          withinPortal
-          shadow='md'
-        >
+        {/* Hamburger menu — uncontrolled Mantine Menu wrapping a
+            Mantine Box (rendered as a button) so refs and click
+            handling work cleanly. Controlled mode raced the
+            click-outside event and re-opened on close. */}
+        <Menu position='bottom-end' width={180} withinPortal shadow='md'>
           <Menu.Target>
-            <div
+            <Box
+              component='button'
+              type='button'
               className='menu'
               title='Open menu'
-              onClick={(e) => {
-                e.stopPropagation();
-                setNavMenuOpened((o) => !o);
-              }}
+              style={{ padding: 0, font: 'inherit', color: 'inherit' }}
             >
               <div className='lines'>
                 <span></span>
                 <span></span>
                 <span></span>
               </div>
-            </div>
+            </Box>
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Label>Navigate</Menu.Label>
-            <Menu.Item
-              onClick={() => {
-                setNavMenuOpened(false);
-                navigate('/characters');
-              }}
-            >
-              Characters
-            </Menu.Item>
-            <Menu.Item
-              onClick={() => {
-                setNavMenuOpened(false);
-                navigate('/homebrew');
-              }}
-            >
-              Homebrew
-            </Menu.Item>
-            <Menu.Item
-              onClick={() => {
-                setNavMenuOpened(false);
-                navigate('/account');
-              }}
-            >
-              Settings
-            </Menu.Item>
+            <Menu.Item onClick={() => navigate('/characters')}>Characters</Menu.Item>
+            <Menu.Item onClick={() => navigate('/homebrew')}>Homebrew</Menu.Item>
+            <Menu.Item onClick={() => navigate('/account')}>Settings</Menu.Item>
           </Menu.Dropdown>
         </Menu>
       </div>

@@ -106,20 +106,28 @@
 }
 .sp .stat.dim { color: var(--ink-dim); }
 
+/* Toolbars (spells / inventory / feats search + filters + add).
+   Flex layout — search field on the left grows, filter chips +
+   add button on the right stay their natural size. Avoids the
+   grid-template-columns:1fr auto auto trap where a 4th child wraps
+   to a new line. */
 .spell-search,
 .feat-search,
 .inv-toolbar {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px; align-items: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: var(--bg-card);
   border: 1px solid var(--rule-soft);
   padding: 4px;
   margin-bottom: 8px;
+  flex-wrap: nowrap;
 }
 .spell-search .field,
 .feat-search .field,
 .inv-toolbar .field {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex; align-items: center; gap: 10px;
   padding: 8px 12px;
   color: var(--ink-muted);
@@ -400,9 +408,13 @@
 }
 .feat .meta b { display: block; color: var(--gold); }
 
-/* ============================ Shared: codex tab body wrapper ============================ */
+/* ============================ Shared: codex tab body wrapper ============================
+   Sits in the MAIN grid column (1fr) of the codex sheet body —
+   alongside the persistent .col.left sidebar. The earlier
+   grid-column:1/-1 made it span both columns, which pushed the
+   sidebar above the content and left huge whitespace where the
+   sidebar should have been. */
 .codex-tab-body {
-  grid-column: 1 / -1;
   padding: 14px 20px 24px;
   overflow-y: auto;
   min-height: 0;
@@ -411,6 +423,26 @@
   gap: 12px;
   scrollbar-width: thin;
   scrollbar-color: var(--gold-deep) transparent;
+  border-left: 1px solid var(--rule-soft);
 }
 .codex-tab-body::-webkit-scrollbar { width: 4px; }
 .codex-tab-body::-webkit-scrollbar-thumb { background: var(--gold-deep); }
+
+/* Codex sheet wrappers — establish the vertical flex chain so the
+   .body grid actually fills the viewport height (minus topbar / drag
+   strip) instead of collapsing to its content. Without these, the
+   .col.left sidebar shrinks to ~auto height and renders ABOVE the
+   tab body instead of beside it. */
+.codex-sheet-root {
+  height: 100%;
+  min-height: 0;
+}
+.codex-sheet-page {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.codex-sheet-page > .winbar,
+.codex-sheet-page > .topbar { flex: 0 0 auto; }
+.codex-sheet-page > .body { flex: 1; min-height: 0; }

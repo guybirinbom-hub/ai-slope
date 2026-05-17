@@ -166,18 +166,20 @@
     text-transform: uppercase;
   }
   .who .label .sub i { color: var(--gold); font-style: normal; padding: 0 3px; }
-  /* Tabs (center) */
+  /* Tabs (center). Stretches across the empty space between the .who
+     identity cluster and the .right XP/menu cluster; each .tab gets
+     flex:1 to share that space evenly so there's no dead gap. */
   .tabs {
     display: flex; align-items: stretch;
-    justify-content: flex-end;
     overflow-x: auto;
     scrollbar-width: none;
   }
   .tabs::-webkit-scrollbar { display: none; }
   .tab {
+    flex: 1 1 0;
     padding: 0 14px;
     height: 100%;
-    display: flex; align-items: center;
+    display: flex; align-items: center; justify-content: center;
     font-family: 'Cinzel', serif;
     font-size: 11px;
     letter-spacing: .22em;

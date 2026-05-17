@@ -53,7 +53,7 @@ import DetailsPanel from './panels/DetailsPanel';
 import NotesPanel from './panels/NotesPanel';
 import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel, CodexActivitiesPanel } from './CodexPanels';
 import { useNavigate } from 'react-router-dom';
-import { Menu } from '@mantine/core';
+import { Box, Menu } from '@mantine/core';
 
 type CodexTab =
   | 'main'
@@ -251,6 +251,44 @@ export default function CodexSheet(props: {
   return (
     <div className='codex-root codex-sheet-root'>
       <div className='codex-sheet-page'>
+        {/* ============================ WINBAR ============================
+            Styled title-bar strip mimicking the codex design's window
+            chrome. The functional min/max/close are still rendered by
+            Electron's titleBarOverlay above this (32 px) — this strip
+            is the labeled band right beneath it, showing brand on the
+            left and character info in the center. No functional
+            buttons inside; the OS overlay handles those. */}
+        <div className='winbar'>
+          <div className='title'>
+            <span className='dot'></span>
+            <span>
+              <b>Wanderer's Codex</b> · Character Sheet
+            </span>
+          </div>
+          <div className='center'>
+            {character?.name || 'Unknown'}
+            {ancestryName && (
+              <>
+                {' '}
+                <b>·</b> {ancestryName}
+              </>
+            )}
+            {className && (
+              <>
+                {' '}
+                <b>·</b> {className}
+              </>
+            )}
+            {level && (
+              <>
+                {' '}
+                <b>·</b> Level {level}
+              </>
+            )}
+          </div>
+          <div></div>
+        </div>
+
         {/* ============================ TOPBAR ============================ */}
         <div className='topbar'>
           <div className='who'>
@@ -893,27 +931,39 @@ function discoverLoreSkills(): { var: string; topic: string }[] {
  * nav items with a Divider since it's a sheet-specific shortcut
  * rather than a global navigation target.
  */
+/**
+ * Hamburger menu for the codex topbar's right cluster.
+ *
+ * Uses Mantine's UNCONTROLLED Menu mode. The previous controlled
+ * implementation raced the Menu's clickOutsideEvent (which fires on
+ * mousedown before our toggle ran on click), causing the menu to
+ * reopen the moment the user tried to close it. Uncontrolled lets
+ * Mantine own the open/close state — wrapping a Mantine `Box` (which
+ * forwards refs cleanly to its DOM node) means Menu.Target can
+ * inject its own click handler without us fighting it.
+ *
+ * The trigger keeps the codex `.menu` className so it visually
+ * matches the design (gold-bordered square with 3 horizontal lines).
+ */
 function CodexNavMenu(props: {
   characterId: number;
   navigate: (path: string) => void;
 }) {
-  const [opened, setOpened] = useState(false);
   return (
-    <Menu
-      opened={opened}
-      onClose={() => setOpened(false)}
-      position='bottom-end'
-      width={200}
-      withinPortal
-      shadow='md'
-    >
+    <Menu position='bottom-end' width={200} withinPortal shadow='md'>
       <Menu.Target>
-        <div
+        <Box
+          component='button'
+          type='button'
           className='menu'
           title='Menu'
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpened((o) => !o);
+          style={{
+            // strip the native button defaults so it looks like the
+            // codex `.menu` div but is still a real <button> for
+            // accessibility / Mantine's ref forwarding.
+            padding: 0,
+            font: 'inherit',
+            color: 'inherit',
           }}
         >
           <div className='lines'>
@@ -921,41 +971,15 @@ function CodexNavMenu(props: {
             <span></span>
             <span></span>
           </div>
-        </div>
+        </Box>
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>Navigate</Menu.Label>
-        <Menu.Item
-          onClick={() => {
-            setOpened(false);
-            props.navigate('/characters');
-          }}
-        >
-          Characters
-        </Menu.Item>
-        <Menu.Item
-          onClick={() => {
-            setOpened(false);
-            props.navigate('/homebrew');
-          }}
-        >
-          Homebrew
-        </Menu.Item>
-        <Menu.Item
-          onClick={() => {
-            setOpened(false);
-            props.navigate('/account');
-          }}
-        >
-          Settings
-        </Menu.Item>
+        <Menu.Item onClick={() => props.navigate('/characters')}>Characters</Menu.Item>
+        <Menu.Item onClick={() => props.navigate('/homebrew')}>Homebrew</Menu.Item>
+        <Menu.Item onClick={() => props.navigate('/account')}>Settings</Menu.Item>
         <Menu.Divider />
-        <Menu.Item
-          onClick={() => {
-            setOpened(false);
-            props.navigate(`/builder/${props.characterId}`);
-          }}
-        >
+        <Menu.Item onClick={() => props.navigate(`/builder/${props.characterId}`)}>
           Edit in Builder
         </Menu.Item>
       </Menu.Dropdown>
