@@ -15,6 +15,12 @@ import { createRoot } from 'react-dom/client';
 import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
+// Codex theme. Loaded after Mantine + index.css so its rules win on
+// pages we've migrated to the codex design language. Existing pages
+// that still use Mantine classes are unaffected — codex.css only
+// styles its own class names (.winbar, .topbar, .col, .vital, .sk, etc.)
+// and CSS variables under :root.
+import './css/codex.css';
 import { ErrorPage } from './pages/ErrorPage.tsx';
 import { MantineProvider } from '@mantine/core';
 

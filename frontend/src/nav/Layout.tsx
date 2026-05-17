@@ -131,12 +131,18 @@ export default function Layout(props: { children: React.ReactNode }) {
         </Menu>
       </Box>
 
+      {/* Page content. Padding is owned by each route — the codex pages
+          (Characters list, Sheet, Spells, etc.) have their own hero +
+          toolbar with calibrated 56 px outer margins, so an extra
+          wrapper padding would push them in from the edges twice and
+          break the design grid. Pages that still want padding (Settings,
+          Homebrew until they're migrated) wrap themselves. */}
       <ScrollArea
         h={`calc(100dvh - ${TITLE_BAR_HEIGHT}px)`}
         type={isMobileTouch ? 'never' : 'auto'}
         scrollbars='y'
       >
-        <Box p='md'>{props.children}</Box>
+        {props.children}
       </ScrollArea>
     </>
   );
