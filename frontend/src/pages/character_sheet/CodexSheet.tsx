@@ -53,7 +53,7 @@ import DetailsPanel from './panels/DetailsPanel';
 import NotesPanel from './panels/NotesPanel';
 import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel, CodexActivitiesPanel } from './CodexPanels';
 import { useNavigate } from 'react-router-dom';
-import { Menu, UnstyledButton } from '@mantine/core';
+import { ActionIcon, Menu } from '@mantine/core';
 
 type CodexTab =
   | 'main'
@@ -131,12 +131,17 @@ export default function CodexSheet(props: {
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [activeTab, setActiveTab] = useState<CodexTab>('main');
 
-  // Global section collapse — instead of wrapping every `.sec` with a
-  // controlled component, attach one delegated click handler that
-  // toggles the `.collapsed` class on the closest section. Ignores
-  // clicks on nested interactive elements so editing HP / clicking
-  // hero pips / pressing the + Add condition button doesn't
-  // collapse the section under them.
+  // Global section collapse with smooth height animation. Strategy:
+  //   1. To OPEN: set max-height to scrollHeight (animates from 0 → N),
+  //      then after the transition set max-height: 'none' so future
+  //      content size changes don't get clipped.
+  //   2. To CLOSE: set max-height to the measured scrollHeight first
+  //      (so the browser has a concrete value to animate from), force
+  //      a reflow, then set max-height: 0 and add .collapsed class.
+  //
+  // Ignores clicks on nested interactive elements so editing HP,
+  // clicking hero pips, pressing the + Add condition button, etc.
+  // don't collapse the section under them.
   useEffect(() => {
     const handler = (e: Event) => {
       const t = e.target as HTMLElement;
@@ -149,8 +154,32 @@ export default function CodexSheet(props: {
       ) {
         return;
       }
-      const sec = title.closest('.sec');
-      if (sec) sec.classList.toggle('collapsed');
+      const sec = title.closest<HTMLElement>('.sec');
+      if (!sec) return;
+      const body = sec.querySelector<HTMLElement>(':scope > .sec-body');
+      if (!body) return;
+
+      const isCollapsed = sec.classList.contains('collapsed');
+      if (isCollapsed) {
+        // OPEN: animate 0 → measured height, then drop the cap.
+        sec.classList.remove('collapsed');
+        body.style.maxHeight = body.scrollHeight + 'px';
+        const onEnd = () => {
+          if (!sec.classList.contains('collapsed')) {
+            body.style.maxHeight = 'none';
+          }
+          body.removeEventListener('transitionend', onEnd);
+        };
+        body.addEventListener('transitionend', onEnd);
+      } else {
+        // CLOSE: set explicit max-height first so the transition has
+        // a concrete value to animate from, then force reflow + drop.
+        body.style.maxHeight = body.scrollHeight + 'px';
+        // Force reflow — read offsetHeight to flush layout.
+        void body.offsetHeight;
+        sec.classList.add('collapsed');
+        body.style.maxHeight = '0px';
+      }
     };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
@@ -184,7 +213,21 @@ export default function CodexSheet(props: {
   const ac = getFinalAcValue('CHARACTER');
   const classDcStr = getFinalProfValue('CHARACTER', 'CLASS_DC', true);
   const spellDcStr = getFinalProfValue('CHARACTER', 'SPELL_DC', true);
-  const spellAtkStr = getFinalProfValue('CHARACTER', 'SPELL_ATTACK');
+  // When Class DC and Spell DC come out to the same number (very
+  // common for casters whose key attribute drives both), collapse
+  // the two tiles into one labeled "Class/Spell DC" so the vitals
+  // grid doesn't repeat the same value side-by-side.
+  const dcMerged = classDcStr === spellDcStr;
+  // Spell attack — render the base + iterative penalties (-5 / -10).
+  // PF2e's multi-attack penalty applies on the 2nd and 3rd action
+  // in a turn; showing all three saves the player the mental math
+  // when picking which Strike / spell-attack to take.
+  const spellAtkRaw = getFinalProfValue('CHARACTER', 'SPELL_ATTACK');
+  // getFinalProfValue returns e.g. "+11"; parse to apply penalties.
+  const spellAtkBase = parseInt(spellAtkRaw, 10);
+  const spellAtkStr = isNaN(spellAtkBase)
+    ? spellAtkRaw
+    : `${spellAtkBase >= 0 ? '+' : ''}${spellAtkBase}/${spellAtkBase - 5 >= 0 ? '+' : ''}${spellAtkBase - 5}/${spellAtkBase - 10 >= 0 ? '+' : ''}${spellAtkBase - 10}`;
   const perceptionStr = getFinalProfValue('CHARACTER', 'PERCEPTION');
   const speed = getVariable<VariableNum>('CHARACTER', 'SPEED')?.value ?? 25;
   // Show the spell tiles only when the character actually has
@@ -210,8 +253,9 @@ export default function CodexSheet(props: {
 
   // Senses are split into precise / imprecise / vague variables in
   // the engine. We concatenate the unique non-default ones for the
-  // display (NORMAL_VISION is the default for precise — we skip it so
-  // "Normal Vision" isn't listed as a special sense).
+  // display (NORMAL_VISION/HEARING/SMELL are universal defaults so
+  // we skip them). Each chip is clickable — opens the matching
+  // sense drawer by name.
   const sensesPrecise = getVariable<VariableListStr>('CHARACTER', 'SENSES_PRECISE')?.value ?? [];
   const sensesImprecise = getVariable<VariableListStr>('CHARACTER', 'SENSES_IMPRECISE')?.value ?? [];
   const sensesVague = getVariable<VariableListStr>('CHARACTER', 'SENSES_VAGUE')?.value ?? [];
@@ -221,12 +265,11 @@ export default function CodexSheet(props: {
       .split('_')
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
-  const sensesList = [
+  const sensesItems: { raw: string; display: string }[] = [
     ...sensesPrecise.filter((s) => s !== 'NORMAL_VISION'),
     ...sensesImprecise.filter((s) => s !== 'HEARING'),
     ...sensesVague.filter((s) => s !== 'SMELL'),
-  ].map(formatSense);
-  const senses = sensesList.length > 0 ? sensesList.join(', ') : '—';
+  ].map((raw) => ({ raw, display: formatSense(raw) }));
 
   // Saves + perception list (used in the sidebar Save&Perception section).
   const saves: { label: string; var: string }[] = [
@@ -433,35 +476,57 @@ export default function CodexSheet(props: {
                       <div className='fill' style={{ right: `${100 - hpPct}%` }}></div>
                     </div>
                   </div>
-                  <div
-                    className='vital'
-                    style={{ cursor: 'pointer' }}
-                    onClick={() =>
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'CLASS_DC', isDC: true },
-                        extra: { addToHistory: true },
-                      })
-                    }
-                  >
-                    <div className='label'>Class DC</div>
-                    <div className='num'>{classDcStr}</div>
-                  </div>
-                  {hasSpellcasting && (
+                  {/* Class DC + Spell DC — when they match (common for
+                      casters), render one merged tile; otherwise two
+                      separate tiles so the player sees the breakdown. */}
+                  {hasSpellcasting && dcMerged ? (
                     <div
                       className='vital'
                       style={{ cursor: 'pointer' }}
                       onClick={() =>
                         openDrawer({
                           type: 'stat-prof',
-                          data: { id: 'CHARACTER', variableName: 'SPELL_DC', isDC: true },
+                          data: { id: 'CHARACTER', variableName: 'CLASS_DC', isDC: true },
                           extra: { addToHistory: true },
                         })
                       }
                     >
-                      <div className='label'>Spell DC</div>
-                      <div className='num'>{spellDcStr}</div>
+                      <div className='label'>Class/Spell DC</div>
+                      <div className='num'>{classDcStr}</div>
                     </div>
+                  ) : (
+                    <>
+                      <div
+                        className='vital'
+                        style={{ cursor: 'pointer' }}
+                        onClick={() =>
+                          openDrawer({
+                            type: 'stat-prof',
+                            data: { id: 'CHARACTER', variableName: 'CLASS_DC', isDC: true },
+                            extra: { addToHistory: true },
+                          })
+                        }
+                      >
+                        <div className='label'>Class DC</div>
+                        <div className='num'>{classDcStr}</div>
+                      </div>
+                      {hasSpellcasting && (
+                        <div
+                          className='vital'
+                          style={{ cursor: 'pointer' }}
+                          onClick={() =>
+                            openDrawer({
+                              type: 'stat-prof',
+                              data: { id: 'CHARACTER', variableName: 'SPELL_DC', isDC: true },
+                              extra: { addToHistory: true },
+                            })
+                          }
+                        >
+                          <div className='label'>Spell DC</div>
+                          <div className='num'>{spellDcStr}</div>
+                        </div>
+                      )}
+                    </>
                   )}
                   <div
                     className='vital'
@@ -475,6 +540,7 @@ export default function CodexSheet(props: {
                     <div
                       className='vital'
                       style={{ cursor: 'pointer' }}
+                      title='Spell attack — base / MAP -5 / MAP -10'
                       onClick={() =>
                         openDrawer({
                           type: 'stat-prof',
@@ -484,7 +550,18 @@ export default function CodexSheet(props: {
                       }
                     >
                       <div className='label'>Spell Atk</div>
-                      <div className='num'>{spellAtkStr}</div>
+                      {/* 3-value iterative MAP display. Smaller font so
+                          three signed numbers fit in the tile. */}
+                      <div
+                        className='num'
+                        style={{
+                          fontSize: 14,
+                          letterSpacing: '.02em',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {spellAtkStr}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -512,9 +589,41 @@ export default function CodexSheet(props: {
                         <div className='k'>Senses</div>
                         <div
                           className='v'
-                          style={{ fontSize: 11, letterSpacing: '.12em', paddingTop: 3 }}
+                          style={{
+                            fontSize: 11,
+                            letterSpacing: '.04em',
+                            paddingTop: 3,
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 4,
+                          }}
                         >
-                          {senses}
+                          {sensesItems.length === 0 ? (
+                            <span style={{ color: 'var(--ink-muted)' }}>—</span>
+                          ) : (
+                            sensesItems.map((s) => (
+                              <span
+                                key={s.raw}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openDrawer({
+                                    type: 'sense',
+                                    data: { name: s.display, id: undefined },
+                                    extra: { addToHistory: true },
+                                  });
+                                }}
+                                style={{
+                                  cursor: 'pointer',
+                                  color: 'var(--ink)',
+                                  borderBottom: '1px dotted var(--gold-deep)',
+                                  paddingBottom: 1,
+                                }}
+                                title={`Open ${s.display} description`}
+                              >
+                                {s.display}
+                              </span>
+                            ))
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1048,20 +1157,35 @@ function CodexNavMenu(props: {
   characterId: number;
   navigate: (path: string) => void;
 }) {
-  // UnstyledButton is Mantine's canonical Menu.Target host — it
-  // forwards refs cleanly and Mantine's auto-injected click handler
-  // attaches without ambiguity. Bare divs / Box component='button'
-  // both failed silently in earlier rounds; UnstyledButton works.
+  // Use Mantine ActionIcon — guaranteed to work as Menu.Target.
+  // Previous attempts with bare div, Box component='button', and
+  // UnstyledButton all silently failed (the user reported "menu
+  // doesn't open" three times). ActionIcon's button is the safe
+  // bet; we style it inline to match the codex .menu visual.
   return (
     <Menu position='bottom-end' width={200} withinPortal shadow='md'>
       <Menu.Target>
-        <UnstyledButton className='menu' title='Menu' aria-label='Menu'>
-          <div className='lines'>
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-        </UnstyledButton>
+        <ActionIcon
+          variant='default'
+          aria-label='Menu'
+          title='Menu'
+          size={38}
+          radius={0}
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--rule-soft)',
+            color: 'var(--gold)',
+          }}
+        >
+          {/* The codex three-line hamburger glyph as a tiny svg —
+              inline because mounting a div-based one inside ActionIcon
+              triggers grid layout weirdness from the .menu codex CSS. */}
+          <svg width={18} height={14} viewBox='0 0 18 14' aria-hidden='true'>
+            <line x1='0' y1='1' x2='18' y2='1' stroke='currentColor' strokeWidth='1.6' />
+            <line x1='0' y1='7' x2='18' y2='7' stroke='currentColor' strokeWidth='1.6' />
+            <line x1='0' y1='13' x2='18' y2='13' stroke='currentColor' strokeWidth='1.6' />
+          </svg>
+        </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>Navigate</Menu.Label>

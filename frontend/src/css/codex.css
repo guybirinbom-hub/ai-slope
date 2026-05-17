@@ -406,9 +406,12 @@
   .sec.collapsed .chev { transform: rotate(-45deg); margin-top: 1px; }
   .sec .sec-body {
     overflow: hidden;
-    transition: max-height .25s ease, opacity .2s ease;
+    transition: max-height .18s cubic-bezier(0.4, 0, 0.2, 1), opacity .14s ease;
   }
-  .sec.collapsed .sec-body { max-height: 0 !important; opacity: 0; pointer-events: none; }
+  /* Don't slap !important here — the JS toggle controls explicit
+     max-height values for smooth animation. Opacity + pointer-events
+     still flip from this rule when .collapsed is added. */
+  .sec.collapsed .sec-body { opacity: 0; pointer-events: none; }
 
   /* ============================ LEFT RAIL ============================ */
   .vitals { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }

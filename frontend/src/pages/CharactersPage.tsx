@@ -11,13 +11,13 @@ import importFromJSON from '@import/json/import-from-json';
 import PathbuilderInputModal from '@import/pathbuilder/PathbuilderInputModal';
 import { importFromPathbuilder } from '@import/pathbuilder/import-from-pathbuilder';
 import {
+  ActionIcon,
   Box,
   Button,
   FileButton,
   Menu,
   Text,
   Title,
-  UnstyledButton,
   VisuallyHidden,
 } from '@mantine/core';
 import { useForceUpdate } from '@mantine/hooks';
@@ -171,18 +171,29 @@ export function Component() {
           <span className='sigil'>❦</span>
           <span className='bn'>Wanderer's Codex</span>
         </div>
-        {/* Hamburger menu — uncontrolled Mantine Menu wrapping
-            UnstyledButton (Mantine's canonical Menu.Target host).
-            Refs forward cleanly; auto-injected click handler attaches. */}
+        {/* Hamburger menu — Mantine ActionIcon as Menu.Target. ActionIcon
+            is guaranteed to work; previous attempts with bare div /
+            Box / UnstyledButton all silently failed for the user. */}
         <Menu position='bottom-end' width={180} withinPortal shadow='md'>
           <Menu.Target>
-            <UnstyledButton className='menu' title='Open menu' aria-label='Menu'>
-              <div className='lines'>
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </UnstyledButton>
+            <ActionIcon
+              variant='default'
+              aria-label='Menu'
+              title='Open menu'
+              size={40}
+              radius={0}
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--rule-soft)',
+                color: 'var(--gold)',
+              }}
+            >
+              <svg width={18} height={14} viewBox='0 0 18 14' aria-hidden='true'>
+                <line x1='0' y1='1' x2='18' y2='1' stroke='currentColor' strokeWidth='1.6' />
+                <line x1='0' y1='7' x2='18' y2='7' stroke='currentColor' strokeWidth='1.6' />
+                <line x1='0' y1='13' x2='18' y2='13' stroke='currentColor' strokeWidth='1.6' />
+              </svg>
+            </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Label>Navigate</Menu.Label>
