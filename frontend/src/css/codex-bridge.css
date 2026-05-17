@@ -1,0 +1,542 @@
+/*
+ * Mantine → Codex bridge.
+ *
+ * Re-themes Mantine v9 globally to the codex aesthetic without
+ * rewriting every component. Three layers:
+ *
+ *   1. Override Mantine's CSS variables (--mantine-color-*, --mantine-font-*,
+ *      --mantine-radius-*) with codex tokens so every Mantine component
+ *      automatically picks up the parchment + gold + serif look.
+ *   2. Override the few component-specific classnames whose look doesn't
+ *      come from variables alone (Modal panels, Drawer panels, Paper,
+ *      Card, Accordion, Menu, Notifications, etc.).
+ *   3. Force serif typography globally — Mantine defaults to sans, and
+ *      that's the single biggest "this looks wrong" signal.
+ *
+ * Lives after Mantine's own stylesheets in the import order (see
+ * main.tsx) so its rules win without needing `!important` for most
+ * things. A few !important markers are used where Mantine sets styles
+ * via inline `style=""` attributes that we can't beat from CSS.
+ *
+ * For pages that have a high-fidelity codex rewrite (CharactersPage,
+ * etc.), the bridge styles are mostly irrelevant — those pages use
+ * codex.css class names directly. The bridge is what makes
+ * unconverted pages (Settings, Homebrew, the sheet) cohesive with the
+ * converted ones.
+ *
+ * NOTE: this file does NOT define the codex color tokens themselves —
+ * those live in codex.css under :root. The bridge ASSUMES codex.css
+ * is loaded earlier so var(--gold) etc. resolve.
+ */
+
+/* ============================================================
+   1. Body / page chrome
+   ============================================================ */
+
+body {
+  background-color: var(--bg) !important;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,161,59,0.06), transparent 70%),
+    radial-gradient(ellipse 100% 50% at 50% 100%, rgba(168, 58, 37, 0.04), transparent 70%),
+    repeating-linear-gradient(43deg, rgba(255,240,210,.012) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(137deg, rgba(255,240,210,.010) 0 2px, transparent 2px 7px) !important;
+  color: var(--ink);
+  font-family: 'Cormorant Garamond', 'Georgia', serif;
+}
+
+/* Body text default is the serif. Headings get the engraved serif. */
+:where(p, span, div, label, li, td, th, dd, dt) {
+  font-family: 'Cormorant Garamond', 'Georgia', serif;
+}
+:where(h1, h2, h3, h4, h5, h6, .mantine-Title-root) {
+  font-family: 'Cinzel', serif !important;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+:where(input, textarea, button, select) {
+  font-family: 'Cormorant Garamond', 'Georgia', serif;
+}
+
+/* ============================================================
+   2. Mantine variable overrides
+   ============================================================
+   Mantine resolves component styling through these CSS variables.
+   Overriding here cascades into every Mantine component without
+   touching individual class selectors. */
+
+/* Note on selector specificity: Mantine's cssVariablesResolver writes
+   its variables to `[data-mantine-color-scheme='dark']` (specificity
+   0,0,1,1). Plain `:root` (0,0,1,0) loses against that. We use the
+   same attribute selector AND :root in a list so this rule wins at
+   equal specificity, and source order (codex-bridge.css loaded after
+   Mantine's stylesheets) decides the tie. */
+:root,
+[data-mantine-color-scheme='dark'],
+[data-mantine-color-scheme='light'] {
+  /* Body + text */
+  --mantine-color-body: #15110b;
+  --mantine-color-text: #ede4ce;
+  --mantine-color-dimmed: #8a7e64;
+  --mantine-color-default: #211a11;
+  --mantine-color-default-color: #ede4ce;
+  --mantine-color-default-hover: #261e14;
+  --mantine-color-default-border: rgba(201, 161, 59, 0.16);
+  --mantine-color-placeholder: #6b5e44;
+  --mantine-color-anchor: #c9a13b;
+  --mantine-color-bright: #ede4ce;
+  --mantine-color-error: #a83a25;
+
+  /* Dark gray scale — every "dark" Mantine color */
+  --mantine-color-dark-0: #ede4ce;
+  --mantine-color-dark-1: #c3b69a;
+  --mantine-color-dark-2: #8a7e64;
+  --mantine-color-dark-3: #6b5e44;
+  --mantine-color-dark-4: #5a4e36;
+  --mantine-color-dark-5: #3a2f1f;
+  --mantine-color-dark-6: #261e14;
+  --mantine-color-dark-7: #211a11;
+  --mantine-color-dark-8: #1c1710;
+  --mantine-color-dark-9: #15110b;
+
+  /* Gray (used as fallback when no color is set) */
+  --mantine-color-gray-0: #ede4ce;
+  --mantine-color-gray-1: #d4c8a8;
+  --mantine-color-gray-2: #c3b69a;
+  --mantine-color-gray-3: #a89978;
+  --mantine-color-gray-4: #8a7e64;
+  --mantine-color-gray-5: #6b5e44;
+  --mantine-color-gray-6: #5a4e36;
+  --mantine-color-gray-7: #3a2f1f;
+  --mantine-color-gray-8: #261e14;
+  --mantine-color-gray-9: #15110b;
+
+  /* Primary (gold) — what Mantine calls "blue" by default; we remap
+     to gold so primary buttons / focus rings / chips read gold. */
+  --mantine-color-blue-0: #f7eed5;
+  --mantine-color-blue-1: #ebd9a8;
+  --mantine-color-blue-2: #e8c557;
+  --mantine-color-blue-3: #d9b246;
+  --mantine-color-blue-4: #c9a13b;
+  --mantine-color-blue-5: #b88e30;
+  --mantine-color-blue-6: #a17a25;
+  --mantine-color-blue-7: #8a6f25;
+  --mantine-color-blue-8: #6f5818;
+  --mantine-color-blue-9: #5a4612;
+
+  /* Other Mantine colors mapped to codex palette so any `color='red'`
+     etc. still produces something thematically consistent. */
+  --mantine-color-red-3: #d9684a;
+  --mantine-color-red-4: #c14935;
+  --mantine-color-red-5: #a83a25;
+  --mantine-color-red-6: #93311e;
+  --mantine-color-red-7: #6f1f10;
+  --mantine-color-yellow-3: #ebd9a8;
+  --mantine-color-yellow-4: #e8c557;
+  --mantine-color-yellow-5: #c9a13b;
+  --mantine-color-yellow-6: #a17a25;
+  --mantine-color-green-3: #a3c084;
+  --mantine-color-green-4: #88a060;
+  --mantine-color-green-5: #5b7148;
+  --mantine-color-green-6: #495a3a;
+  --mantine-color-orange-4: #d97b3a;
+  --mantine-color-orange-5: #a83a25;
+
+  /* The primary color slot (resolves what theme.primaryColor points to). */
+  --mantine-primary-color-0: var(--mantine-color-blue-0);
+  --mantine-primary-color-1: var(--mantine-color-blue-1);
+  --mantine-primary-color-2: var(--mantine-color-blue-2);
+  --mantine-primary-color-3: var(--mantine-color-blue-3);
+  --mantine-primary-color-4: var(--mantine-color-blue-4);
+  --mantine-primary-color-5: var(--mantine-color-blue-5);
+  --mantine-primary-color-6: var(--mantine-color-blue-6);
+  --mantine-primary-color-7: var(--mantine-color-blue-7);
+  --mantine-primary-color-8: var(--mantine-color-blue-8);
+  --mantine-primary-color-9: var(--mantine-color-blue-9);
+  --mantine-primary-color-filled: var(--mantine-color-blue-5);
+  --mantine-primary-color-filled-hover: var(--mantine-color-blue-4);
+  --mantine-primary-color-light: rgba(201, 161, 59, 0.10);
+  --mantine-primary-color-light-hover: rgba(201, 161, 59, 0.18);
+  --mantine-primary-color-light-color: #c9a13b;
+  --mantine-primary-color-contrast: #15110b;
+
+  /* Typography */
+  --mantine-font-family: 'Cormorant Garamond', 'Georgia', serif;
+  --mantine-font-family-headings: 'Cinzel', serif;
+  --mantine-font-family-monospace: 'Ubuntu Mono', monospace;
+
+  /* Border radius — the codex aesthetic uses sharp/square shapes */
+  --mantine-radius-xs: 0px;
+  --mantine-radius-sm: 0px;
+  --mantine-radius-md: 0px;
+  --mantine-radius-lg: 2px;
+  --mantine-radius-xl: 2px;
+  --mantine-radius-default: 0px;
+
+  /* Imprint variables used by older index.css */
+  --glass-bg-color: #211a11;
+  --glass-border-color: rgba(201, 161, 59, 0.16);
+  --avatar-placeholder-bg: #211a11;
+  --imprint-bg-color: #211a11;
+  --imprint-bg-color-2: #261e14;
+  --imprint-bg-color-hover: #2a2114;
+  --imprint-bg-color-hover-2: #2f2516;
+  --imprint-border-color: rgba(201, 161, 59, 0.16);
+}
+
+/* ============================================================
+   3. Component overrides
+   ============================================================
+   For things variables don't cover. */
+
+/* Paper / Card surfaces — the dark-brown card panel look, with subtle
+   gold rule border. Replaces Mantine's drop-shadow with a 1px gold-tint
+   outline so cards feel inscribed rather than floating. */
+.mantine-Paper-root,
+.mantine-Card-root {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--rule-soft) !important;
+  color: var(--ink);
+}
+.mantine-Paper-root[data-with-border='true'] {
+  border-color: var(--rule) !important;
+}
+
+/* Modal */
+.mantine-Modal-content {
+  background-color: var(--bg-2) !important;
+  border: 1px solid var(--rule) !important;
+  color: var(--ink);
+}
+.mantine-Modal-header {
+  background-color: var(--bg-2) !important;
+  border-bottom: 1px solid var(--rule-soft) !important;
+  color: var(--ink);
+}
+.mantine-Modal-title {
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  text-transform: uppercase;
+  font-size: 14px;
+}
+.mantine-Modal-close,
+.mantine-Drawer-close {
+  color: var(--ink-muted);
+}
+.mantine-Modal-close:hover,
+.mantine-Drawer-close:hover {
+  background: rgba(168, 58, 37, 0.35);
+  color: #ffe4d0;
+}
+.mantine-Modal-overlay,
+.mantine-Drawer-overlay {
+  background: rgba(10, 7, 3, 0.78) !important;
+}
+
+/* Drawer */
+.mantine-Drawer-content {
+  background-color: var(--bg-2) !important;
+  border-left: 1px solid var(--rule) !important;
+  color: var(--ink);
+}
+.mantine-Drawer-header {
+  background-color: var(--bg-2) !important;
+  border-bottom: 1px solid var(--rule-soft) !important;
+  color: var(--ink);
+}
+.mantine-Drawer-title {
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+}
+
+/* Button */
+.mantine-Button-root {
+  font-family: 'Cinzel', serif !important;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 11px !important;
+  border-radius: 0 !important;
+}
+.mantine-Button-root[data-variant='filled'] {
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep)) !important;
+  color: var(--bg) !important;
+  border: 1px solid var(--gold-deep);
+}
+.mantine-Button-root[data-variant='light'] {
+  background: rgba(201, 161, 59, 0.10) !important;
+  color: var(--gold) !important;
+  border: 1px solid var(--rule-soft);
+}
+.mantine-Button-root[data-variant='outline'],
+.mantine-Button-root[data-variant='default'] {
+  background: var(--bg-card) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--rule-soft) !important;
+}
+.mantine-Button-root[data-variant='subtle'] {
+  background: transparent !important;
+  color: var(--ink-dim) !important;
+}
+.mantine-Button-root[data-variant='subtle']:hover {
+  background: rgba(201, 161, 59, 0.08) !important;
+  color: var(--gold) !important;
+}
+
+/* ActionIcon */
+.mantine-ActionIcon-root {
+  color: var(--gold);
+  border-radius: 0 !important;
+}
+.mantine-ActionIcon-root[data-variant='filled'] {
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep)) !important;
+  color: var(--bg) !important;
+}
+.mantine-ActionIcon-root[data-variant='light'] {
+  background: rgba(201, 161, 59, 0.10) !important;
+  color: var(--gold) !important;
+}
+.mantine-ActionIcon-root[data-variant='default'] {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--rule-soft);
+}
+
+/* Input fields */
+.mantine-Input-input,
+.mantine-Textarea-input {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--rule-soft) !important;
+  color: var(--ink) !important;
+  font-family: 'Cormorant Garamond', serif !important;
+  border-radius: 0 !important;
+}
+.mantine-Input-input:focus,
+.mantine-Textarea-input:focus {
+  border-color: var(--gold) !important;
+}
+.mantine-InputWrapper-label {
+  font-family: 'Cinzel', serif !important;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+
+/* Tabs */
+.mantine-Tabs-tab {
+  font-family: 'Cinzel', serif !important;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 11px !important;
+  color: var(--ink-muted) !important;
+  border-color: var(--rule-soft) !important;
+  border-radius: 0 !important;
+}
+.mantine-Tabs-tab[data-active='true'] {
+  color: var(--gold) !important;
+  background: linear-gradient(180deg, rgba(201,161,59,.06), transparent 80%) !important;
+  border-color: var(--gold-deep) !important;
+}
+
+/* Accordion */
+.mantine-Accordion-item {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--rule-soft) !important;
+  border-radius: 0 !important;
+}
+.mantine-Accordion-control {
+  color: var(--ink) !important;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.12em;
+}
+.mantine-Accordion-control:hover {
+  background: rgba(201, 161, 59, 0.06) !important;
+}
+.mantine-Accordion-label {
+  color: var(--ink) !important;
+}
+.mantine-Accordion-chevron {
+  color: var(--gold);
+}
+
+/* Menu (dropdown) */
+.mantine-Menu-dropdown {
+  background-color: var(--bg-2) !important;
+  border: 1px solid var(--rule) !important;
+  border-radius: 0 !important;
+  color: var(--ink) !important;
+}
+.mantine-Menu-item {
+  color: var(--ink) !important;
+  font-family: 'Cormorant Garamond', serif !important;
+}
+.mantine-Menu-item:hover,
+.mantine-Menu-item[data-hovered='true'] {
+  background: rgba(201, 161, 59, 0.10) !important;
+  color: var(--gold-bright) !important;
+}
+.mantine-Menu-label {
+  color: var(--ink-muted) !important;
+  font-family: 'Cinzel', serif !important;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 9px;
+}
+.mantine-Menu-divider {
+  border-color: var(--rule-soft) !important;
+}
+
+/* Notifications */
+.mantine-Notification-root {
+  background-color: var(--bg-2) !important;
+  border: 1px solid var(--rule) !important;
+  color: var(--ink) !important;
+  border-radius: 0 !important;
+}
+.mantine-Notification-title {
+  font-family: 'Cinzel', serif !important;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+}
+
+/* Tooltips */
+.mantine-Tooltip-tooltip {
+  background-color: var(--bg-2) !important;
+  border: 1px solid var(--rule) !important;
+  color: var(--ink) !important;
+  font-family: 'Cormorant Garamond', serif !important;
+  font-style: italic;
+  font-size: 12px;
+  border-radius: 0 !important;
+}
+
+/* Popover */
+.mantine-Popover-dropdown,
+.mantine-HoverCard-dropdown {
+  background-color: var(--bg-2) !important;
+  border: 1px solid var(--rule) !important;
+  color: var(--ink) !important;
+  border-radius: 0 !important;
+}
+
+/* Badge */
+.mantine-Badge-root {
+  font-family: 'Cinzel', serif !important;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border-radius: 0 !important;
+  border: 1px solid var(--rule-soft);
+}
+
+/* Divider */
+.mantine-Divider-root {
+  border-color: var(--rule-soft) !important;
+}
+
+/* Loader bars (the bars-style spinner) */
+.mantine-Loader-root {
+  color: var(--gold) !important;
+}
+
+/* AppShell / Layout containers — strip Mantine's default backgrounds
+   so the body parchment shows through. */
+.mantine-AppShell-root,
+.mantine-AppShell-main,
+.mantine-AppShell-header,
+.mantine-AppShell-navbar {
+  background: transparent !important;
+}
+
+/* ScrollArea: make the scrollbar gold-deep on rail-thin track */
+.mantine-ScrollArea-scrollbar {
+  background: transparent !important;
+}
+.mantine-ScrollArea-thumb {
+  background-color: var(--gold-deep) !important;
+}
+
+/* Tiptap rich text editor */
+.tiptap.ProseMirror {
+  background-color: var(--bg-card);
+  color: var(--ink);
+  font-family: 'Cormorant Garamond', serif;
+}
+.mantine-RichTextEditor-root {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--rule-soft) !important;
+  color: var(--ink);
+}
+
+/* Slider */
+.mantine-Slider-track,
+.mantine-RangeSlider-track {
+  background-color: var(--bg-3) !important;
+}
+.mantine-Slider-bar,
+.mantine-RangeSlider-bar {
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold-bright)) !important;
+}
+.mantine-Slider-thumb,
+.mantine-RangeSlider-thumb {
+  background-color: var(--bg) !important;
+  border: 2px solid var(--gold) !important;
+  border-radius: 50% !important;
+}
+.mantine-Slider-mark,
+.mantine-RangeSlider-mark {
+  background-color: var(--ink-deep) !important;
+  border: 1px solid var(--rule-soft) !important;
+}
+.mantine-Slider-markFilled,
+.mantine-RangeSlider-markFilled {
+  background-color: var(--gold) !important;
+}
+
+/* Anchors / links */
+a, .mantine-Anchor-root {
+  color: var(--gold);
+}
+a:hover, .mantine-Anchor-root:hover {
+  color: var(--gold-bright);
+}
+
+/* Strong / bold in body text */
+strong, b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Mantine's Title-root font sizes — keep them but apply Cinzel */
+h1.mantine-Title-root, .mantine-Title-root[data-order='1'] { font-size: 36px; }
+h2.mantine-Title-root, .mantine-Title-root[data-order='2'] { font-size: 28px; }
+h3.mantine-Title-root, .mantine-Title-root[data-order='3'] { font-size: 22px; }
+h4.mantine-Title-root, .mantine-Title-root[data-order='4'] { font-size: 17px; }
+h5.mantine-Title-root, .mantine-Title-root[data-order='5'] { font-size: 13px; }
+h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
+
+/* Mantine Kbd */
+.mantine-Kbd-root {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--rule-soft) !important;
+  color: var(--ink-muted) !important;
+  font-family: 'Cinzel', serif !important;
+  border-radius: 0 !important;
+}
+
+/* Selection */
+::selection {
+  background: rgba(201, 161, 59, 0.35);
+  color: var(--ink);
+}
+
+/* ============================================================
+   4. Suppress the upstream Mantine BackgroundImage on every route
+   ============================================================
+   App.tsx renders a fullscreen BackgroundImage with the per-character
+   art at z-index:-1000. With the codex parchment painted on body,
+   that image becomes visual noise — replace it with nothing. The
+   per-character art is still meaningful inside the sheet, but the
+   sheet redesign no longer uses it as a backdrop. */
+.mantine-BackgroundImage-root {
+  display: none !important;
+}

@@ -16,11 +16,14 @@ import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-rou
 import App from './App.tsx';
 import './index.css';
 // Codex theme. Loaded after Mantine + index.css so its rules win on
-// pages we've migrated to the codex design language. Existing pages
-// that still use Mantine classes are unaffected — codex.css only
-// styles its own class names (.winbar, .topbar, .col, .vital, .sk, etc.)
-// and CSS variables under :root.
+// pages we've migrated to the codex design language.
 import './css/codex.css';
+// Mantine → Codex bridge. Overrides Mantine's CSS variables (colors,
+// fonts, radius) + component-specific classes so EVERY Mantine
+// component in the app picks up the codex aesthetic. Pages that
+// haven't been hand-rewritten still look codex-themed; pages that
+// have are unaffected (they use codex.css class names directly).
+import './css/codex-bridge.css';
 import { ErrorPage } from './pages/ErrorPage.tsx';
 import { MantineProvider } from '@mantine/core';
 
