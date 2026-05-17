@@ -1,0 +1,416 @@
+/* ============================ PAGE: SPELLS (codex-spells.html) ============================
+   Page-specific styles extracted from D:/Inst/wg 2/screens/codex-spells.html
+   so the CodexSpellsPanel can render against the same class names. */
+
+.tradition-line {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  border-left: 3px solid var(--gold);
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-dim);
+  letter-spacing: .04em;
+}
+.tradition-line .t-name {
+  font-family: 'Cinzel', serif;
+  font-weight: 700; font-style: normal;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--gold);
+}
+.tradition-line .t-sep { color: var(--gold-deep); }
+.tradition-line b {
+  color: var(--ink); font-weight: 700; font-style: normal;
+  font-family: 'Cinzel', serif; letter-spacing: .08em; font-size: 12px;
+}
+
+.focus-pips.inline { display: inline-flex; gap: 5px; margin-left: 8px; vertical-align: middle; }
+.focus-pips.inline .fp { width: 11px; height: 11px; border-width: 1.2px; }
+.focus-pips.inline .fp::after { inset: 1.5px; }
+.focus-pips { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+.fp {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--gold);
+  transform: rotate(45deg);
+  background: transparent;
+  position: relative;
+  box-shadow: inset 0 0 4px rgba(201,161,59,.18);
+  transition: transform .12s ease;
+  cursor: pointer;
+}
+.fp:hover { transform: rotate(45deg) scale(1.12); }
+.fp.full {
+  background: radial-gradient(circle, var(--gold-bright), var(--gold) 60%, var(--gold-deep) 100%);
+  box-shadow: inset 0 0 4px rgba(0,0,0,.35), 0 0 8px rgba(201,161,59,.5);
+  border-color: var(--gold-bright);
+}
+.fp::after { content: ''; position: absolute; inset: 2px; border: 1px solid rgba(0,0,0,.3); }
+.fp.full::after { border-color: rgba(0,0,0,.4); }
+
+.sp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 5px 10px;
+}
+@media (max-width: 1200px) { .sp-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 800px) { .sp-grid { grid-template-columns: 1fr; } }
+.sp {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  transition: border-color .12s, background .12s;
+  cursor: pointer;
+  position: relative;
+}
+.sp:hover {
+  border-color: var(--gold-deep);
+  background: linear-gradient(180deg, rgba(201,161,59,.06), var(--bg-card));
+}
+.sp.heightened { border-left: 2px solid var(--gold); }
+.sp.focus { border-left: 2px solid var(--crimson); }
+.sp .cost { display: flex; align-items: center; justify-self: center; line-height: 1; }
+.sp .nm {
+  font-family: 'Cinzel', serif; font-weight: 600;
+  font-size: 12px; color: var(--ink);
+  letter-spacing: .04em; line-height: 1.15;
+}
+.sp .nm em {
+  display: inline;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic; font-weight: 500;
+  color: var(--gold); margin-left: 4px;
+  letter-spacing: .04em; font-size: 10px;
+}
+.sp .nm small {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 500; font-size: 11px;
+  color: var(--ink-muted); letter-spacing: .02em;
+  margin-top: 1px; font-style: italic;
+}
+.sp .stat {
+  font-family: 'Cinzel', serif; font-size: 11px;
+  color: var(--gold); font-weight: 700;
+  text-align: right; white-space: nowrap; line-height: 1.1;
+}
+.sp .stat small {
+  display: block; font-size: 8px;
+  letter-spacing: .18em; color: var(--ink-muted);
+  font-weight: 500; text-transform: uppercase;
+}
+.sp .stat.dim { color: var(--ink-dim); }
+
+.spell-search,
+.feat-search,
+.inv-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px; align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  padding: 4px;
+  margin-bottom: 8px;
+}
+.spell-search .field,
+.feat-search .field,
+.inv-toolbar .field {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+.spell-search .field::before,
+.feat-search .field::before,
+.inv-toolbar .field::before {
+  content: ''; width: 10px; height: 10px;
+  border: 1.4px solid var(--gold); border-radius: 50%;
+  box-shadow: 3px 3px 0 -2px var(--gold);
+  flex-shrink: 0;
+}
+.spell-search .field input,
+.feat-search .field input,
+.inv-toolbar .field input {
+  background: transparent; border: 0; outline: 0;
+  color: var(--ink);
+  font-family: 'Cormorant Garamond', serif; font-size: 14px;
+  width: 100%; padding: 0;
+}
+.spell-search .field input::placeholder,
+.feat-search .field input::placeholder,
+.inv-toolbar .field input::placeholder { color: var(--ink-muted); }
+.spell-search .filter,
+.feat-search .filter,
+.inv-toolbar .filter {
+  padding: 7px 14px;
+  font-family: 'Cinzel', serif; font-size: 10px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--ink-muted);
+  border: 1px solid var(--rule-soft);
+  background: transparent;
+  cursor: pointer;
+}
+.spell-search .filter.on,
+.feat-search .filter.on,
+.inv-toolbar .filter.on {
+  color: var(--gold); border-color: var(--gold-deep);
+  background: rgba(201,161,59,.08);
+}
+.spell-search .add,
+.inv-toolbar .add {
+  padding: 7px 14px;
+  font-family: 'Cinzel', serif; font-size: 10px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--bg);
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  cursor: pointer;
+}
+
+.rank-pips { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; }
+.dot-pip {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border: 1.4px solid var(--gold);
+  transform: rotate(45deg);
+  background: transparent;
+  position: relative;
+  cursor: pointer;
+  transition: transform .12s;
+}
+.dot-pip:hover { transform: rotate(45deg) scale(1.15); }
+.dot-pip.filled {
+  background: radial-gradient(circle, var(--gold-bright), var(--gold) 60%, var(--gold-deep) 100%);
+  box-shadow: 0 0 6px rgba(201,161,59,.5);
+}
+
+/* ============================ PAGE: INVENTORY (codex-inventory.html) ============================ */
+
+.wealth-strip {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px; align-items: stretch;
+  background:
+    linear-gradient(180deg, rgba(201,161,59,.08), rgba(201,161,59,.02)),
+    var(--bg-card);
+  border: 1px solid var(--gold-deep);
+  padding: 14px 18px;
+  position: relative;
+}
+.wealth-strip::before, .wealth-strip::after {
+  content: ''; position: absolute; width: 8px; height: 8px;
+  border: 1px solid var(--gold);
+}
+.wealth-strip::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.wealth-strip::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.coins { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.coin {
+  display: flex; align-items: center; gap: 9px;
+  padding: 4px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--rule-soft);
+  min-width: 110px;
+}
+.coin .disk {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: 'Cinzel', serif; font-weight: 700; font-size: 12px;
+  line-height: 1;
+  box-shadow: inset 0 -2px 4px rgba(0,0,0,.3), 0 0 8px rgba(0,0,0,.3);
+}
+.coin.pp .disk { background: linear-gradient(180deg, #e8eef5, #7d8b9a); color: #2a3340; }
+.coin.gp .disk { background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep)); color: var(--bg); }
+.coin.sp .disk { background: linear-gradient(180deg, #d8dde2, #888d92); color: #2a3038; }
+.coin.cp .disk { background: linear-gradient(180deg, #c08259, #6d4326); color: #1a0e07; }
+.coin .v { font-family: 'Cinzel', serif; font-weight: 700; font-size: 20px; color: var(--ink); line-height: 1; }
+.coin .k { font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .22em; color: var(--ink-muted); text-transform: uppercase; margin-top: 3px; }
+.coin .col-r { display: flex; flex-direction: column; }
+
+.bulk-block {
+  display: flex; flex-direction: column; gap: 6px; align-items: end;
+  min-width: 200px;
+  padding-left: 18px;
+  border-left: 1px solid var(--rule-soft);
+}
+.bulk-block .k { font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .26em; color: var(--ink-muted); text-transform: uppercase; }
+.bulk-block .v { font-family: 'Cinzel', serif; font-weight: 700; font-size: 24px; color: var(--ink); line-height: 1; }
+.bulk-block .v small { font-size: 13px; color: var(--ink-muted); font-weight: 500; }
+.bulk-bar {
+  width: 200px; height: 8px;
+  background: var(--bg);
+  border: 1px solid var(--rule-soft);
+  position: relative; overflow: hidden;
+}
+.bulk-bar .fill {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold-bright));
+  box-shadow: inset 0 0 4px rgba(0,0,0,.3);
+}
+
+.it-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 5px 10px;
+}
+@media (max-width: 1200px) { .it-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 800px) { .it-grid { grid-template-columns: 1fr; } }
+.it {
+  display: grid;
+  grid-template-columns: 30px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  transition: border-color .12s, background .12s;
+  cursor: pointer;
+  position: relative;
+}
+.it:hover {
+  border-color: var(--gold-deep);
+  background: linear-gradient(180deg, rgba(201,161,59,.06), var(--bg-card));
+}
+.it.equipped { border-left: 2px solid var(--gold); }
+.it.held { border-left: 2px solid var(--sage); }
+.it.worn { border-left: 2px solid var(--ink-deep); }
+.it.consumable { border-left: 2px solid var(--crimson); }
+.it .icon { width: 28px; height: 28px; display: grid; place-items: center; color: var(--gold); }
+.it .icon svg { width: 20px; height: 20px; }
+.it .nm {
+  font-family: 'Cinzel', serif; font-weight: 600; font-size: 12px;
+  color: var(--ink); letter-spacing: .04em; line-height: 1.15;
+}
+.it .nm small {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 500; font-size: 11px;
+  color: var(--ink-muted); letter-spacing: .02em;
+  margin-top: 1px; font-style: italic;
+}
+.it .qty {
+  font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: 14px; color: var(--gold);
+  text-align: center; line-height: 1; min-width: 28px;
+}
+.it .qty small {
+  display: block; font-size: 8px;
+  letter-spacing: .18em; color: var(--ink-muted);
+  font-weight: 500; text-transform: uppercase; margin-top: 2px;
+}
+.it .bulk {
+  font-family: 'Cinzel', serif; font-size: 11px;
+  color: var(--ink-dim); text-align: right;
+  white-space: nowrap; line-height: 1.1;
+}
+.it .bulk small {
+  display: block; font-size: 8px;
+  letter-spacing: .18em; color: var(--ink-muted);
+  font-weight: 500; text-transform: uppercase;
+}
+
+/* ============================ PAGE: FEATS & FEATURES (codex-feats.html) ============================ */
+
+.feat-summary {
+  display: flex; align-items: center; gap: 14px;
+  padding: 7px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  border-left: 3px solid var(--gold);
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-dim);
+  letter-spacing: .04em;
+}
+.feat-summary .t-name {
+  font-family: 'Cinzel', serif;
+  font-weight: 700; font-style: normal;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--gold);
+}
+.feat-summary .t-sep { color: var(--gold-deep); }
+.feat-summary b {
+  color: var(--ink); font-weight: 700; font-style: normal;
+  font-family: 'Cinzel', serif; letter-spacing: .08em; font-size: 12px;
+}
+
+.feat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+@media (max-width: 900px) { .feat-grid { grid-template-columns: 1fr; } }
+.feat {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  transition: border-color .12s, background .12s;
+  cursor: pointer;
+  position: relative;
+}
+.feat:hover {
+  border-color: var(--gold-deep);
+  background: linear-gradient(180deg, rgba(201,161,59,.06), var(--bg-card));
+}
+.feat.class { border-left: 2px solid var(--gold); }
+.feat.ancestry { border-left: 2px solid var(--sage); }
+.feat.skill { border-left: 2px solid var(--ink-deep); }
+.feat.general { border-left: 2px solid var(--crimson); }
+.feat.feature {
+  border-left: 2px solid var(--gold-bright);
+  background: linear-gradient(180deg, rgba(201,161,59,.04), var(--bg-card));
+}
+.feat .lvl {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(201,161,59,.12), rgba(201,161,59,.02));
+  border: 1.2px solid var(--gold-deep);
+  color: var(--gold-bright);
+  display: grid; place-items: center;
+  font-family: 'Cinzel', serif; font-weight: 700; font-size: 13px;
+  line-height: 1; justify-self: center;
+}
+.feat .nm {
+  font-family: 'Cinzel', serif; font-weight: 600;
+  font-size: 12px; color: var(--ink);
+  letter-spacing: .04em; line-height: 1.15;
+}
+.feat .nm small {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 500; font-size: 11px;
+  color: var(--ink-muted); letter-spacing: .02em;
+  margin-top: 1px; font-style: italic;
+}
+.feat .meta {
+  font-family: 'Cinzel', serif; font-size: 9px;
+  letter-spacing: .2em; color: var(--ink-muted);
+  text-transform: uppercase; text-align: right;
+  line-height: 1.2; white-space: nowrap;
+}
+.feat .meta b { display: block; color: var(--gold); }
+
+/* ============================ Shared: codex tab body wrapper ============================ */
+.codex-tab-body {
+  grid-column: 1 / -1;
+  padding: 14px 20px 24px;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-deep) transparent;
+}
+.codex-tab-body::-webkit-scrollbar { width: 4px; }
+.codex-tab-body::-webkit-scrollbar-thumb { background: var(--gold-deep); }

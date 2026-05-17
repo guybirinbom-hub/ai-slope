@@ -18,6 +18,7 @@ import './index.css';
 // Codex theme. Loaded after Mantine + index.css so its rules win on
 // pages we've migrated to the codex design language.
 import './css/codex.css';
+import './css/codex-panels.css';
 // Mantine → Codex bridge. Overrides Mantine's CSS variables (colors,
 // fonts, radius) + component-specific classes so EVERY Mantine
 // component in the app picks up the codex aesthetic. Pages that

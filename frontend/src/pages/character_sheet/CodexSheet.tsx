@@ -48,13 +48,11 @@ import { compileProficiencyType } from '@variables/variable-utils';
 import { useAtom } from 'jotai';
 import { drawerState } from '@atoms/navAtoms';
 import { confirmHealth } from './entity-handler';
-import SpellsPanel from './panels/SpellsPanel';
-import InventoryPanel from './panels/InventoryPanel';
-import FeatsFeaturesPanel from './panels/FeatsFeaturesPanel';
 import CompanionsPanel from './panels/CompanionsPanel';
 import DetailsPanel from './panels/DetailsPanel';
 import NotesPanel from './panels/NotesPanel';
 import SkillsActionsPanel from './panels/SkillsActionsPanel';
+import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel } from './CodexPanels';
 import { useNavigate } from 'react-router-dom';
 
 type CodexTab =
@@ -672,26 +670,26 @@ export default function CodexSheet(props: {
             // are rethemed by the codex-bridge.css overrides.
             <div className='codex-tab-body'>
               {activeTab === 'spells' && (
-                <SpellsPanel
-                  id='CHARACTER'
-                  panelHeight={props.panelHeight}
-                  panelWidth={props.panelWidth}
-                  entity={character}
-                  setEntity={setCharacter as unknown as SetterOrUpdater<LivingEntity | null>}
+                <CodexSpellsPanel
+                  characterId={props.characterId}
+                  character={character}
+                  setCharacter={setCharacter}
+                  content={content}
                 />
               )}
               {activeTab === 'inventory' && (
-                <InventoryPanel
-                  id='CHARACTER'
-                  panelHeight={props.panelHeight}
-                  panelWidth={props.panelWidth}
-                  content={content}
-                  entity={character}
-                  setEntity={setCharacter as unknown as SetterOrUpdater<LivingEntity | null>}
+                <CodexInventoryPanel
+                  characterId={props.characterId}
+                  character={character}
+                  setCharacter={setCharacter}
                 />
               )}
               {activeTab === 'feats' && (
-                <FeatsFeaturesPanel panelHeight={props.panelHeight} panelWidth={props.panelWidth} />
+                <CodexFeatsPanel
+                  characterId={props.characterId}
+                  character={character}
+                  content={content}
+                />
               )}
               {activeTab === 'companions' && (
                 <CompanionsPanel panelHeight={props.panelHeight} panelWidth={props.panelWidth} />
