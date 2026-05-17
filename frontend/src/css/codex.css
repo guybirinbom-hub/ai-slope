@@ -648,6 +648,7 @@
     font-weight: 700;
     align-self: center;
   }
+  .sk .pf.U { background: transparent; color: var(--ink-muted); border: 1px solid var(--rule-soft); }
   .sk .pf.T { background: var(--ink-deep); color: #f0e8d0; }
   .sk .pf.E { background: var(--sage); color: #e8f0d8; }
   .sk .pf.M { background: var(--gold); color: #1a1206; }

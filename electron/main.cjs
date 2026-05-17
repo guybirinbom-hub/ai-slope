@@ -92,19 +92,13 @@ function createMainWindow() {
     backgroundColor: '#1a1b1e',
     autoHideMenuBar: true,
     show: false,
-    // Frameless window with the native Windows min/max/close still
-    // visible in the top-right via titleBarOverlay. Lets the web view
-    // claim the whole window — no separate OS title bar strip — while
-    // the user can still drag the window from any element styled with
-    // CSS `-webkit-app-region: drag` (a thin strip at the top of the
-    // app's own UI handles that). `symbolColor` matches the dimmed
-    // body text so the controls don't clash on the dark background.
+    // Frameless window. Codex design renders its own gold-styled
+    // min/max/close inside the .winbar (top of the page), wired via
+    // wgElectron.windowMinimize/Maximize/Close IPC. titleBarOverlay
+    // is intentionally omitted so we don't get a competing native
+    // button strip overlapping the codex chrome. Drag region is set
+    // via CSS `-webkit-app-region: drag` on the .winbar element.
     titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#1a1b1e',
-      symbolColor: '#aaaaaa',
-      height: 32,
-    },
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -296,6 +290,34 @@ ipcMain.handle('wg-uninstall', async () => {
   // "Uninstalling…" notification).
   setTimeout(() => app.quit(), 150);
   return { ok: true };
+});
+
+// ---- Window control IPC (used by codex-styled winbar buttons) ----
+// The renderer's custom min/max/close buttons in the codex .winbar
+// invoke these. We use the focused BrowserWindow so the right window
+// gets controlled even if multiple are open (currently we only ever
+// have one, but cheap insurance).
+
+ipcMain.handle('wg-window-minimize', () => {
+  const w = BrowserWindow.getFocusedWindow() || mainWindow;
+  if (w) w.minimize();
+});
+
+ipcMain.handle('wg-window-toggle-maximize', () => {
+  const w = BrowserWindow.getFocusedWindow() || mainWindow;
+  if (!w) return;
+  if (w.isMaximized()) w.unmaximize();
+  else w.maximize();
+});
+
+ipcMain.handle('wg-window-close', () => {
+  const w = BrowserWindow.getFocusedWindow() || mainWindow;
+  if (w) w.close();
+});
+
+ipcMain.handle('wg-window-is-maximized', () => {
+  const w = BrowserWindow.getFocusedWindow() || mainWindow;
+  return !!(w && w.isMaximized());
 });
 
 // During shutdown the pg client / postgrest pipes can emit errors when their

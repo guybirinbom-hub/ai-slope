@@ -151,7 +151,9 @@ export function Component() {
 
   return (
     <div className='codex-root'>
-      {/* Styled winbar — labeled band beneath Electron's OS controls. */}
+      {/* Styled winbar — owns the window drag region + min/max/close
+          buttons (Electron's native titleBarOverlay is disabled, see
+          electron/main.cjs). */}
       <div className='winbar'>
         <div className='title'>
           <span className='dot'></span>
@@ -160,7 +162,7 @@ export function Component() {
           </span>
         </div>
         <div className='center'>All your wanderers, in one tome</div>
-        <div></div>
+        <CharactersWinButtons />
       </div>
 
       <div className='app-header'>
@@ -778,4 +780,37 @@ async function createCharacterCopy(character: Character) {
   const result = await makeRequest<Character>('create-character', copy);
   hideNotification(`copy-character-${character.id}`);
   return result;
+}
+
+// Custom min/max/close for the characters-list .winbar. Same wiring
+// as CodexSheet's WinButtons — calls Electron via the wgElectron
+// preload bridge. Kept inline here so the routes don't have to share
+// a component file just for three svg buttons.
+function CharactersWinButtons() {
+  const w = (window as unknown as {
+    wgElectron?: {
+      windowMinimize?: () => void;
+      windowMaximize?: () => void;
+      windowClose?: () => void;
+    };
+  }).wgElectron;
+  return (
+    <div className='winbtns'>
+      <div className='winbtn' title='Minimize' onClick={() => w?.windowMinimize?.()}>
+        <svg viewBox='0 0 10 10'>
+          <path d='M1 8 L9 8' />
+        </svg>
+      </div>
+      <div className='winbtn' title='Maximize' onClick={() => w?.windowMaximize?.()}>
+        <svg viewBox='0 0 10 10'>
+          <path d='M1 1 L9 1 L9 9 L1 9 Z' />
+        </svg>
+      </div>
+      <div className='winbtn close' title='Close' onClick={() => w?.windowClose?.()}>
+        <svg viewBox='0 0 10 10'>
+          <path d='M1 1 L9 9 M9 1 L1 9' />
+        </svg>
+      </div>
+    </div>
+  );
 }

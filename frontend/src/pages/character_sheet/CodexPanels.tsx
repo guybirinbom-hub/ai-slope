@@ -1041,62 +1041,99 @@ export function CodexFeatsPanel(props: {
         ))}
       </div>
 
-      <section className='sec'>
-        <div className='sec-title'>
-          <span className='lozenge'>✦</span>
-          <span className='label'>All</span>
-          <span className='sub'>
-            <b>{filtered.length}</b>
-          </span>
-        </div>
-        <div className='sec-body'>
-          {filtered.length === 0 ? (
-            <div
-              style={{
-                color: 'var(--ink-muted)',
-                fontStyle: 'italic',
-                fontSize: 13,
-                padding: '6px 0',
-                fontFamily: "'Cormorant Garamond', serif",
-              }}
-            >
-              No feats or features match this filter.
+      {/* Per-section feat rendering — matches the reference image:
+          a CLASS section (with features inline), an ANCESTRY &
+          HERITAGE section, SKILL FEATS, and GENERAL FEATS. Sections
+          with zero entries hide entirely so a non-spellcaster doesn't
+          see an empty "General Feats" block. */}
+      {(
+        [
+          { id: 'class', label: 'Class', lozenge: '✦', groups: ['class', 'feature'] as const, sub: getClassName(character) || 'Bard' },
+          { id: 'ancestry', label: 'Ancestry & Heritage', lozenge: '✤', groups: ['ancestry'] as const, sub: getAncestryName(character) || 'Elf' },
+          { id: 'skill', label: 'Skill Feats', lozenge: '❖', groups: ['skill'] as const, sub: null },
+          { id: 'general', label: 'General Feats', lozenge: '❡', groups: ['general'] as const, sub: null },
+        ] as const
+      ).map((section) => {
+        const rows = filtered.filter((b) => (section.groups as readonly string[]).includes(b._group));
+        if (rows.length === 0) return null;
+        return (
+          <section key={section.id} className='sec'>
+            <div className='sec-title'>
+              <span className='lozenge'>{section.lozenge}</span>
+              <span className='label'>{section.label}</span>
+              <span className='sub'>
+                <b>{rows.length}</b>
+                {section.sub ? ` · ${section.sub}` : ''}
+              </span>
+              <span className='chev'></span>
             </div>
-          ) : (
-            <div className='feat-grid'>
-              {filtered.map((b) => {
-                const cls = b._group;
-                const actionGlyph = actionCostToGlyph(b.actions ?? null);
-                return (
-                  <div
-                    key={`${cls}-${b.id}`}
-                    className={`feat ${cls}`}
-                    onClick={() =>
-                      openDrawer({
-                        type: b.type === 'class-feature' || b.type === 'physical-feature' ? 'class-feature' : b.type === 'heritage' ? 'heritage' : 'feat',
-                        data: { id: b.id },
-                        extra: { addToHistory: true },
-                      })
-                    }
-                  >
-                    <div className='lvl'>{actionGlyph ? <ActionGlyph cost={actionGlyph} /> : b.level ?? 1}</div>
-                    <div className='nm'>
-                      {b.name}
-                      <small>{b.type.replace('-', ' ')}</small>
+            <div className='sec-body'>
+              <div className='feat-grid'>
+                {rows.map((b) => {
+                  const cls = b._group;
+                  const actionGlyph = actionCostToGlyph(b.actions ?? null);
+                  return (
+                    <div
+                      key={`${cls}-${b.id}`}
+                      className={`feat ${cls}`}
+                      onClick={() =>
+                        openDrawer({
+                          type:
+                            b.type === 'class-feature' || b.type === 'physical-feature'
+                              ? 'class-feature'
+                              : b.type === 'heritage'
+                                ? 'heritage'
+                                : 'feat',
+                          data: { id: b.id },
+                          extra: { addToHistory: true },
+                        })
+                      }
+                    >
+                      <div className='lvl'>
+                        {actionGlyph ? <ActionGlyph cost={actionGlyph} /> : b.level ?? 1}
+                      </div>
+                      <div className='nm'>
+                        {b.name}
+                        <small>{b.type.replace('-', ' ')}</small>
+                      </div>
+                      <div className='meta'>
+                        {cls === 'feature' ? 'FEATURE' : cls.toUpperCase()}
+                        <b>Lv {b.level ?? 1}</b>
+                      </div>
                     </div>
-                    <div className='meta'>
-                      {cls && cls !== 'feature' ? cls.toUpperCase() : 'FEATURE'}
-                      <b>Lv {b.level ?? 1}</b>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          )}
+          </section>
+        );
+      })}
+
+      {filtered.length === 0 && (
+        <div
+          style={{
+            color: 'var(--ink-muted)',
+            fontStyle: 'italic',
+            fontSize: 13,
+            padding: '40px 0',
+            textAlign: 'center',
+            fontFamily: "'Cormorant Garamond', serif",
+          }}
+        >
+          No feats or features match this filter.
         </div>
-      </section>
+      )}
     </div>
   );
+}
+
+// Helpers to read class / ancestry name without crashing if details
+// hasn't been wired up yet.
+function getClassName(character: Character | null): string {
+  return character?.details?.class?.name ?? '';
+}
+function getAncestryName(character: Character | null): string {
+  return character?.details?.ancestry?.name ?? '';
 }
 
 // =======================================================================
@@ -1214,91 +1251,62 @@ export function CodexActivitiesPanel(props: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {/* Action-cost filter strip — sits ABOVE the mode toggle so a
-          quick "show me only my 1-action options" stays one click away
-          regardless of the mode. Mirrors the AoN filter strip in the
-          codex main mockup. */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '4px 10px',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--rule-soft)',
-          marginBottom: 4,
-        }}
-      >
-        <input
-          type='text'
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder='Search activities…'
-          style={{
-            flex: 1,
-            background: 'transparent',
-            border: 0,
-            outline: 0,
-            color: 'var(--ink)',
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: 13,
-            padding: '4px 6px',
-          }}
-        />
-        {(
-          [
-            { v: 1 as const, label: '1 action' },
-            { v: 2 as const, label: '2 actions' },
-            { v: 3 as const, label: '3 actions' },
-            { v: 'r' as const, label: 'Reaction' },
-            { v: 'f' as const, label: 'Free' },
-          ]
-        ).map(({ v, label }) => (
+      {/* Single-row toolbar: search field + A keycap + 5 action-cost
+          glyph filters + 3 mode tabs. Matches the reference image
+          the user shipped — everything in one horizontal strip, no
+          stacking. */}
+      <div className='activities-bar'>
+        <div className='field'>
+          <input
+            type='text'
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder='Search activities…'
+          />
+          <span className='kbd'>A</span>
+        </div>
+        <div className='cost-filters'>
+          {(
+            [
+              { v: 1 as const, label: '1 action' },
+              { v: 2 as const, label: '2 actions' },
+              { v: 3 as const, label: '3 actions' },
+              { v: 'r' as const, label: 'Reaction' },
+              { v: 'f' as const, label: 'Free' },
+            ]
+          ).map(({ v, label }) => (
+            <div
+              key={String(v)}
+              title={label}
+              onClick={() => setCostFilter(costFilter === v ? null : v)}
+              className={`cost-filter ${costFilter === v ? 'on' : ''}`}
+            >
+              <ActionGlyph cost={v} />
+            </div>
+          ))}
+        </div>
+        <div className='mode-tabs'>
           <div
-            key={String(v)}
-            title={label}
-            onClick={() => setCostFilter(costFilter === v ? null : v)}
-            style={{
-              cursor: 'pointer',
-              padding: '4px 6px',
-              border: `1px solid ${costFilter === v ? 'var(--gold-deep)' : 'var(--rule-soft)'}`,
-              background: costFilter === v ? 'rgba(201,161,59,0.08)' : 'transparent',
-              display: 'flex',
-              alignItems: 'center',
-              minHeight: 28,
-            }}
+            className={`mode-tab ${mode === 'encounter' ? 'on' : ''}`}
+            onClick={() => setMode('encounter')}
           >
-            <ActionGlyph cost={v} />
+            Encounter
+            <small>combat</small>
           </div>
-        ))}
-        {costFilter !== null && (
-          <span
-            onClick={() => setCostFilter(null)}
-            style={{
-              cursor: 'pointer',
-              color: 'var(--ink-muted)',
-              fontFamily: "'Cinzel', serif",
-              fontSize: 9,
-              letterSpacing: '.2em',
-              textTransform: 'uppercase',
-              padding: '0 6px',
-            }}
+          <div
+            className={`mode-tab ${mode === 'exploration' ? 'on' : ''}`}
+            onClick={() => setMode('exploration')}
           >
-            Reset
-          </span>
-        )}
-      </div>
-
-      {/* Mode toggle */}
-      <div className='mode-toggle'>
-        <div className={`mode ${mode === 'encounter' ? 'on' : ''}`} onClick={() => setMode('encounter')}>
-          Encounter <small>combat</small>
-        </div>
-        <div className={`mode ${mode === 'exploration' ? 'on' : ''}`} onClick={() => setMode('exploration')}>
-          Exploration <small>travel</small>
-        </div>
-        <div className={`mode ${mode === 'downtime' ? 'on' : ''}`} onClick={() => setMode('downtime')}>
-          Downtime <small>rest</small>
+            Exploration
+            <small>travel</small>
+          </div>
+          <div
+            className={`mode-tab ${mode === 'downtime' ? 'on' : ''}`}
+            onClick={() => setMode('downtime')}
+          >
+            Downtime
+            <small>rest</small>
+          </div>
         </div>
       </div>
 

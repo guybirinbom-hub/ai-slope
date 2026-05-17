@@ -57,6 +57,11 @@ export default function Layout(props: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* Drag strip — only shown on non-codex routes. Codex pages
+          (sheet / characters list) render their own .winbar with
+          custom min/max/close buttons wired to Electron IPC, so we
+          don't need this strip there. */}
+      {!hasOwnMenu && (
       <Box
         style={
           {
@@ -65,19 +70,9 @@ export default function Layout(props: { children: React.ReactNode }) {
             alignItems: 'center',
             justifyContent: 'flex-end',
             paddingRight: WIN_CONTROLS_WIDTH,
-            // Whole strip is draggable; the ActionIcon below opts out
-            // via no-drag so clicks register as a button press, not a
-            // window-drag gesture.
             WebkitAppRegion: 'drag',
-            // Opaque dark fill so the Mantine BackgroundImage at
-            // z-index:-1000 doesn't bleed the upstream mountain art
-            // through this 32 px gap above the page content. Matches
-            // the codex --bg (#15110b); blends fine with the existing
-            // Mantine dark theme on non-codex routes too.
             background: '#15110b',
             borderBottom: '1px solid rgba(201, 161, 59, 0.12)',
-            // Sit above the BackgroundImage. Codex-root is z:1; we go
-            // higher so the drag strip wins over both.
             position: 'relative',
             zIndex: 10,
           } as React.CSSProperties
@@ -155,15 +150,14 @@ export default function Layout(props: { children: React.ReactNode }) {
           </Menu>
         )}
       </Box>
+      )}
 
-      {/* Page content. Padding is owned by each route — the codex pages
-          (Characters list, Sheet, Spells, etc.) have their own hero +
-          toolbar with calibrated 56 px outer margins, so an extra
-          wrapper padding would push them in from the edges twice and
-          break the design grid. Pages that still want padding (Settings,
-          Homebrew until they're migrated) wrap themselves. */}
+      {/* Page content. Padding is owned by each route. On codex
+          routes the ScrollArea height covers the full viewport
+          (no 32 px drag strip above); on Mantine routes the strip
+          claims the top 32 px. */}
       <ScrollArea
-        h={`calc(100dvh - ${TITLE_BAR_HEIGHT}px)`}
+        h={hasOwnMenu ? '100dvh' : `calc(100dvh - ${TITLE_BAR_HEIGHT}px)`}
         type={isMobileTouch ? 'never' : 'auto'}
         scrollbars='y'
       >

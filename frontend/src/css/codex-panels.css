@@ -408,6 +408,108 @@
 }
 .feat .meta b { display: block; color: var(--gold); }
 
+/* ============================ ACTIVITIES TOOLBAR (single row) ============================
+   Matches the reference: search field on the left (grows), action-cost
+   glyph filter chips in the middle, three mode tabs on the right.
+   No wrapping — one row regardless of viewport. */
+.activities-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  margin-bottom: 8px;
+}
+.activities-bar .field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  border-right: 1px solid var(--rule-soft);
+}
+.activities-bar .field::before {
+  content: ''; width: 10px; height: 10px;
+  border: 1.4px solid var(--gold); border-radius: 50%;
+  box-shadow: 3px 3px 0 -2px var(--gold);
+  flex-shrink: 0;
+}
+.activities-bar .field input {
+  flex: 1; background: transparent; border: 0; outline: 0;
+  color: var(--ink);
+  font-family: 'Cormorant Garamond', serif; font-size: 14px;
+  padding: 0;
+}
+.activities-bar .field input::placeholder { color: var(--ink-muted); }
+.activities-bar .field .kbd {
+  font-family: 'Cinzel', serif; font-size: 9px;
+  padding: 2px 6px;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-muted);
+  letter-spacing: .1em;
+}
+.activities-bar .cost-filters {
+  display: flex;
+  align-items: stretch;
+  border-right: 1px solid var(--rule-soft);
+}
+.activities-bar .cost-filter {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 40px;
+  padding: 0 8px;
+  cursor: pointer;
+  color: var(--gold);
+  border-right: 1px solid var(--rule-soft);
+  transition: background .12s;
+}
+.activities-bar .cost-filter:last-child { border-right: 0; }
+.activities-bar .cost-filter:hover { background: rgba(201,161,59,.06); }
+.activities-bar .cost-filter.on {
+  background: rgba(201,161,59,.10);
+  color: var(--gold-bright);
+  box-shadow: inset 0 -2px 0 var(--gold);
+}
+.activities-bar .mode-tabs {
+  display: flex; align-items: stretch;
+}
+.activities-bar .mode-tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 4px 18px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  cursor: pointer;
+  border-right: 1px solid var(--rule-soft);
+  transition: color .12s, background .12s;
+  position: relative;
+}
+.activities-bar .mode-tab:last-child { border-right: 0; }
+.activities-bar .mode-tab small {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 10px;
+  color: var(--ink-muted);
+  letter-spacing: 0;
+  text-transform: none;
+  margin-top: 2px;
+}
+.activities-bar .mode-tab:hover { color: var(--ink); }
+.activities-bar .mode-tab.on {
+  color: var(--gold);
+  background: linear-gradient(180deg, rgba(201,161,59,.10), transparent 90%);
+}
+.activities-bar .mode-tab.on::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(201,161,59,.5);
+}
+.activities-bar .mode-tab.on small { color: var(--ink-dim); }
+
 /* ============================ Shared: codex tab body wrapper ============================
    Sits in the MAIN grid column (1fr) of the codex sheet body —
    alongside the persistent .col.left sidebar. The earlier
@@ -423,19 +525,26 @@
   gap: 12px;
   scrollbar-width: thin;
   scrollbar-color: var(--gold-deep) transparent;
-  border-left: 1px solid var(--rule-soft);
+  /* No border-left here — the inner cards (.wealth-strip, .sp, .it,
+     .feat) already have their own gold-rule borders, so adding a
+     column-level border created the "two vertical lines" the user
+     saw. The 36 px combined padding (col.left right + tab-body left)
+     provides enough visual separation on its own. */
 }
 .codex-tab-body::-webkit-scrollbar { width: 4px; }
 .codex-tab-body::-webkit-scrollbar-thumb { background: var(--gold-deep); }
 
-/* Codex sheet wrappers — establish the vertical flex chain so the
-   .body grid actually fills the viewport height (minus topbar / drag
-   strip) instead of collapsing to its content. Without these, the
-   .col.left sidebar shrinks to ~auto height and renders ABOVE the
-   tab body instead of beside it. */
+/* Codex sheet wrappers — sized in viewport units so the inner .body
+   grid stays clipped to the visible window. Without this, the parent
+   Box has natural height (grows to fit content), the ScrollArea
+   detects overflow, and the whole page becomes one big scrollable
+   document — the user's "infinite scroll" complaint. By pinning the
+   sheet to exactly viewport-minus-titlebar height, scrolling only
+   happens inside the cols where it belongs. */
 .codex-sheet-root {
-  height: 100%;
+  height: calc(100dvh - 32px);
   min-height: 0;
+  overflow: hidden;
 }
 .codex-sheet-page {
   height: 100%;
@@ -446,3 +555,27 @@
 .codex-sheet-page > .winbar,
 .codex-sheet-page > .topbar { flex: 0 0 auto; }
 .codex-sheet-page > .body { flex: 1; min-height: 0; }
+
+/* Sidebar action dock — sits at the bottom of .col.left holding the
+   Modes / Campaign / Dice Roller buttons. Pushed to the end of the
+   column via margin-top:auto so the scrollable rail above can grow
+   freely while these stay anchored. */
+.col.left .sidebar-actions {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.col.left .sidebar-actions .mantine-ActionIcon-root {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--rule-soft);
+  color: var(--gold) !important;
+  border-radius: 0 !important;
+}
+.col.left .sidebar-actions .mantine-ActionIcon-root:hover {
+  border-color: var(--gold-deep);
+  background: rgba(201, 161, 59, 0.06) !important;
+}

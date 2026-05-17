@@ -31,7 +31,7 @@
 
 import { LivingEntity, Character, ContentPackage } from '@schemas/content';
 import { SetterOrUpdater } from '@utils/type-fixing';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getVariable } from '@variables/variable-manager';
 import {
   VariableAttr,
@@ -120,11 +120,41 @@ export default function CodexSheet(props: {
   content: ContentPackage;
   panelWidth: number;
   panelHeight: number;
+  // Sidebar action buttons — Modes / Campaign / Dice Roller. The
+  // legacy CharacterSheetPage renders them as floating bottom-left
+  // anchored buttons; we accept them as a render prop so the sheet's
+  // sidebar can host them at the bottom instead.
+  sidebarActions?: React.ReactNode;
 }) {
   const { character, setCharacter, content } = props;
   const navigate = useNavigate();
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [activeTab, setActiveTab] = useState<CodexTab>('main');
+
+  // Global section collapse — instead of wrapping every `.sec` with a
+  // controlled component, attach one delegated click handler that
+  // toggles the `.collapsed` class on the closest section. Ignores
+  // clicks on nested interactive elements so editing HP / clicking
+  // hero pips / pressing the + Add condition button doesn't
+  // collapse the section under them.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const t = e.target as HTMLElement;
+      const title = t.closest('.sec-title');
+      if (!title) return;
+      if (
+        t.closest(
+          'input, button, textarea, select, a, .pip, .fp, .dot-pip, .x, .cond .x, [data-no-collapse]'
+        )
+      ) {
+        return;
+      }
+      const sec = title.closest('.sec');
+      if (sec) sec.classList.toggle('collapsed');
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, []);
 
   // ---- Derived data ----
   const initial = character?.name?.trim()?.[0]?.toUpperCase() || '?';
@@ -286,7 +316,7 @@ export default function CodexSheet(props: {
               </>
             )}
           </div>
-          <div></div>
+          <WinButtons />
         </div>
 
         {/* ============================ TOPBAR ============================ */}
@@ -613,6 +643,14 @@ export default function CodexSheet(props: {
                     </div>
                   </div>
                 </section>
+
+                {/* Sidebar action bar — Modes / Campaign / Dice. The
+                    legacy floating buttons (bottom-left anchored)
+                    obscure content; the design wants them docked at
+                    the bottom of the vitals rail. */}
+                {props.sidebarActions && (
+                  <div className='sidebar-actions'>{props.sidebarActions}</div>
+                )}
               </div>
 
           {/* ============ MAIN (only on Main tab) ============ */}
@@ -677,7 +715,7 @@ export default function CodexSheet(props: {
                                 })
                               }
                             >
-                              <span className={`pf ${profLetter}`}>{profLetter !== 'U' ? profLetter : ' '}</span>
+                              <span className={`pf ${profLetter}`}>{profLetter}</span>
                               <span className='nm'>{s.name}</span>
                               <span className='leader'></span>
                               <span className='v'>{value}</span>
@@ -912,6 +950,50 @@ function discoverLoreSkills(): { var: string; topic: string }[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Custom min/max/close buttons for the codex winbar.
+ *
+ * Electron's titleBarOverlay is disabled in main.cjs so this codex-
+ * styled strip is the only chrome at the top of the window. Each
+ * button calls back into Electron through the wgElectron preload
+ * bridge (window.wgElectron.window{Minimize,Maximize,Close}). The
+ * outer .winbtns gets `-webkit-app-region: no-drag` from codex.css
+ * so clicks don't get swallowed by the parent .winbar's drag region.
+ *
+ * The SVG paths match the codex mockup: dash for minimize, square
+ * for maximize, X for close. On non-Electron environments
+ * (window.wgElectron unavailable) the buttons are still rendered
+ * but no-op gracefully.
+ */
+function WinButtons() {
+  const w = (window as unknown as {
+    wgElectron?: {
+      windowMinimize?: () => void;
+      windowMaximize?: () => void;
+      windowClose?: () => void;
+    };
+  }).wgElectron;
+  return (
+    <div className='winbtns'>
+      <div className='winbtn' title='Minimize' onClick={() => w?.windowMinimize?.()}>
+        <svg viewBox='0 0 10 10'>
+          <path d='M1 8 L9 8' />
+        </svg>
+      </div>
+      <div className='winbtn' title='Maximize' onClick={() => w?.windowMaximize?.()}>
+        <svg viewBox='0 0 10 10'>
+          <path d='M1 1 L9 1 L9 9 L1 9 Z' />
+        </svg>
+      </div>
+      <div className='winbtn close' title='Close' onClick={() => w?.windowClose?.()}>
+        <svg viewBox='0 0 10 10'>
+          <path d='M1 1 L9 9 M9 1 L1 9' />
+        </svg>
+      </div>
+    </div>
+  );
 }
 
 /**

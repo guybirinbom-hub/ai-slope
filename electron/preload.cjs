@@ -18,4 +18,12 @@ contextBridge.exposeInMainWorld('wgElectron', {
   // wipe happens after the app exits. There's no "cancel" — once the
   // user confirms, all local characters / homebrew / bundles are gone.
   uninstall: () => ipcRenderer.invoke('wg-uninstall'),
+  // Window control buttons for the codex-styled winbar. The codex
+  // design renders its own min/max/close in the topbar instead of
+  // relying on Electron's titleBarOverlay — these hooks let the
+  // renderer's button onClicks reach the BrowserWindow APIs.
+  windowMinimize: () => ipcRenderer.invoke('wg-window-minimize'),
+  windowMaximize: () => ipcRenderer.invoke('wg-window-toggle-maximize'),
+  windowClose: () => ipcRenderer.invoke('wg-window-close'),
+  windowIsMaximized: () => ipcRenderer.invoke('wg-window-is-maximized'),
 });

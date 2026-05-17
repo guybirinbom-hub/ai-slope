@@ -226,6 +226,51 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
         content={props.content}
         panelWidth={panelWidth}
         panelHeight={panelHeight}
+        sidebarActions={
+          <>
+            {/* Modes — only when the character has at least one mode */}
+            {modes.length > 0 && (
+              <Indicator
+                disabled={activeModes.length === 0}
+                label={activeModes.length}
+                size={14}
+                offset={4}
+              >
+                <ActionIcon
+                  size={36}
+                  variant='light'
+                  aria-label='Modes'
+                  onClick={() => setOpenedModes((prev) => !prev)}
+                >
+                  <IconShadow size='1.4rem' stroke={1.5} />
+                </ActionIcon>
+              </Indicator>
+            )}
+            {character?.campaign_id && (
+              <ActionIcon
+                size={36}
+                variant='light'
+                aria-label='Campaign'
+                onClick={() => setOpenedCampaign((prev) => !prev)}
+              >
+                <IconFlag size='1.4rem' stroke={1.5} />
+              </ActionIcon>
+            )}
+            {character?.options?.dice_roller && (
+              <ActionIcon
+                size={36}
+                variant='light'
+                aria-label='Dice Roller'
+                onClick={() => {
+                  if (!loadedDiceRoller) setLoadedDiceRoller(true);
+                  setOpenedDiceRoller(true);
+                }}
+              >
+                <GiRollingDices size='1.5rem' stroke={'1.5px'} />
+              </ActionIcon>
+            )}
+          </>
+        }
       />
       {/* Keep the legacy SectionPanels reachable via the bottom of
           the page for now — there's still functionality (extras,
@@ -247,68 +292,9 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
         </Box>
       )}
 
-      {/* Floating action buttons anchored to the bottom-left corner */}
-      <Box style={getAnchorStyles({ l: 20, b: 20 })}>
-        <Stack>
-          {/* Modes button – only shown when the character has at least one mode */}
-          {modes.length > 0 && (
-            <Indicator disabled={activeModes.length === 0} label={activeModes.length} size={14} offset={4}>
-              <ActionIcon
-                size={40}
-                variant='light'
-                style={{
-                  ...glassStyle(),
-                }}
-                radius={100}
-                aria-label='Modes'
-                onClick={() => {
-                  setOpenedModes((prev) => !prev);
-                }}
-              >
-                <IconShadow size='1.7rem' stroke={1.5} />
-              </ActionIcon>
-            </Indicator>
-          )}
-          {/* Campaign button – only shown when the character belongs to a campaign */}
-          {character?.campaign_id && (
-            <ActionIcon
-              size={40}
-              variant='light'
-              style={{
-                ...glassStyle(),
-              }}
-              radius={100}
-              aria-label='Campaigns View'
-              onClick={() => {
-                setOpenedCampaign((prev) => !prev);
-              }}
-            >
-              <IconFlag size='1.7rem' stroke={1.5} />
-            </ActionIcon>
-          )}
-          {/* Dice roller button – only shown when the option is enabled in character settings */}
-          {character?.options?.dice_roller && (
-            <ActionIcon
-              size={40}
-              variant='light'
-              style={{
-                ...glassStyle(),
-              }}
-              radius={100}
-              aria-label='Dice Roller'
-              onClick={() => {
-                // Trigger the lazy load on first open, then just toggle visibility
-                if (!loadedDiceRoller) {
-                  setLoadedDiceRoller(true);
-                }
-                setOpenedDiceRoller(true);
-              }}
-            >
-              <GiRollingDices size='1.8rem' stroke={'1.5px'} />
-            </ActionIcon>
-          )}
-        </Stack>
-      </Box>
+      {/* Modes / Campaign / Dice are now docked at the bottom of the
+          codex sidebar via the sidebarActions prop above, not floating
+          at the bottom-left corner. */}
 
       {/* Keep DiceRoller mounted once loaded so it doesn't lose its state between opens */}
       {loadedDiceRoller && (
