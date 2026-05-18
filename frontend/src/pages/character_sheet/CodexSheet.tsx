@@ -53,7 +53,6 @@ import DetailsPanel from './panels/DetailsPanel';
 import NotesPanel from './panels/NotesPanel';
 import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel, CodexActivitiesPanel } from './CodexPanels';
 import { useNavigate } from 'react-router-dom';
-import { ActionIcon, Menu } from '@mantine/core';
 
 type CodexTab =
   | 'main'
@@ -1153,50 +1152,148 @@ function WinButtons() {
  * The trigger keeps the codex `.menu` className so it visually
  * matches the design (gold-bordered square with 3 horizontal lines).
  */
+/**
+ * Hamburger nav menu — bare-metal native HTML implementation.
+ *
+ * The previous Mantine-based attempts (bare div / Box / UnstyledButton
+ * / ActionIcon all wrapped in Menu.Target) all silently failed for
+ * the user. Pressing the hamburger produced ZERO console output —
+ * meaning the click event was never reaching the handler at all,
+ * not even Mantine's internal one.
+ *
+ * Strategy here: zero Mantine wrapping for either the button or the
+ * dropdown. Native `<button onClick>` (you can console.log it and
+ * verify in DevTools); the dropdown is a positioned div inside a
+ * relatively-positioned shell, closed via a document-level mousedown
+ * listener. No ref forwarding, no clone, no portals, no transforms.
+ * If THIS doesn't fire, the click is being eaten by an ancestor
+ * (drag region, overlay) and we'll know exactly where to dig.
+ */
 function CodexNavMenu(props: {
   characterId: number;
   navigate: (path: string) => void;
 }) {
-  // Use Mantine ActionIcon — guaranteed to work as Menu.Target.
-  // Previous attempts with bare div, Box component='button', and
-  // UnstyledButton all silently failed (the user reported "menu
-  // doesn't open" three times). ActionIcon's button is the safe
-  // bet; we style it inline to match the codex .menu visual.
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useState<HTMLDivElement | null>(null);
+  // Track ref + outside-click listener.
+  const containerRef = (node: HTMLDivElement | null) => {
+    wrapperRef[1](node);
+  };
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      const node = wrapperRef[0];
+      if (!node) return;
+      if (!node.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [open, wrapperRef]);
+
+  const items: { label: string; path: string; divider?: boolean }[] = [
+    { label: 'Characters', path: '/characters' },
+    { label: 'Homebrew', path: '/homebrew' },
+    { label: 'Settings', path: '/account' },
+    { label: 'Edit in Builder', path: `/builder/${props.characterId}`, divider: true },
+  ];
+
   return (
-    <Menu position='bottom-end' width={200} withinPortal shadow='md'>
-      <Menu.Target>
-        <ActionIcon
-          variant='default'
-          aria-label='Menu'
-          title='Menu'
-          size={38}
-          radius={0}
+    <div
+      ref={containerRef}
+      style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+    >
+      <button
+        type='button'
+        title='Menu'
+        aria-label='Menu'
+        aria-expanded={open}
+        aria-haspopup='menu'
+        onClick={(e) => {
+          e.stopPropagation();
+          // eslint-disable-next-line no-console
+          console.log('[CodexNavMenu] hamburger clicked, open ->', !open);
+          setOpen((o) => !o);
+        }}
+        style={{
+          width: 38,
+          height: 38,
+          background: 'var(--bg-card)',
+          border: '1px solid var(--rule-soft)',
+          color: 'var(--gold)',
+          cursor: 'pointer',
+          padding: 0,
+          display: 'grid',
+          placeItems: 'center',
+          // High z-index so nothing in the codex topbar covers it.
+          position: 'relative',
+          zIndex: 50,
+        }}
+      >
+        <svg width={18} height={14} viewBox='0 0 18 14' aria-hidden='true'>
+          <line x1='0' y1='1' x2='18' y2='1' stroke='currentColor' strokeWidth='1.6' />
+          <line x1='0' y1='7' x2='18' y2='7' stroke='currentColor' strokeWidth='1.6' />
+          <line x1='0' y1='13' x2='18' y2='13' stroke='currentColor' strokeWidth='1.6' />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role='menu'
           style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--rule-soft)',
-            color: 'var(--gold)',
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            right: 0,
+            minWidth: 200,
+            background: 'var(--bg-2)',
+            border: '1px solid var(--rule)',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.6)',
+            zIndex: 9999,
+            padding: '6px 0',
           }}
         >
-          {/* The codex three-line hamburger glyph as a tiny svg —
-              inline because mounting a div-based one inside ActionIcon
-              triggers grid layout weirdness from the .menu codex CSS. */}
-          <svg width={18} height={14} viewBox='0 0 18 14' aria-hidden='true'>
-            <line x1='0' y1='1' x2='18' y2='1' stroke='currentColor' strokeWidth='1.6' />
-            <line x1='0' y1='7' x2='18' y2='7' stroke='currentColor' strokeWidth='1.6' />
-            <line x1='0' y1='13' x2='18' y2='13' stroke='currentColor' strokeWidth='1.6' />
-          </svg>
-        </ActionIcon>
-      </Menu.Target>
-      <Menu.Dropdown>
-        <Menu.Label>Navigate</Menu.Label>
-        <Menu.Item onClick={() => props.navigate('/characters')}>Characters</Menu.Item>
-        <Menu.Item onClick={() => props.navigate('/homebrew')}>Homebrew</Menu.Item>
-        <Menu.Item onClick={() => props.navigate('/account')}>Settings</Menu.Item>
-        <Menu.Divider />
-        <Menu.Item onClick={() => props.navigate(`/builder/${props.characterId}`)}>
-          Edit in Builder
-        </Menu.Item>
-      </Menu.Dropdown>
-    </Menu>
+          {items.map((item, i) => (
+            <div key={item.path}>
+              {item.divider && (
+                <div
+                  style={{
+                    borderTop: '1px solid var(--rule-soft)',
+                    margin: '6px 0',
+                  }}
+                />
+              )}
+              <button
+                type='button'
+                onClick={() => {
+                  setOpen(false);
+                  props.navigate(item.path);
+                }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  background: 'transparent',
+                  border: 0,
+                  color: 'var(--ink)',
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 14,
+                  textAlign: 'left',
+                  padding: '8px 14px',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    'rgba(201, 161, 59, 0.10)';
+                  (e.currentTarget as HTMLButtonElement).style.color =
+                    'var(--gold-bright)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                  (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink)';
+                }}
+              >
+                {item.label}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

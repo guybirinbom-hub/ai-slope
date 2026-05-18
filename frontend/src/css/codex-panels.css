@@ -565,18 +565,23 @@
 .codex-sheet-page > .topbar { flex: 0 0 auto; }
 .codex-sheet-page > .body { flex: 1; min-height: 0; }
 
-/* Sidebar action dock — sits at the bottom of .col.left holding the
-   Modes / Campaign / Dice Roller buttons. Pushed to the end of the
-   column via margin-top:auto so the scrollable rail above can grow
-   freely while these stay anchored. */
+/* Sidebar action dock — Modes / Campaign / Dice Roller buttons.
+   Sticky at the bottom of the scrollable column so they stay
+   visible even when the sidebar's content overflows (e.g. zoomed
+   in). Background bg-card so scrolled content underneath doesn't
+   bleed through. */
 .col.left .sidebar-actions {
+  position: sticky;
+  bottom: 0;
   margin-top: auto;
-  padding-top: 12px;
+  padding: 12px 0 4px;
   border-top: 1px solid var(--rule-soft);
+  background: var(--bg);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
+  z-index: 5;
 }
 .col.left .sidebar-actions .mantine-ActionIcon-root {
   background: var(--bg-card) !important;

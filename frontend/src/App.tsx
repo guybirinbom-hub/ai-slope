@@ -122,18 +122,36 @@ export default function App() {
     return () => window.removeEventListener('wheel', onWheel);
   }, []);
 
-  // Sync the zoom value onto <html>. CSS `zoom` (non-standard but
-  // well-supported in Chromium, which is all Electron runs) scales
-  // both the visual output and the layout box model, so portals get
-  // the same scale and click targets stay aligned with what the user
-  // sees. Runs on every zoom change, including the initial render
-  // (so the saved customization is honored without needing the old
-  // <Box> wrapper).
+  // Sync the zoom value to the renderer. Prefer Electron's
+  // webFrame.setZoomLevel — it scales the ENTIRE viewport (including
+  // the coordinate space that position:fixed elements anchor to), so
+  // floating drawer buttons stay visible at the screen edge when
+  // zoomed. CSS `zoom` does NOT do this — it scales layout but
+  // leaves position:fixed in the original viewport, and inside
+  // transformed containers (Mantine Drawer uses transform for the
+  // slide-in animation) those fixed elements get pushed below
+  // the visible area.
+  //
+  // Fallback to CSS zoom when running outside Electron (browser
+  // preview / web build).
   useEffect(() => {
-    document.documentElement.style.zoom = String(zoom);
+    const ew = (window as unknown as {
+      wgElectron?: { setZoomLevel?: (n: number) => void };
+    }).wgElectron;
+    if (ew?.setZoomLevel) {
+      // Electron's setZoomLevel uses log scale: 0 = 100%, +1 ≈ 120%,
+      // +2 ≈ 144% (each step multiplies by 1.2). Convert a multiplier
+      // (0.5..2.0) to that scale.
+      const level = Math.log(zoom) / Math.log(1.2);
+      ew.setZoomLevel(level);
+      // Make sure we don't ALSO have CSS zoom applied (it would
+      // multiply on top of the webFrame zoom).
+      document.documentElement.style.zoom = '';
+    } else {
+      // Browser / dev preview — fall back to CSS zoom.
+      document.documentElement.style.zoom = String(zoom);
+    }
     return () => {
-      // Reset on unmount so dev hot-reload doesn't strand a zoom
-      // value if the App component remounts at a different scale.
       document.documentElement.style.zoom = '';
     };
   }, [zoom]);

@@ -171,37 +171,7 @@ export function Component() {
           <span className='sigil'>❦</span>
           <span className='bn'>Wanderer's Codex</span>
         </div>
-        {/* Hamburger menu — Mantine ActionIcon as Menu.Target. ActionIcon
-            is guaranteed to work; previous attempts with bare div /
-            Box / UnstyledButton all silently failed for the user. */}
-        <Menu position='bottom-end' width={180} withinPortal shadow='md'>
-          <Menu.Target>
-            <ActionIcon
-              variant='default'
-              aria-label='Menu'
-              title='Open menu'
-              size={40}
-              radius={0}
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--rule-soft)',
-                color: 'var(--gold)',
-              }}
-            >
-              <svg width={18} height={14} viewBox='0 0 18 14' aria-hidden='true'>
-                <line x1='0' y1='1' x2='18' y2='1' stroke='currentColor' strokeWidth='1.6' />
-                <line x1='0' y1='7' x2='18' y2='7' stroke='currentColor' strokeWidth='1.6' />
-                <line x1='0' y1='13' x2='18' y2='13' stroke='currentColor' strokeWidth='1.6' />
-              </svg>
-            </ActionIcon>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Label>Navigate</Menu.Label>
-            <Menu.Item onClick={() => navigate('/characters')}>Characters</Menu.Item>
-            <Menu.Item onClick={() => navigate('/homebrew')}>Homebrew</Menu.Item>
-            <Menu.Item onClick={() => navigate('/account')}>Settings</Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
+        <CharactersNavMenu navigate={navigate} />
       </div>
 
       <div className='hero'>
@@ -785,6 +755,116 @@ async function createCharacterCopy(character: Character) {
   const result = await makeRequest<Character>('create-character', copy);
   hideNotification(`copy-character-${character.id}`);
   return result;
+}
+
+// Bare-metal hamburger nav menu (matches CodexSheet's CodexNavMenu).
+// No Mantine Menu — native button + manually rendered dropdown so
+// clicks definitely fire (Mantine's wrappers silently failed for
+// the user across four attempts).
+function CharactersNavMenu(props: { navigate: (path: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [ref, setRef] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (ref && !ref.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [open, ref]);
+
+  const items = [
+    { label: 'Characters', path: '/characters' },
+    { label: 'Homebrew', path: '/homebrew' },
+    { label: 'Settings', path: '/account' },
+  ];
+
+  return (
+    <div ref={setRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <button
+        type='button'
+        title='Open menu'
+        aria-label='Menu'
+        aria-expanded={open}
+        aria-haspopup='menu'
+        onClick={(e) => {
+          e.stopPropagation();
+          // eslint-disable-next-line no-console
+          console.log('[CharactersNavMenu] clicked, open ->', !open);
+          setOpen((o) => !o);
+        }}
+        style={{
+          width: 40,
+          height: 40,
+          background: 'var(--bg-card)',
+          border: '1px solid var(--rule-soft)',
+          color: 'var(--gold)',
+          cursor: 'pointer',
+          padding: 0,
+          display: 'grid',
+          placeItems: 'center',
+          position: 'relative',
+          zIndex: 50,
+        }}
+      >
+        <svg width={18} height={14} viewBox='0 0 18 14' aria-hidden='true'>
+          <line x1='0' y1='1' x2='18' y2='1' stroke='currentColor' strokeWidth='1.6' />
+          <line x1='0' y1='7' x2='18' y2='7' stroke='currentColor' strokeWidth='1.6' />
+          <line x1='0' y1='13' x2='18' y2='13' stroke='currentColor' strokeWidth='1.6' />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role='menu'
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            right: 0,
+            minWidth: 180,
+            background: 'var(--bg-2)',
+            border: '1px solid var(--rule)',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.6)',
+            zIndex: 9999,
+            padding: '6px 0',
+          }}
+        >
+          {items.map((item) => (
+            <button
+              key={item.path}
+              type='button'
+              onClick={() => {
+                setOpen(false);
+                props.navigate(item.path);
+              }}
+              style={{
+                display: 'block',
+                width: '100%',
+                background: 'transparent',
+                border: 0,
+                color: 'var(--ink)',
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: 14,
+                textAlign: 'left',
+                padding: '8px 14px',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  'rgba(201, 161, 59, 0.10)';
+                (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold-bright)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink)';
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Custom min/max/close for the characters-list .winbar. Same wiring
