@@ -1,6 +1,6 @@
 import { getConditionByName } from '@conditions/condition-handler';
 import { collectEntitySpellcasting, getFocusPoints } from '@content/collect-content';
-import { filterByTraitType } from '@items/inv-utils';
+import { filterByTraitType, getMaxUses } from '@items/inv-utils';
 import { LivingEntity } from '@schemas/content';
 import { StoreID, VariableAttr, VariableNum, VariableProf } from '@schemas/variables';
 import { getFinalHealthValue } from '@variables/variable-helpers';
@@ -255,6 +255,50 @@ export function handleRest(id: StoreID, entity: LivingEntity, setEntity?: Setter
         }) ?? [],
     };
   }
+
+  // Reset charges on every remaining charged item — magic items with
+  // "Frequency once/twice/N per day", scrolls (one-shot but the user
+  // might have picked one by mistake), and anything explicitly
+  // storing `meta_data.charges`. The wand/stave loops above already
+  // covered those; this loop sweeps everything else. We only touch
+  // items that have either an explicit `charges` record OR a parsed
+  // `getMaxUses` > 0 — items without either are left alone, since
+  // setting `current: 0` on an item with no use cap would be noise.
+  //
+  // Setting `current: 0` follows the rest of this file's convention
+  // for "fresh, unspent" charges. The drawer displays "current/max"
+  // remaining = `max - current`, so current=0 means full charges.
+  newEntity.inventory = {
+    ...(newEntity.inventory ?? {
+      coins: { cp: 0, sp: 0, gp: 0, pp: 0 },
+      items: [],
+    }),
+    items:
+      newEntity.inventory?.items.map((i) => {
+        const max = i.item.meta_data?.charges?.max ?? getMaxUses(i.item);
+        if (max <= 0) return i;
+        // Skip if already at fresh charges to avoid an unnecessary
+        // clone (handleRest is called on every Refresh and a no-op
+        // shouldn't churn state).
+        if ((i.item.meta_data?.charges?.current ?? 0) === 0 && i.item.meta_data?.charges?.max === max) {
+          return i;
+        }
+        return {
+          ...i,
+          item: {
+            ...i.item,
+            meta_data: {
+              ...i.item.meta_data!,
+              charges: {
+                ...i.item.meta_data?.charges,
+                current: 0,
+                max,
+              },
+            },
+          },
+        };
+      }) ?? [],
+  };
 
   // Remove Fatigued Condition
   let newConditions = cloneDeep(entity?.details?.conditions ?? []).filter((c) => c.name !== 'Fatigued');

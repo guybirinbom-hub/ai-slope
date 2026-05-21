@@ -37,6 +37,13 @@ export interface ModalSize {
 /**
  * Synchronously read a previously-saved modal size, or return defaults.
  * Safe to call from non-React contexts (e.g. before openContextModal).
+ *
+ * The saved size is clamped to *at least* the passed defaults — this
+ * way bumping the default width/height in code immediately applies to
+ * users with a smaller saved size, without them having to drag-resize
+ * by hand. The user can still drag SMALLER than the new default once
+ * the modal opens (the observer will persist that), but the initial
+ * mount always meets the design's minimum.
  */
 export function readSavedModalSize(key: string, defaults: ModalSize): ModalSize {
   try {
@@ -50,7 +57,10 @@ export function readSavedModalSize(key: string, defaults: ModalSize): ModalSize 
       parsed.width > 0 &&
       parsed.height > 0
     ) {
-      return parsed;
+      return {
+        width: Math.max(parsed.width, defaults.width),
+        height: Math.max(parsed.height, defaults.height),
+      };
     }
   } catch {
     // localStorage unavailable / JSON parse failed — fall through.
@@ -63,13 +73,19 @@ export function readSavedModalSize(key: string, defaults: ModalSize): ModalSize 
  * height — those are set imperatively via the DOM by the effect in
  * `useResizableModalProps` / `useModalSizePersistence` so they don't
  * get reverted on every React render.
+ *
+ * Sizing tokens picked so the codex popups feel large by default:
+ *   minWidth 1300 — never shrink below this regardless of viewport
+ *   maxWidth 99vw — only kiss the screen edges, not crowd them
+ *   minHeight 600 — never collapse to a postage-stamp
+ *   maxHeight 98vh — full vertical room minus a sliver
  */
 function staticContentStyle() {
   return {
-    maxWidth: '95vw',
-    maxHeight: '95vh',
-    minWidth: 500,
-    minHeight: 400,
+    maxWidth: '99vw',
+    maxHeight: '98vh',
+    minWidth: 1300,
+    minHeight: 600,
     // The browser's `resize` handle requires non-visible overflow on
     // the resizing element. `hidden` is correct here — the body
     // inside has its own scrolling.

@@ -1,0 +1,973 @@
+/*
+ * codex-notes-details.css — codex-themed Notes + Details tab bodies.
+ *
+ * The default codex sheet body is a 2-column grid: 224px left rail +
+ * 1fr main. Notes and Details each need a third column, so when the
+ * <CodexSheet>'s active tab is 'notes' or 'details' we add a body
+ * modifier class (.body--notes / .body--details) that re-templates
+ * the grid:
+ *
+ *   .body--notes    → 224px left + 280px page list + 1fr editor
+ *   .body--details  → 224px left + 1fr dossier + 320px right rail
+ *
+ * All class names below come from D:\Inst\codex-notes-shell.html and
+ * D:\Inst\codex-details.html so the JSX can be a near-literal port.
+ */
+
+/* ============================ BODY GRID OVERRIDES ============================ */
+.body.body--notes {
+  grid-template-columns: 224px 280px 1fr;
+}
+.body.body--details {
+  grid-template-columns: 224px 1fr 320px;
+}
+
+/* When the .body has the wider notes grid, the page list (middle col)
+ * and editor (right col) own their own padding — flatten the .col
+ * padding/gap defaults that codex.css applies, and let the .col.right
+ * actually render (the default codex .body { 224px 1fr } only had two
+ * children, so codex.css never styled .col.right). */
+.body--notes .col.main.notes-pages,
+.body--notes .col.right.notes-editor {
+  padding: 0;
+  gap: 0;
+  border-left: 1px solid var(--rule-soft);
+  overflow: hidden;
+}
+
+.body--details .col.main.details-main {
+  padding: 14px 22px 18px;
+  gap: 14px;
+  border-left: 1px solid var(--rule-soft);
+}
+.body--details .col.right.details-right {
+  border-left: 1px solid var(--rule-soft);
+  padding: 14px 18px 18px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-deep) transparent;
+}
+.body--details .col.right.details-right::-webkit-scrollbar { width: 4px; }
+.body--details .col.right.details-right::-webkit-scrollbar-thumb { background: var(--gold-deep); }
+
+/* ============================ NOTES — page list (middle) ============================ */
+.notes-pages {
+  display: grid !important;
+  grid-template-rows: 56px 36px 1fr 56px;
+}
+.notes-side-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--rule-soft);
+  background: linear-gradient(180deg, rgba(201,161,59,.06), transparent 80%);
+  position: relative;
+}
+.notes-side-head::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(201,161,59,.45);
+}
+.notes-side-head .ic {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  color: var(--gold-bright);
+}
+.notes-side-head .ic svg { width: 16px; height: 16px; filter: drop-shadow(0 0 6px rgba(232,197,87,.45)); }
+.notes-side-head .label {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .32em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.notes-side-head .count {
+  margin-left: auto;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .22em;
+  color: var(--ink-muted);
+  border: 1px solid var(--rule-soft);
+  padding: 2px 7px;
+}
+.notes-side-head .count b { color: var(--gold); font-weight: 700; }
+
+.notes-search {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--rule-soft);
+  color: var(--ink-muted);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 12px;
+  font-style: italic;
+  position: relative;
+}
+.notes-search::before {
+  content: ''; width: 9px; height: 9px;
+  border: 1.4px solid var(--gold); border-radius: 50%;
+  box-shadow: 3px 3px 0 -2px var(--gold);
+  flex-shrink: 0;
+}
+.notes-search input {
+  background: transparent;
+  border: 0; outline: 0;
+  flex: 1;
+  color: var(--ink);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 12.5px;
+  padding: 0;
+  letter-spacing: .03em;
+}
+.notes-search input::placeholder { color: var(--ink-muted); font-style: italic; }
+
+.notes-list {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-deep) transparent;
+  padding: 8px 0;
+}
+.notes-list::-webkit-scrollbar { width: 4px; }
+.notes-list::-webkit-scrollbar-thumb { background: var(--gold-deep); }
+
+.np-section {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 18px 5px;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .26em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+}
+.np-section .folder { color: var(--gold-deep); font-size: 9px; }
+.np-section .rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--rule-soft), transparent); }
+.np-section .ct { color: var(--gold-deep); font-weight: 700; }
+
+.np {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background .12s, border-color .12s;
+}
+.np:hover { background: linear-gradient(90deg, rgba(201,161,59,.05), transparent 90%); }
+.np.on {
+  background: linear-gradient(90deg, rgba(201,161,59,.14), transparent 92%);
+  border-left-color: var(--gold);
+}
+.np-ic {
+  display: grid; place-items: center;
+  color: var(--ink-deep);
+  font-size: 14px;
+  line-height: 1;
+}
+.np.on .np-ic { color: var(--gold); }
+.np-body { min-width: 0; }
+.np-nm {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--ink);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: .02em;
+}
+.np.on .np-nm { color: var(--gold); }
+.np-sub {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  margin-top: 2px;
+  letter-spacing: .02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.np-meta {
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: .18em;
+  color: var(--ink-deep);
+  text-transform: uppercase;
+}
+.np.on .np-meta { color: var(--gold-deep); }
+
+.notes-side-foot {
+  border-top: 1px solid var(--rule-soft);
+  background: linear-gradient(180deg, transparent, rgba(0,0,0,.25));
+}
+.np-add {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: flex-start;
+  gap: 12px;
+  padding: 0 18px;
+  background: transparent;
+  border: 0;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  letter-spacing: .32em;
+  text-transform: uppercase;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.np-add:hover { background: rgba(201,161,59,.06); color: var(--gold-bright); }
+.np-add .plus {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+/* ============================ NOTES — editor (right) ============================ */
+.notes-editor {
+  display: grid !important;
+  grid-template-rows: 52px 1fr;
+  border-left: 1px solid var(--rule);
+  background:
+    radial-gradient(ellipse 100% 70% at 50% 0%, rgba(201,161,59,.04), transparent 70%),
+    var(--bg);
+}
+
+.notes-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+  gap: 14px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(180deg, #1a140c 0%, #110d08 100%);
+  position: relative;
+}
+.notes-toolbar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent 6%, var(--gold-deep) 50%, transparent 94%);
+  opacity: .5;
+}
+.notes-toolbar .tb-end {
+  display: flex; align-items: center; gap: 8px;
+  height: 100%;
+  padding-left: 12px;
+  border-left: 1px solid var(--rule-soft);
+}
+.notes-toolbar .tb-end .save-state {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  letter-spacing: .04em;
+}
+.notes-toolbar .tb-end .save-state .dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--sage);
+  box-shadow: 0 0 6px rgba(91,113,72,.7);
+  margin-right: 5px;
+  vertical-align: 1px;
+}
+.notes-toolbar .tb-end .gear {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  color: var(--gold);
+  cursor: pointer;
+  border: 1px solid var(--rule-soft);
+  transition: border-color .12s, color .12s;
+}
+.notes-toolbar .tb-end .gear:hover { border-color: var(--gold); color: var(--gold-bright); }
+.notes-toolbar .tb-end .gear svg { width: 16px; height: 16px; }
+.notes-toolbar .tb-end .gear.danger { color: var(--crimson); }
+.notes-toolbar .tb-end .gear.danger:hover { border-color: var(--crimson); color: #e08560; }
+
+/* Parchment colour palette — kept local to the editor so the
+ * surrounding dark codex chrome is unaffected. */
+.notes-editor {
+  --page-cream:  #f1e5c8;
+  --page-cream-2:#ead8b3;
+  --page-line:   rgba(108, 77, 26, .20);
+  --page-ink:    #2a1f10;
+  --page-ink-dim:#5b4528;
+  --page-ink-muted: #8a7250;
+  --page-gold:   #a17a2a;
+  --page-gold-deep: #6c4d1a;
+  --page-crimson: #a4351f;
+}
+
+.notes-stage {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-deep) transparent;
+  padding: 24px 36px 32px;
+  display: flex;
+  justify-content: center;
+}
+.notes-stage::-webkit-scrollbar { width: 6px; }
+.notes-stage::-webkit-scrollbar-thumb { background: var(--gold-deep); }
+
+.leaf {
+  width: 100%;
+  max-width: 920px;
+  color: var(--page-ink);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 15px;
+  line-height: 30px;
+  padding: 44px 64px 64px;
+  position: relative;
+  background:
+    repeating-linear-gradient(180deg,
+      transparent 0,
+      transparent 29px,
+      var(--page-line) 29px,
+      var(--page-line) 30px),
+    radial-gradient(ellipse 90% 100% at 50% 0%, rgba(255,255,255,.06), transparent 70%),
+    radial-gradient(ellipse 110% 60% at 50% 100%, rgba(108,77,26,.12), transparent 75%),
+    var(--page-cream);
+  box-shadow:
+    0 0 0 1px var(--page-gold-deep),
+    0 0 0 3px rgba(15,17,11,.6),
+    0 22px 50px rgba(0,0,0,.55),
+    0 0 80px rgba(201,161,59,.05);
+  border: 1px solid rgba(108,77,26,.35);
+}
+.leaf::before, .leaf::after {
+  content: ''; position: absolute; width: 22px; height: 22px;
+  border: 2px solid var(--page-gold);
+  pointer-events: none;
+}
+.leaf::before { top: 12px; left: 12px; border-right: 0; border-bottom: 0; }
+.leaf::after  { bottom: 12px; right: 12px; border-left: 0; border-top: 0; }
+.leaf-corner-tr, .leaf-corner-bl {
+  position: absolute; width: 22px; height: 22px;
+  border: 2px solid var(--page-gold);
+  pointer-events: none;
+}
+.leaf-corner-tr { top: 12px; right: 12px; border-left: 0; border-bottom: 0; }
+.leaf-corner-bl { bottom: 12px; left: 12px; border-right: 0; border-top: 0; }
+
+.leaf-margin {
+  position: absolute;
+  top: 44px; bottom: 44px;
+  left: 130px;
+  width: 1px;
+  background: rgba(164,53,31,.40);
+  pointer-events: none;
+}
+
+.leaf-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  align-items: baseline;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1.5px solid var(--page-gold);
+  position: relative;
+}
+.leaf-head::after {
+  content: ''; position: absolute; left: 6%; right: 6%; bottom: -3px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--page-gold-deep) 50%, transparent);
+}
+.leaf-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: .14em;
+  color: var(--page-ink);
+  text-transform: uppercase;
+  line-height: 1.1;
+  cursor: text;
+  outline: 0;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: 2px;
+  min-height: 32px;
+  background: transparent;
+  border: 1px dashed transparent;
+  width: 100%;
+}
+.leaf-title:focus,
+.leaf-title:hover { background: rgba(108,77,26,.06); border-color: rgba(108,77,26,.18); }
+.leaf-title::placeholder {
+  color: var(--page-ink-muted);
+  font-style: italic;
+  font-weight: 500;
+}
+.leaf-stamp {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .22em;
+  color: var(--page-ink-muted);
+  text-transform: uppercase;
+  text-align: right;
+  line-height: 1.5;
+  display: flex; flex-direction: column;
+}
+.leaf-stamp b { color: var(--page-ink-dim); font-weight: 700; }
+.leaf-stamp .dim { opacity: .7; }
+
+.leaf-body {
+  min-height: 50vh;
+  color: var(--page-ink);
+  font-size: 15px;
+  line-height: 30px;
+  position: relative;
+  outline: 0;
+}
+/* RichTextInput drops a TipTap editor into .leaf-body. We keep the
+ * editor's own toolbar (link/unlink/bold/italic/underline/lists/
+ * headings/color picker) so users have actual formatting controls —
+ * an earlier pass hid the toolbar to "match" the mockup, but the
+ * mockup's custom toolbar was decorative HTML and the user lost the
+ * actual buttons. The styles below re-skin the live Mantine toolbar
+ * with parchment colours so it fits the leaf instead. */
+.leaf-body .mantine-RichTextEditor-root,
+.leaf-body .mantine-RichTextEditor-content,
+.leaf-body .ProseMirror {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--page-ink) !important;
+  font-family: 'Cormorant Garamond', Georgia, serif !important;
+  font-size: 15px !important;
+  line-height: 30px !important;
+  padding: 0 !important;
+}
+.leaf-body .ProseMirror { min-height: 50vh; }
+/* Toolbar — sticky to the top of the leaf so the controls follow
+ * the reader as they scroll a long page. Styled as a thin sepia
+ * strip flush against the parchment instead of Mantine's default
+ * dark theme. */
+.leaf-body .mantine-RichTextEditor-toolbar {
+  background: linear-gradient(180deg, rgba(161,122,42,.10), rgba(161,122,42,.02)) !important;
+  border: 1px solid var(--page-gold-deep) !important;
+  border-radius: 2px !important;
+  padding: 4px !important;
+  margin-bottom: 12px !important;
+  position: sticky !important;
+  top: 0;
+  z-index: 2;
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 4px !important;
+}
+.leaf-body .mantine-RichTextEditor-controlsGroup {
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  border-right: 1px solid var(--page-gold-deep);
+  padding-right: 4px;
+}
+.leaf-body .mantine-RichTextEditor-controlsGroup:last-child { border-right: 0; }
+.leaf-body .mantine-RichTextEditor-control {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--page-ink-dim) !important;
+  transition: background .12s, border-color .12s, color .12s !important;
+}
+.leaf-body .mantine-RichTextEditor-control:hover {
+  background: rgba(161,122,42,.12) !important;
+  border-color: var(--page-gold-deep) !important;
+  color: var(--page-gold-deep) !important;
+}
+.leaf-body .mantine-RichTextEditor-control[data-active='true'] {
+  background: rgba(161,122,42,.20) !important;
+  border-color: var(--page-gold) !important;
+  color: var(--page-ink) !important;
+}
+.leaf-body .ProseMirror p, .leaf-body .ProseMirror li { color: var(--page-ink); }
+.leaf-body .ProseMirror h1, .leaf-body .ProseMirror h2, .leaf-body .ProseMirror h3,
+.leaf-body .ProseMirror h4 {
+  color: var(--page-ink);
+  font-family: 'Cinzel', serif;
+  letter-spacing: .08em;
+  margin: 18px 0 6px;
+}
+.leaf-body .ProseMirror h2 { font-size: 22px; }
+.leaf-body .ProseMirror h3 { font-size: 18px; }
+.leaf-body .ProseMirror h4 { font-size: 16px; }
+.leaf-body .ProseMirror a { color: var(--page-crimson); text-decoration: underline; }
+.leaf-body .ProseMirror blockquote {
+  border-left: 3px solid var(--page-gold);
+  padding-left: 12px;
+  color: var(--page-ink-dim);
+  font-style: italic;
+  margin: 8px 0;
+}
+.leaf-body .ProseMirror hr {
+  border: 0;
+  border-top: 1px solid var(--page-gold-deep);
+  margin: 16px 0;
+}
+.leaf-body .ProseMirror ul, .leaf-body .ProseMirror ol { padding-left: 24px; }
+
+.leaf-pagenum {
+  position: absolute;
+  right: 64px; bottom: 22px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: .26em;
+  color: var(--page-gold-deep);
+  text-transform: uppercase;
+}
+.leaf-pagenum b { color: var(--page-ink-dim); font-weight: 700; }
+
+.notes-empty {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: var(--ink-muted);
+  font-size: 14px;
+  padding: 40px;
+  text-align: center;
+}
+
+/* ============================ DETAILS — dossier (middle) ============================ */
+.dossier-hero {
+  background:
+    radial-gradient(ellipse 80% 110% at 0% 50%, rgba(201,161,59,.10), transparent 60%),
+    var(--bg-card);
+  border: 1px solid var(--gold-deep);
+  padding: 16px 18px 16px;
+  position: relative;
+  flex-shrink: 0;
+}
+.dossier-hero::before, .dossier-hero::after {
+  content: ''; position: absolute; width: 9px; height: 9px;
+  border: 1px solid var(--gold);
+}
+.dossier-hero::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.dossier-hero::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.dh-grid {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 18px;
+  align-items: center;
+}
+.dh-portrait {
+  position: relative;
+  width: 110px; height: 110px;
+  border: 1.5px solid var(--gold-deep);
+  background:
+    radial-gradient(circle at 35% 30%, #3a2d18 0%, #1a1208 75%),
+    var(--bg-card);
+  display: grid; place-items: center;
+  box-shadow: 0 0 0 1px var(--bg), 0 0 0 3px var(--rule-soft), 0 0 24px rgba(201,161,59,.18);
+  overflow: hidden;
+}
+.dh-portrait::before, .dh-portrait::after {
+  content: ''; position: absolute; width: 6px; height: 6px;
+  border: 1px solid var(--gold);
+}
+.dh-portrait::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.dh-portrait::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.dh-portrait img { width: 100%; height: 100%; object-fit: cover; }
+.dh-portrait-inner {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.dh-monogram {
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: 46px;
+  line-height: 1;
+  color: var(--gold-bright);
+  text-shadow: 0 0 14px rgba(232,197,87,.45);
+}
+.dh-pose {
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: .26em;
+  color: var(--ink-deep);
+  text-transform: uppercase;
+}
+
+.dh-id { min-width: 0; }
+.dh-eyebrow {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .34em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.dh-name {
+  margin: 0 0 4px;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: .14em;
+  color: var(--ink);
+  text-transform: uppercase;
+  line-height: 1;
+}
+.dh-sub {
+  font-family: 'IM Fell English SC', 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: .2em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.dh-sub i { color: var(--gold); font-style: normal; padding: 0 3px; }
+.dh-sub b { color: var(--gold); font-weight: 700; }
+.dh-meta {
+  display: flex; gap: 5px; flex-wrap: wrap;
+}
+.dh-pill {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: var(--bg);
+  border: 1px solid var(--rule-soft);
+  padding: 3px 8px;
+}
+.dh-pill b { color: var(--gold); font-weight: 700; }
+
+/* FIELD GRID — scoped to .body--details only because plain ".field"
+ * collides with the spell/feat/inventory/activities search bars,
+ * which already use a "field" class to lay out their search input
+ * in a flex ROW. An earlier unscoped `.field { flex-direction:
+ * column }` here pushed those search inputs into a column, stacking
+ * the magnifier icon above the placeholder text.
+ *
+ * Lesson: any generic-sounding class (".field", ".creed", ".size-*")
+ * needs a body-modifier parent selector. Specific classes
+ * (".dossier-hero", ".dh-pill", ".op-cell") can stay unscoped. */
+.body--details .field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+.body--details .field {
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  padding: 8px 10px 9px;
+  display: flex; flex-direction: column; gap: 4px;
+  transition: border-color .12s;
+}
+.body--details .field:focus-within { border-color: var(--gold-deep); }
+.body--details .field-lbl {
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: .26em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+}
+.body--details .field-val {
+  display: flex; align-items: baseline; gap: 6px;
+}
+.body--details .field-val input {
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  line-height: 1.1;
+  padding: 0;
+  width: 100%;
+}
+.body--details .field-val input::placeholder { color: var(--ink-deep); font-weight: 500; }
+
+/* DOSSIER TEXT */
+.dossier-text {
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  padding: 12px 14px;
+  color: var(--ink-dim);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14.5px;
+  line-height: 1.55;
+  outline: 0;
+  letter-spacing: .015em;
+  cursor: text;
+  transition: border-color .12s;
+  width: 100%;
+  resize: vertical;
+  min-height: 80px;
+}
+.dossier-text:focus, .dossier-text:hover { border-color: var(--gold-deep); }
+.dossier-text::placeholder { color: var(--ink-deep); font-style: italic; }
+.dossier-text.long { padding: 14px 18px; line-height: 1.6; min-height: 120px; }
+
+/* CREEDS (Ideal/Bond/Flaw/Oath) — for our schema we use this with
+ * just the Beliefs field as a single creed card. */
+.creeds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.creed {
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  border-left: 3px solid var(--gold-deep);
+  padding: 9px 12px 11px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.creed-k {
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: .28em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.creed-v {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  line-height: 1.45;
+  letter-spacing: .015em;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  width: 100%;
+  min-height: 50px;
+  padding: 0;
+}
+.creed-v::placeholder { color: var(--ink-deep); }
+
+/* OP grid (Organized Play) */
+.op-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+.op-cell {
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  padding: 8px 10px;
+}
+.op-k {
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: .26em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.op-v {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+  letter-spacing: .04em;
+}
+.op-v input {
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  font: inherit;
+  width: 100%;
+  padding: 0;
+}
+.op-v em {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink-muted);
+  font-weight: 500;
+  letter-spacing: .02em;
+}
+
+/* ============================ DETAILS — origins/profs/traits (right) ============================ */
+.origin-card {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 10px;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  transition: border-color .12s, background .12s;
+  cursor: pointer;
+}
+.origin-card:hover {
+  border-color: var(--gold-deep);
+  background: linear-gradient(180deg, rgba(201,161,59,.05), var(--bg-card));
+}
+.origin-card:last-child { margin-bottom: 0; }
+.origin-sigil {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border: 1px solid var(--gold-deep);
+  background: rgba(201,161,59,.06);
+  color: var(--gold-bright);
+  font-size: 20px;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(232,197,87,.4);
+}
+.origin-k {
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: .28em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.origin-v {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  letter-spacing: .06em;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.origin-v small {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 500;
+  font-style: italic;
+  font-size: 12px;
+  letter-spacing: .02em;
+  color: var(--ink-muted);
+}
+.origin-tag {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 11.5px;
+  letter-spacing: .02em;
+  color: var(--ink-muted);
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+/* PROFICIENCY GROUPS */
+.prof-group { margin-bottom: 12px; }
+.prof-group:last-child { margin-bottom: 0; }
+.prof-group-h {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .28em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px dotted rgba(201,161,59,.16);
+}
+.prof-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.prof-row:hover .prof-k { color: var(--gold-bright); }
+.prof-row .prof-k {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: .02em;
+  transition: color .12s;
+}
+.prof-row .prof-k em {
+  color: var(--ink-muted);
+  font-style: italic;
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+.prof-row .prof-leader {
+  border-bottom: 1px dotted rgba(201,161,59,.22);
+  transform: translateY(-3px);
+  height: 1px;
+}
+.prof-row .pf-tier {
+  width: 16px; height: 16px;
+  line-height: 16px; text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 9px; font-weight: 700;
+  color: #f0e8d0;
+  background: var(--ink-deep);
+  align-self: center;
+}
+.prof-row .pf-tier.T { background: var(--ink-deep); color: #f0e8d0; }
+.prof-row .pf-tier.E { background: var(--sage); color: #e8f0d8; }
+.prof-row .pf-tier.M { background: var(--gold); color: #1a1206; }
+.prof-row .pf-tier.L { background: var(--crimson); color: #fff; }
+.prof-row .pf-tier.U { background: transparent; border: 1px solid var(--ink-deep); color: var(--ink-deep); line-height: 14px; }
+.prof-row .pf-v {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--gold);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* TRAITS pill grid */
+.details-trait-grid { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+.details-trait-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border: 1px solid var(--rule-soft);
+  background: var(--bg-card);
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+}
+.details-trait-pill:hover { border-color: var(--gold); color: var(--gold-bright); }
+
+/* size strip */
+.size-strip { display: flex; gap: 6px; }
+.size-box {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  padding: 9px 12px 10px;
+  position: relative;
+}
+.size-box::before, .size-box::after {
+  content: ''; position: absolute; width: 5px; height: 5px;
+  border: 1px solid var(--gold);
+}
+.size-box::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.size-box::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.size-k {
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: .26em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+}
+.size-v {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink);
+  margin-top: 3px;
+  letter-spacing: .04em;
+  line-height: 1;
+}
+.size-foot {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  margin-top: 4px;
+  letter-spacing: .02em;
+}

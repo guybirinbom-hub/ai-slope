@@ -33,6 +33,14 @@ import {
   Text,
   TextInput,
 } from '@mantine/core';
+import { useState, createContext, useContext } from 'react';
+
+// React context propagating the current filter-search query down to
+// every FilterBlock. Each block reads it via useContext and decides
+// whether to hide itself (display: none) when its title doesn't match.
+// We don't unmount blocks because doing so would lose any unsubmitted
+// input state inside them.
+const FilterSearchContext = createContext('');
 import {
   ActionCost,
   AbilityBlockType,
@@ -152,7 +160,54 @@ export const DEFAULT_FILTER_STATE: ContentFilterState = {
 const RARITY_OPTIONS: Rarity[] = ['COMMON', 'UNCOMMON', 'RARE', 'UNIQUE'];
 const AVAILABILITY_OPTIONS: Availability[] = ['STANDARD', 'LIMITED', 'RESTRICTED'];
 const SIZE_OPTIONS: Size[] = ['TINY', 'SMALL', 'MEDIUM', 'LARGE', 'HUGE', 'GARGANTUAN'];
-const ITEM_GROUP_OPTIONS: ItemGroup[] = ['GENERAL', 'ARMOR', 'SHIELD', 'WEAPON', 'RUNE', 'UPGRADE', 'MATERIAL'];
+// 37-category expansion the user asked for. Some entries match the
+// ItemGroup enum directly (GENERAL/ARMOR/SHIELD/WEAPON/RUNE/MATERIAL);
+// the rest are stringly-typed labels we filter on via the trait /
+// category fields. The enum widens via `as ItemGroup` at use sites
+// since the schema is loose enough to accept extras.
+const ITEM_GROUP_OPTIONS = [
+  'Adjustments', 'Adventuring Gear', 'Alchemical Items', 'Animals and Gear',
+  'Apex Items', 'Armor', 'Artifacts', 'Assistive Items',
+  'Banners', 'Blighted Boons', 'Censer', 'Consumables',
+  'Contracts', 'Cursed Items', 'Customizations', 'Figurehead',
+  'Grafts', 'Grimoires', 'Held Items', 'High-tech',
+  'Intelligent Items', 'Materials', 'Other', 'Relics',
+  'Runes', 'Services', 'Shields', 'Siege Weapons',
+  'Snares', 'Spellhearts', 'Staves', 'Structures',
+  'Tattoos', 'Trade Goods', 'Vehicles', 'Wands',
+  'Weapons', 'Worn Items',
+] as const;
+
+// The 17-option Cast Time list for spells. Each entry is a tuple of
+// (display label, machine value). The label uses ActionIcons font for
+// the glyphs (see CSS .action-glyph) and Cinzel separators ("to" /
+// "or" / "or more"). The value is what we put into `state.cast`.
+//
+// Casts that are purely numeric ("2 actions" / "1 minute") match the
+// `cast` field on spells via substring; the icon-combo entries are
+// represented by the raw label so search picks them up.
+const CAST_TIME_OPTIONS: ReadonlyArray<{
+  value: string;
+  parts: ReadonlyArray<{ glyph?: string; text?: string }>;
+}> = [
+  { value: 'free-action', parts: [{ glyph: '4' }] },
+  { value: 'reaction', parts: [{ glyph: '5' }] },
+  { value: 'one-action', parts: [{ glyph: '1' }] },
+  { value: 'one-to-three', parts: [{ glyph: '1' }, { text: 'to' }, { glyph: '3' }] },
+  { value: 'one-or-two', parts: [{ glyph: '1' }, { text: 'or' }, { glyph: '2' }] },
+  { value: 'one-to-two', parts: [{ glyph: '1' }, { text: 'to' }, { glyph: '2' }] },
+  { value: 'one-or-three', parts: [{ glyph: '1' }, { text: 'or' }, { glyph: '3' }] },
+  { value: 'one-or-more', parts: [{ glyph: '1' }, { text: 'or more' }] },
+  { value: 'two-actions', parts: [{ glyph: '2' }] },
+  { value: 'two-or-three', parts: [{ glyph: '2' }, { text: 'or' }, { glyph: '3' }] },
+  { value: 'three-actions', parts: [{ glyph: '3' }] },
+  { value: 'two-to-2-rounds', parts: [{ glyph: '2' }, { text: 'to 2 rds' }] },
+  { value: '1 minute', parts: [{ text: '1 minute' }] },
+  { value: '5 minutes', parts: [{ text: '5 minutes' }] },
+  { value: '10 minutes', parts: [{ text: '10 minutes' }] },
+  { value: '30 minutes', parts: [{ text: '30 minutes' }] },
+  { value: '1 hour', parts: [{ text: '1 hour' }] },
+];
 const TRADITION_OPTIONS = ['ARCANE', 'DIVINE', 'OCCULT', 'PRIMAL'] as const;
 const SPELL_TYPE_OPTIONS: SpellType[] = ['NORMAL', 'FOCUS', 'RITUAL'];
 
@@ -216,38 +271,23 @@ function TriChip(props: {
   state: TriState | undefined;
   onClick: () => void;
 }) {
-  // Visual: outline for neutral, filled green for include, filled red for
-  // exclude. Right-icon hints at the action without taking much space.
-  const baseStyles = {
-    borderRadius: 999,
-    fontSize: 11,
-    paddingLeft: 10,
-    paddingRight: 8,
-    height: 26,
-    minHeight: 26,
-    lineHeight: 1,
-  } as const;
+  // Codex pill style — outline neutral / gold-tinted include /
+  // crimson-tinted exclude. The leading ring dot mirrors the design
+  // in screens/codex-popups.html (pill + .ring + label). Right-icon
+  // surfaces include/exclude state for accessibility.
   const isInclude = props.state === 'include';
   const isExclude = props.state === 'exclude';
+  const cls = `codex-pill${isInclude ? ' on' : ''}${isExclude ? ' excl' : ''}`;
   return (
-    <Button
-      variant={isInclude || isExclude ? 'filled' : 'outline'}
-      color={isExclude ? 'red.7' : isInclude ? 'teal.8' : 'gray.6'}
-      size='compact-xs'
-      onClick={props.onClick}
-      styles={{ root: baseStyles, label: { fontWeight: 500 } }}
-      rightSection={
-        isInclude ? (
-          <IconCheck size={11} stroke={3} />
-        ) : isExclude ? (
-          <IconMinus size={11} stroke={3} />
-        ) : (
-          <Box w={11} h={11} style={{ borderRadius: 999, border: '1.5px solid currentColor', opacity: 0.6 }} />
-        )
-      }
-    >
-      {props.label}
-    </Button>
+    <button type='button' className={cls} onClick={props.onClick}>
+      <span className='ring' aria-hidden='true' />
+      <span className='label'>{props.label}</span>
+      {isInclude ? (
+        <IconCheck size={11} stroke={3} className='codex-pill-iconR' />
+      ) : isExclude ? (
+        <IconMinus size={11} stroke={3} className='codex-pill-iconR' />
+      ) : null}
+    </button>
   );
 }
 
@@ -297,33 +337,47 @@ export default function SelectContentFilters(props: {
   const isSpell = type === 'spell';
   const isCreature = type === 'creature';
   const isAbilityBlock = type === 'ability-block';
+  const isAncestry = type === 'ancestry';
 
+  // Local search-the-filters text. Hides any FilterBlock whose title
+  // doesn't contain the typed text. Empty = show all blocks.
+  const [filterQuery, setFilterQuery] = useState('');
+
+  // Ancestries get a minimal filter set per spec — only rarity + size.
+  // Everything else is suppressed regardless of the type-specific
+  // booleans below.
+  //
   // What sections to render. Action chips appear for every feat and every
   // spell now (class/ancestry feats included — the user wants action cost
-  // visible on those too).
-  const showRarity = !!ab || type !== 'trait';
-  const showAvailability = !!ab || type !== 'trait';
-  const showActions = isFeat || isSpell || ab === 'action' || ab === 'physical-feature';
-  const showLevelRange = isItem || isCreature || ab === 'class-feature' || isFeat;
+  // visible on those too). For SPELLS the action filter is replaced with
+  // the 17-option Cast Time picker so we hide the basic action chips.
+  const showRarity = isAncestry || !!ab || type !== 'trait';
+  const showAvailability = !isAncestry && (!!ab || type !== 'trait');
+  const showActions = !isAncestry && !isSpell && (isFeat || ab === 'action' || ab === 'physical-feature');
+  const showCastTime = isSpell;
+  const showLevelRange = !isAncestry && (isItem || isCreature || ab === 'class-feature' || isFeat);
   const showRankRange = isSpell;
   const showTradition = isSpell;
   const showSpellType = isSpell;
   const showSkills = isFeat && featType === 'skill';
-  const showPrereqs = isFeat || ab === 'class-feature';
-  // Size is a structured field only on items. Creatures encode size as a
-  // trait (Large, Huge, etc.), so size filtering for creatures should be
-  // done via the trait filter — not a separate size chip group.
-  const showSize = isItem;
+  const showPrereqs = !isAncestry && (isFeat || ab === 'class-feature');
+  // Size: ancestries explicitly get this; items also. Creatures use
+  // the trait filter for size (Large etc. encoded as traits).
+  const showSize = isItem || isAncestry;
   const showItemGroup = isItem;
-  // Traits filter only makes sense for types whose options carry a
-  // `traits` array. That's items, spells, ability-blocks, creatures,
-  // ancestries.
-  const showTraits = isItem || isSpell || isAbilityBlock || isCreature || type === 'ancestry';
+  // Traits filter — drop for ancestries per spec.
+  const showTraits = !isAncestry && (isItem || isSpell || isAbilityBlock || isCreature);
 
   // Description is a meaningful free-text filter for almost every type that
-  // has a description body. Skip it for traits (their descriptions are tiny
-  // and search-by-name is enough).
-  const showDescription = type !== 'trait';
+  // has a description body. Skip it for traits + ancestries.
+  const showDescription = !isAncestry && type !== 'trait';
+
+  // Filter-search predicate — true if the block's title matches the
+  // current search query (case-insensitive substring). Empty query = all
+  // pass. Apply via the `hidden-by-search` class on each FilterBlock so
+  // we keep state intact instead of unmounting blocks.
+  const matchesFilter = (title: string) =>
+    !filterQuery.trim() || title.toLowerCase().includes(filterQuery.trim().toLowerCase());
 
   // Clamp the slider's upper bound to the actual content available. If the
   // caller passes a tighter range (e.g. only level-1 feats), the slider
@@ -336,7 +390,18 @@ export default function SelectContentFilters(props: {
   const patch = (over: Partial<ContentFilterState>) => onChange({ ...state, ...over });
 
   return (
-    <Stack gap='md'>
+    <FilterSearchContext.Provider value={filterQuery}>
+      {/* Top filter-search input — hides blocks whose title doesn't
+          match. Sits OUTSIDE the Stack so it isn't filtered itself. */}
+      <div className='codex-filter-search'>
+        <input
+          type='text'
+          placeholder='Find a filter — e.g. "rank", "tradition", "size"…'
+          value={filterQuery}
+          onChange={(e) => setFilterQuery(e.target.value)}
+        />
+      </div>
+      <Stack gap='md'>
       {showDescription && (
         <FilterBlock title='Description'>
           <TextInput
@@ -389,24 +454,53 @@ export default function SelectContentFilters(props: {
       )}
 
       {showActions && (
-        <FilterBlock title='Actions / Cast time'>
+        <FilterBlock title='Actions'>
           <Group gap={6} wrap='wrap'>
             {(
               [
-                ['ONE-ACTION', '1 action'],
-                ['TWO-ACTIONS', '2 actions'],
-                ['THREE-ACTIONS', '3 actions'],
-                ['FREE-ACTION', 'Free'],
-                ['REACTION', 'Reaction'],
+                ['ONE-ACTION', '1'],
+                ['TWO-ACTIONS', '2'],
+                ['THREE-ACTIONS', '3'],
+                ['FREE-ACTION', '4'],
+                ['REACTION', '5'],
               ] as const
-            ).map(([val, label]) => (
+            ).map(([val, glyph]) => (
               <TriChip
                 key={val}
-                label={label}
+                /* Pathfinder2eActions font glyph — '1'/'2'/'3'/'4'/'5'
+                 * render as the canonical AoN action-cost icons. */
+                label={<span className='action-glyph'>{glyph}</span>}
                 state={state.actions.get(val as ActionCost)}
                 onClick={() => patch({ actions: toggleKey(state.actions, val as ActionCost) })}
               />
             ))}
+          </Group>
+        </FilterBlock>
+      )}
+
+      {showCastTime && (
+        <FilterBlock title='Cast Time'>
+          <Group gap={6} wrap='wrap'>
+            {CAST_TIME_OPTIONS.map((opt) => {
+              const isOn = state.cast === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type='button'
+                  className={`codex-pill${isOn ? ' on' : ''}`}
+                  onClick={() => patch({ cast: isOn ? '' : opt.value })}
+                  title={opt.value}
+                >
+                  {opt.parts.map((p, i) =>
+                    p.glyph ? (
+                      <span key={i} className='action-glyph'>{p.glyph}</span>
+                    ) : (
+                      <span key={i} className='cast-sep'>{p.text}</span>
+                    )
+                  )}
+                </button>
+              );
+            })}
           </Group>
         </FilterBlock>
       )}
@@ -511,13 +605,7 @@ export default function SelectContentFilters(props: {
           onto a numeric axis. */}
       {isSpell && (
         <>
-          <FilterBlock title='Cast'>
-            <TextInput
-              placeholder='Any cast text, e.g. "10 minutes"'
-              value={state.cast}
-              onChange={(e) => patch({ cast: e.currentTarget.value })}
-            />
-          </FilterBlock>
+          {/* Cast Time is the pills block above — no free-text input. */}
           <FilterBlock title='Defense'>
             <TextInput
               placeholder='Any defense, e.g. "basic Reflex"'
@@ -617,14 +705,22 @@ export default function SelectContentFilters(props: {
 
       {/* Item-specific filters. */}
       {showItemGroup && (
-        <FilterBlock title='Item group'>
+        <FilterBlock title='Item Group'>
           <Group gap={6} wrap='wrap'>
             {ITEM_GROUP_OPTIONS.map((g) => (
               <TriChip
                 key={g}
-                label={toTitleCase(g)}
-                state={state.itemGroups.get(g)}
-                onClick={() => patch({ itemGroups: toggleKey(state.itemGroups, g) })}
+                /* Labels are already title-cased in the array; no
+                 * toTitleCase needed. The map key is widened to
+                 * ItemGroup via cast — the data model only knows 7
+                 * specific values but we store the chosen labels as
+                 * keys, and filtering checks both `item.group` and
+                 * trait/category fields downstream. */
+                label={g}
+                state={state.itemGroups.get(g as unknown as ItemGroup)}
+                onClick={() =>
+                  patch({ itemGroups: toggleKey(state.itemGroups, g as unknown as ItemGroup) })
+                }
               />
             ))}
           </Group>
@@ -664,7 +760,7 @@ export default function SelectContentFilters(props: {
         </>
       )}
 
-      {/* Size (items + creatures). */}
+      {/* Size (items + creatures + ancestries). */}
       {showSize && (
         <FilterBlock title='Size'>
           <Group gap={6} wrap='wrap'>
@@ -679,16 +775,24 @@ export default function SelectContentFilters(props: {
           </Group>
         </FilterBlock>
       )}
-    </Stack>
+      </Stack>
+    </FilterSearchContext.Provider>
   );
 }
 
-// Small section wrapper to keep the markup readable + consistent spacing.
+// Small section wrapper to keep the markup readable + consistent
+// spacing. Reads the parent's filter-search query from React context
+// and auto-hides itself when the title doesn't match. Hiding is via
+// `display: none` (CSS class) so the inner React state (input
+// cursors, partially typed filters) survives across query changes.
 function FilterBlock(props: { title: string; right?: ReactNode; children: ReactNode }) {
+  const searchQuery = useContext(FilterSearchContext);
+  const q = searchQuery.trim().toLowerCase();
+  const hidden = q.length > 0 && !props.title.toLowerCase().includes(q);
   return (
-    <Box>
+    <Box className={`codex-filter-block${hidden ? ' hidden-by-search' : ''}`}>
       <Group justify='space-between' align='center' mb={6}>
-        <Text fz='xs' fw={700} c='gray.2' tt='uppercase' style={{ letterSpacing: 0.5 }}>
+        <Text fz='xs' fw={700} c='gray.2' tt='uppercase' style={{ letterSpacing: 0.5 }} className='codex-filter-block-title'>
           {props.title}
         </Text>
         {props.right}

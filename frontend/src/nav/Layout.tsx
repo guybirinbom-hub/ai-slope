@@ -50,8 +50,11 @@ export default function Layout(props: { children: React.ReactNode }) {
   // Routes that ship their own codex topbar/header with a working
   // hamburger menu — render the drag strip without one to avoid the
   // duplicate-menu the user saw. Path tests are prefix-based so /sheet/67
-  // and /sheet/142 both match.
-  const codexRoutes = ['/sheet/', '/characters'];
+  // and /sheet/142 both match. /builder/ added so the codex shell on
+  // the builder page owns the entire viewport (otherwise this strip
+  // showed as a thin grey hamburger-only band above the codex chrome
+  // AND above the codex loading screen).
+  const codexRoutes = ['/sheet/', '/characters', '/builder/'];
   const hasOwnMenu = codexRoutes.some((p) => location.pathname.startsWith(p)) ||
     location.pathname === '/';
 

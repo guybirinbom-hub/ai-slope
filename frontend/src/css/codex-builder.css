@@ -1,0 +1,528 @@
+/* codex-builder.css — character-builder Build step.
+ *
+ * Mirrors D:/Inst/codex-builder (2).html and the updated
+ * D:/Inst/wg-builder-final.html. Every selector is scoped under
+ * `.codex-builder-page` so the mockup class names (.topbar, .who,
+ * .mode-row, .levels, .lv, .level-head, .choice-card …) don't
+ * collide with the character sheet's identical classes in codex.css. */
+
+.codex-builder-page { font-size: 14px; }
+
+/* ── Topbar — crest + mode-row (Home/Build/Sheet) + menu ─────── */
+.codex-builder-page .topbar {
+  height: 72px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: stretch;
+  background: linear-gradient(180deg, #1a140c 0%, #110d08 100%);
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+}
+.codex-builder-page .topbar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 1px;
+  background: linear-gradient(90deg, transparent 8%, var(--rule) 50%, transparent 92%);
+}
+.codex-builder-page .who {
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 18px 0 22px;
+  border-right: 1px solid var(--rule-soft);
+}
+.codex-builder-page .who .crest {
+  width: 44px; height: 44px; border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 35%, #3a2d18 0%, #1a1208 70%),
+    #0a0703;
+  box-shadow: 0 0 0 1px var(--gold-deep), 0 0 0 2px var(--bg), 0 0 0 3px var(--rule-soft);
+  display: grid; place-items: center;
+  color: var(--gold-bright);
+  font-family: 'Cinzel', serif; font-size: 20px; font-weight: 700;
+  line-height: 1; flex: 0 0 44px;
+}
+.codex-builder-page .who .label { display: flex; flex-direction: column; gap: 4px; }
+.codex-builder-page .who .label .nm {
+  font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: 20px; letter-spacing: .18em;
+  color: var(--ink); line-height: 1;
+}
+.codex-builder-page .who .label .sub {
+  font-family: 'IM Fell English SC', 'Cinzel', serif;
+  font-size: 11px; letter-spacing: .26em;
+  color: var(--ink-dim); text-transform: uppercase;
+}
+.codex-builder-page .who .label .sub i { color: var(--gold); font-style: normal; padding: 0 4px; }
+
+.codex-builder-page .mode-row {
+  display: flex; align-items: stretch; flex: 1;
+  border-left: 1px solid var(--rule-soft);
+  border-right: 1px solid var(--rule-soft);
+}
+.codex-builder-page .mode-row .m-btn {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 0 22px;
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  cursor: pointer;
+  border-right: 1px solid var(--rule-soft);
+  background: transparent; border-top: 0; border-bottom: 0; border-left: 0;
+  transition: color .12s, background .12s;
+  position: relative;
+}
+.codex-builder-page .mode-row .m-btn:last-child { border-right: 0; }
+.codex-builder-page .mode-row .m-btn:hover { color: var(--ink); }
+.codex-builder-page .mode-row .m-btn.on {
+  color: var(--gold);
+  background: linear-gradient(180deg, rgba(201,161,59,.08), transparent 80%);
+}
+.codex-builder-page .mode-row .m-btn.on::after {
+  content: ''; position: absolute; left: 14%; right: 14%; bottom: 0; height: 2px;
+  background: var(--gold);
+}
+.codex-builder-page .mode-row .m-btn svg { width: 14px; height: 14px; fill: currentColor; opacity: .8; }
+
+.codex-builder-page .topbar-right {
+  display: flex; align-items: center;
+  padding: 0 14px;
+  border-left: 1px solid var(--rule-soft);
+}
+.codex-builder-page .topbar-right .menu {
+  width: 44px; height: 44px;
+  border: 1px solid var(--rule-soft);
+  background: var(--bg-card);
+  color: var(--gold);
+  display: grid; place-items: center;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.codex-builder-page .topbar-right .menu:hover { border-color: var(--gold); }
+.codex-builder-page .topbar-right .menu .lines { display: flex; flex-direction: column; gap: 5px; }
+.codex-builder-page .topbar-right .menu .lines span { display: block; width: 22px; height: 1.6px; background: var(--gold); }
+
+/* ── Level chip strip ─────────────────────────────────────────── */
+.codex-builder-page .levels {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 22px;
+  background: linear-gradient(180deg, rgba(0,0,0,.18), transparent);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.codex-builder-page .levels .lab {
+  font-family: 'Cinzel', serif; font-size: 10px;
+  letter-spacing: .26em; color: var(--ink-muted);
+  text-transform: uppercase;
+  margin-right: 6px; flex-shrink: 0;
+}
+.codex-builder-page .levels .lab b { color: var(--gold); font-weight: 700; font-size: 11px; }
+.codex-builder-page .lv-track {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+.codex-builder-page .lv {
+  flex-shrink: 0;
+  width: 42px; height: 42px;
+  border: 1.4px solid var(--ink-deep);
+  background: var(--bg-2);
+  color: var(--ink-deep);
+  font-family: 'Cinzel', serif; font-weight: 700; font-size: 14px;
+  display: grid; place-items: center;
+  line-height: 1; cursor: pointer;
+  border-radius: 50%;
+  position: relative;
+  transition: border-color .12s, transform .12s;
+}
+.codex-builder-page .lv:hover { border-color: var(--gold-deep); transform: scale(1.06); }
+.codex-builder-page .lv.done {
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+  color: var(--bg); border-color: var(--gold-deep);
+}
+.codex-builder-page .lv.on {
+  background: rgba(201,161,59,.16);
+  color: var(--gold-bright);
+  border-color: var(--gold);
+  border-width: 2px;
+}
+.codex-builder-page .lv.warn::after {
+  content: ''; position: absolute; top: -3px; right: -3px;
+  width: 10px; height: 10px;
+  background: var(--crimson); border-radius: 50%;
+  border: 1.5px solid var(--bg);
+}
+.codex-builder-page .levels .nav-arrow {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  color: var(--gold);
+  display: grid; place-items: center;
+  cursor: pointer;
+  font-family: 'Cinzel', serif; font-size: 14px;
+}
+.codex-builder-page .levels .nav-arrow:hover { background: rgba(201,161,59,.08); border-color: var(--gold-deep); }
+
+/* ── 3-col body ──────────────────────────────────────────────── */
+.codex-builder-page .body {
+  display: grid;
+  grid-template-columns: 220px 1fr 240px;
+  min-height: 0;
+  overflow: hidden;
+}
+.codex-builder-page .col {
+  padding: 14px 18px 16px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex; flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-deep) transparent;
+}
+.codex-builder-page .col::-webkit-scrollbar { width: 4px; }
+.codex-builder-page .col::-webkit-scrollbar-thumb { background: var(--gold-deep); }
+.codex-builder-page .col.left { border-right: 1px solid var(--rule-soft); padding-right: 14px; }
+.codex-builder-page .col.right { border-left: 1px solid var(--rule-soft); padding-left: 14px; }
+.codex-builder-page .col.main { padding: 16px 22px 16px; gap: 14px; }
+
+.codex-builder-page .sec-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 600; font-size: 11px;
+  letter-spacing: .28em;
+  color: var(--gold);
+  text-transform: uppercase;
+  padding-bottom: 5px;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 8px;
+}
+.codex-builder-page .sec-title.compact { font-size: 10px; letter-spacing: .22em; }
+.codex-builder-page .sec-title .lozenge { color: var(--gold-bright); font-size: 12px; }
+.codex-builder-page .sec-title .sub {
+  margin-left: auto;
+  font-family: 'Cinzel', serif; font-size: 9px;
+  letter-spacing: .22em; color: var(--ink-muted);
+  white-space: nowrap;
+}
+.codex-builder-page .sec-title .sub b { color: var(--ink); font-weight: 700; }
+
+/* ── Attribute grid ──────────────────────────────────────────── */
+.codex-builder-page .ab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.codex-builder-page .ab {
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  text-align: center;
+  padding: 6px 4px 7px;
+  position: relative;
+}
+.codex-builder-page .ab .glyph {
+  font-family: 'Cinzel', serif;
+  font-size: 9px; letter-spacing: .22em;
+  color: var(--ink-muted); text-transform: uppercase;
+}
+.codex-builder-page .ab .mod {
+  font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: 20px; color: var(--ink);
+  line-height: 1.05; margin-top: 1px;
+}
+.codex-builder-page .ab .score { font-size: 10px; color: var(--ink-muted); letter-spacing: .08em; }
+.codex-builder-page .ab.key { border-color: var(--gold-deep); }
+.codex-builder-page .ab.key .mod { color: var(--gold); }
+.codex-builder-page .ab.key::after {
+  content: '✦';
+  position: absolute; top: 2px; right: 4px;
+  color: var(--gold); font-size: 8px;
+}
+.codex-builder-page .ab.boosted {
+  background: linear-gradient(180deg, rgba(201,161,59,.10), var(--bg-card));
+  border-color: var(--gold);
+}
+.codex-builder-page .ab.boosted::before {
+  content: '+1';
+  position: absolute; top: 1px; left: 4px;
+  font-size: 8px; color: var(--gold-bright);
+  font-family: 'Cinzel', serif; font-weight: 700;
+}
+
+/* ── Vitals (HP/AC/DC) cards ─────────────────────────────────── */
+.codex-builder-page .hp-card {
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  padding: 8px 10px;
+  text-align: center;
+  position: relative;
+}
+.codex-builder-page .hp-card::before, .codex-builder-page .hp-card::after {
+  content: ''; position: absolute; width: 5px; height: 5px;
+  border: 1px solid var(--gold);
+}
+.codex-builder-page .hp-card::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.codex-builder-page .hp-card::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.codex-builder-page .hp-card .lbl { font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .22em; color: var(--ink-muted); text-transform: uppercase; }
+.codex-builder-page .hp-card .v {
+  font-family: 'Cinzel', serif; font-weight: 700; font-size: 24px;
+  color: var(--ink); line-height: 1; margin-top: 3px;
+}
+.codex-builder-page .hp-card .v small { font-size: 11px; color: var(--gold); }
+
+/* ── Origin chip rows ────────────────────────────────────────── */
+.codex-builder-page .origin {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  cursor: pointer;
+  transition: border-color .12s;
+}
+.codex-builder-page .origin:hover { border-color: var(--gold-deep); }
+.codex-builder-page .origin .ic {
+  width: 26px; height: 26px;
+  background: var(--bg-2);
+  border: 1px solid var(--rule-soft);
+  color: var(--gold);
+  display: grid; place-items: center;
+  font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.codex-builder-page .origin .nm {
+  font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: 10px; letter-spacing: .14em;
+  color: var(--ink-muted); text-transform: uppercase;
+}
+.codex-builder-page .origin .v {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px; color: var(--ink);
+  margin-top: 2px;
+  letter-spacing: .02em;
+  font-weight: 600; line-height: 1.1;
+}
+
+/* ── Skill list ─────────────────────────────────────────────── */
+.codex-builder-page .sk-list { display: flex; flex-direction: column; gap: 0; }
+.codex-builder-page .sk {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center; gap: 7px;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px dotted rgba(201,161,59,.10);
+  line-height: 1.2;
+}
+.codex-builder-page .sk:last-child { border-bottom: 0; }
+.codex-builder-page .sk .pf {
+  width: 14px; height: 14px; line-height: 14px; text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 8px; font-weight: 700;
+  color: var(--bg); background: var(--ink-deep);
+}
+.codex-builder-page .sk .pf.T { background: var(--ink-deep); color: #f0e8d0; }
+.codex-builder-page .sk .pf.E { background: var(--sage); color: #e8f0d8; }
+.codex-builder-page .sk .pf.M { background: var(--gold); color: #1a1206; }
+.codex-builder-page .sk .pf.L { background: var(--crimson); color: #fff; }
+.codex-builder-page .sk .pf.U { background: transparent; border: 1px solid var(--ink-deep); color: var(--ink-deep); line-height: 12px; }
+.codex-builder-page .sk .nm { font-family: 'Cormorant Garamond', serif; font-weight: 500; color: var(--ink); }
+.codex-builder-page .sk .nm em { color: var(--ink-muted); font-style: italic; font-size: 11px; }
+.codex-builder-page .sk .v {
+  font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: 12px; color: var(--ink);
+  min-width: 22px; text-align: right;
+}
+.codex-builder-page .sk.pending {
+  background: rgba(168, 58, 37, .08);
+  border-left: 2px solid var(--crimson);
+  padding-left: 4px; margin: 0 -4px;
+}
+.codex-builder-page .sk.boosted .nm { color: var(--gold-bright); }
+.codex-builder-page .sk.boosted .nm::before {
+  content: '↑'; color: var(--gold); margin-right: 3px; font-weight: 700;
+}
+
+/* ── Level head + choice cards ───────────────────────────────── */
+.codex-builder-page .level-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 18px;
+  align-items: end;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+}
+.codex-builder-page .level-head::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--rule-soft) 40%, var(--rule-soft) 60%, transparent);
+}
+.codex-builder-page .level-emblem {
+  width: 64px; height: 64px;
+  position: relative;
+  display: grid; place-items: center;
+}
+.codex-builder-page .level-emblem::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(201,161,59,.18), transparent 70%);
+  border: 1px solid var(--gold-deep);
+  transform: rotate(45deg);
+}
+.codex-builder-page .level-emblem::after {
+  content: ''; position: absolute; inset: 7px;
+  border: 1px solid var(--gold);
+  transform: rotate(45deg);
+}
+.codex-builder-page .level-emblem .num {
+  position: relative; z-index: 1;
+  font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: 26px; color: var(--gold-bright);
+  line-height: 1;
+}
+.codex-builder-page .level-head .meta { padding-bottom: 4px; }
+.codex-builder-page .level-head .meta .eyebrow {
+  font-family: 'Cinzel', serif;
+  font-size: 9px; letter-spacing: .28em;
+  color: var(--gold); text-transform: uppercase;
+}
+.codex-builder-page .level-head .meta .lede {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic; color: var(--ink-dim);
+  font-size: 13px; max-width: 56ch;
+  margin-top: 4px;
+}
+.codex-builder-page .level-head .progress {
+  text-align: right;
+  font-family: 'Cinzel', serif;
+  font-size: 9px; letter-spacing: .24em;
+  color: var(--ink-muted); text-transform: uppercase;
+  padding-bottom: 4px;
+}
+.codex-builder-page .level-head .progress b {
+  display: block;
+  margin-top: 4px;
+  font-size: 16px; color: var(--gold);
+  letter-spacing: .04em;
+}
+.codex-builder-page .level-head .progress .small {
+  margin-top: 4px;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px; color: var(--ink-muted);
+  letter-spacing: .04em; text-transform: none;
+}
+
+.codex-builder-page .choice-card {
+  background:
+    linear-gradient(180deg, rgba(201,161,59,.03), transparent 50%),
+    var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  position: relative;
+}
+.codex-builder-page .choice-card.pending {
+  border-color: rgba(168, 58, 37, .42);
+  border-left: 3px solid var(--crimson);
+}
+.codex-builder-page .choice-card.done {
+  border-color: var(--gold-deep);
+  border-left: 3px solid var(--gold);
+}
+.codex-builder-page .choice-card.granted { border-color: var(--gold-deep); }
+.codex-builder-page .choice-card.granted::before, .codex-builder-page .choice-card.granted::after {
+  content: ''; position: absolute; width: 6px; height: 6px;
+  border: 1px solid var(--gold);
+}
+.codex-builder-page .choice-card.granted::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.codex-builder-page .choice-card.granted::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.codex-builder-page .cc-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px dotted rgba(201,161,59,.18);
+}
+.codex-builder-page .cc-head .nm {
+  font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: 12px; letter-spacing: .22em;
+  color: var(--gold); text-transform: uppercase;
+}
+.codex-builder-page .choice-card.pending .cc-head .nm { color: #e08560; }
+.codex-builder-page .cc-head .desc {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px; color: var(--ink-muted);
+  flex: 1; margin-left: 10px;
+}
+.codex-builder-page .cc-head .status {
+  font-family: 'Cinzel', serif;
+  font-size: 9px; letter-spacing: .22em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid var(--rule-soft);
+  background: var(--bg-2);
+  color: var(--ink-muted);
+}
+.codex-builder-page .cc-head .status.warn { color: #e08560; border-color: rgba(168,58,37,.5); background: rgba(168,58,37,.10); }
+.codex-builder-page .cc-head .status.good { color: #a3c084; border-color: rgba(91,113,72,.5); background: rgba(91,113,72,.12); }
+.codex-builder-page .cc-body { padding: 10px 14px 12px; }
+
+/* ── Footer prev/next ────────────────────────────────────────── */
+.codex-builder-page .level-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0 0;
+  margin-top: 4px;
+  border-top: 1px solid var(--rule-soft);
+}
+.codex-builder-page .level-foot .nav-btn {
+  padding: 9px 18px;
+  font-family: 'Cinzel', serif;
+  font-size: 11px; letter-spacing: .24em;
+  text-transform: uppercase;
+  border: 1px solid var(--rule-soft);
+  background: var(--bg-card);
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.codex-builder-page .level-foot .nav-btn:hover { color: var(--gold); border-color: var(--gold-deep); }
+.codex-builder-page .level-foot .nav-btn.primary {
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+  color: var(--bg);
+  border-color: var(--gold-deep);
+  font-weight: 700;
+}
+.codex-builder-page .level-foot .center {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic; font-size: 12px;
+  color: var(--ink-muted);
+}
+.codex-builder-page .level-foot .center b {
+  color: var(--gold); font-style: normal;
+  font-family: 'Cinzel', serif; font-weight: 700;
+  letter-spacing: .14em; font-size: 11px;
+  text-transform: uppercase;
+}
+
+/* Granted list — used inside the "Granted at Level N" card */
+.codex-builder-page .granted-list { display: flex; flex-direction: column; gap: 0; }
+.codex-builder-page .granted-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  padding: 5px 0; gap: 8px;
+  border-bottom: 1px dotted rgba(201,161,59,.10);
+  font-size: 12px;
+}
+.codex-builder-page .granted-row:last-child { border-bottom: 0; }
+.codex-builder-page .granted-row .nm {
+  font-family: 'Cinzel', serif; font-weight: 600;
+  font-size: 11px; letter-spacing: .04em; color: var(--ink);
+}
+.codex-builder-page .granted-row .nm small {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic; font-weight: 500;
+  font-size: 12px; color: var(--ink-muted);
+  margin-top: 1px; letter-spacing: .02em;
+}
+.codex-builder-page .granted-row .tag {
+  font-family: 'Cinzel', serif;
+  font-size: 9px; letter-spacing: .2em;
+  color: var(--ink-muted); text-transform: uppercase;
+  text-align: right; white-space: nowrap;
+}

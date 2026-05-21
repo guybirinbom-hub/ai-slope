@@ -80,12 +80,18 @@ import BlurBox from '@common/BlurBox';
 import { DisplayIcon } from '@common/IconDisplay';
 import useCharacter from '@utils/use-character';
 
-export default function CharBuilderHome(props: { characterId: number; pageHeight: number }) {
+export default function CharBuilderHome(props: { characterId: number; pageHeight: number; onContinue?: () => void }) {
   const theme = useMantineTheme();
 
   const { ref, height } = useElementSize();
   const topGap = 30;
   const isPhone = useMediaQuery(phoneQuery());
+
+  // Active codex tab — Books / Homebrew / Variant Rules. The "Options"
+  // gear in the tabs row is a button (not a tab) that opens the
+  // sheet-settings panel (color / background / campaign join) inline
+  // below — those used to live in a side panel.
+  const [activeTab, setActiveTab] = useState<'books' | 'homebrew' | 'variants' | 'options'>('books');
 
   const queryClient = useQueryClient();
   const [_drawer, openDrawer] = useAtom(drawerState);
@@ -1251,221 +1257,347 @@ export default function CharBuilderHome(props: { characterId: number; pageHeight
     });
   };
 
-  return (
-    <Stack gap={topGap}>
-      <Group justify='center' ref={ref} wrap='nowrap'>
-        <Stack>
-          <Box>
-            <Group align='flex-end' wrap='nowrap'>
-              <UnstyledButton
-                onClick={() => {
-                  openContextModal({
-                    modal: 'selectImage',
-                    title: <Title order={3}>Select Portrait</Title>,
-                    innerProps: {
-                      options: getAllPortraitImages(),
-                      onSelect: (option: ImageOption) => {
-                        setCharacter((prev) => {
-                          if (!prev) return prev;
-                          return {
-                            ...prev,
-                            details: {
-                              ...prev.details,
-                              image_url: prev.details?.image_url === option.url ? undefined : option.url,
-                            },
-                          };
-                        });
-                      },
-                      category: 'portraits',
-                    },
-                  });
-                }}
-              >
-                <Avatar
-                  src={character?.details?.image_url}
-                  alt='Character Portrait'
-                  size='38'
-                  radius='xl'
-                  variant='transparent'
-                  color={IMPRINT_BORDER_COLOR}
-                  style={{
-                    border: `1px solid ${IMPRINT_BORDER_COLOR}`,
-                  }}
-                  bg={IMPRINT_BG_COLOR}
-                >
-                  <IconUserCircle size='1.5rem' stroke={1.5} />
-                </Avatar>
-              </UnstyledButton>
-              {displayNameInput && (
-                <TextInput
-                  label='Name'
-                  placeholder='Unknown Wanderer'
-                  defaultValue={character?.name === 'Unknown Wanderer' ? '' : character?.name}
-                  onChange={(e) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        name: e.target.value,
-                      };
-                    });
-                  }}
-                  w={isPhone ? undefined : 220}
-                  rightSection={
-                    <HoverCard width={280} shadow='md' openDelay={500}>
-                      <HoverCard.Target>
-                        <ActionIcon
-                          size={22}
-                          loading={loadingGenerateName}
-                          radius='xl'
-                          color='gray'
-                          variant='subtle'
-                          onClick={async () => {
-                            if (!character) return;
-                            setLoadingGenerateName(true);
-                            const names = await generateNames(character, 1);
-                            setLoadingGenerateName(false);
-                            if (names.length > 0) {
-                              const name = names[0].replace(/\*/g, '');
-                              setCharacter((prev) => {
-                                if (!prev) return prev;
-                                return {
-                                  ...prev,
-                                  name: name,
-                                };
-                              });
-                              refreshNameInput();
-                            } else {
-                              showNotification({
-                                title: 'Failed to Generate Name',
-                                message: 'Please try again.',
-                                color: 'red',
-                                icon: null,
-                                autoClose: 3000,
-                              });
-                            }
-                          }}
-                        >
-                          <IconRefreshDot style={{ width: rem(18), height: rem(18) }} stroke={1.5} />
-                        </ActionIcon>
-                      </HoverCard.Target>
-                      <HoverCard.Dropdown>
-                        <Group gap={5} wrap='nowrap' align='center'>
-                          <IconRefreshDot size='1rem' stroke={1.5} />
-                          <Title order={5}>Random Name Generator</Title>
-                        </Group>
-                        <Text size='sm'>
-                          Produces a random name and title based on your character stats.
-                          {character?.details?.ancestry?.name && (
-                            <Text>
-                              <Text fw='bold' span>
-                                Ancestry:
-                              </Text>{' '}
-                              {character?.details?.ancestry?.name}
-                            </Text>
-                          )}
-                          {character?.details?.background?.name && (
-                            <Text>
-                              <Text fw='bold' span>
-                                Background:
-                              </Text>{' '}
-                              {character?.details?.background?.name}
-                            </Text>
-                          )}
-                          {character?.details?.class?.name && (
-                            <Text>
-                              <Text fw='bold' span>
-                                Class:
-                              </Text>{' '}
-                              {character?.details?.class?.name}
-                            </Text>
-                          )}
-                          {!character?.details?.class?.name &&
-                            !character?.details?.background?.name &&
-                            !character?.details?.ancestry?.name && (
-                              <Text>
-                                <Text fw='bold' span>
-                                  None Set:
-                                </Text>{' '}
-                                Will be a random name
-                              </Text>
-                            )}
-                        </Text>
-                        <Divider mt={10} mb={5} />
-                        <Group align='flex-end' justify='flex-end' gap={5} wrap='nowrap'>
-                          <Text fz='xs' fw={600}>
-                            Powered by
-                          </Text>
-                          <Image
-                            onClick={() => window.open('https://fantasygen.dev/')}
-                            style={{ cursor: 'pointer' }}
-                            radius='md'
-                            w={160}
-                            src={FantasyGen_dev}
-                          />
-                        </Group>
-                      </HoverCard.Dropdown>
-                    </HoverCard>
-                  }
-                  styles={{
-                    input: {
-                      backgroundColor: IMPRINT_BG_COLOR,
-                      borderColor: IMPRINT_BORDER_COLOR,
-                    },
-                  }}
-                />
-              )}
-              <Select
-                label='Level'
-                data={Array.from({ length: 20 }, (_, i) => (i + 1).toString())}
-                w={70}
-                value={`${character?.level}`}
-                onChange={(value) => {
-                  const oldLevel = character?.level ?? 0;
-                  const newLevel = parseInt(value ?? '1');
+  // Per-group book toggling. Each codex .book-row represents one
+  // source group (Pathfinder Core, Adventure Paths, etc.); the
+  // toggle on the row flips every book in that group on or off via
+  // the existing setBooksEnabled handler.
+  const bookGroups: Array<{ key: string; name: string; subtitle: string; pf: React.ReactNode }> = [
+    { key: 'pathfinder-core', name: 'Pathfinder Core', subtitle: 'Foundational rulebook — every class, ancestry, and rule begins here.', pf: <><b>PF2e</b> · Core</> },
+    { key: 'starfinder-core', name: 'Starfinder Core', subtitle: 'Optional sci-fi crossover — themes, drift tech, and starships.', pf: <><b>SF2e</b> · Cross</> },
+    { key: 'adventure-path', name: 'Adventure Paths', subtitle: 'Tied to a campaign — feats, items, and creatures from many paths.', pf: <>APs</> },
+    { key: 'standalone-adventure', name: 'Standalone Adventures', subtitle: 'One-shot modules with their own rule riders.', pf: <>mods</> },
+    { key: 'lost-omens', name: 'Lost Omens', subtitle: 'World-canon tomes — Absalom, Mwangi, the Mortal Heralds.', pf: <>vols</> },
+    { key: 'legacy', name: 'Core Backports', subtitle: 'Pre-Remaster classics fitted into the new core.', pf: <>parts</> },
+    { key: 'playtest', name: 'Playtest', subtitle: 'Unfinished rulesets in open testing.', pf: <>draft · unstable</> },
+    { key: 'misc', name: 'Miscellaneous', subtitle: 'Conventions, free supplements, and one-page rules.', pf: <>scraps</> },
+  ];
 
-                  if (oldLevel > newLevel) {
-                    openConfirmLevelChangeModal(oldLevel, newLevel);
-                  } else {
+  // Counts used by both the subhead chip and the foot summary.
+  const enabledBookCount = (character?.content_sources?.enabled ?? []).length;
+  const totalAvailableBooks = books.length;
+
+  return (
+    <>
+      {/* Builder breadcrumb — Sources is the current step. The other
+          steps are non-interactive labels here; navigation between
+          them happens via the topbar Build / Sheet buttons higher up.*/}
+      <div className='crumb-strip'>
+        <span className='seg on'>Sources</span>
+        <span className='sep'>▸</span>
+        <span className='seg'>Ancestry</span>
+        <span className='sep'>▸</span>
+        <span className='seg'>Class</span>
+        <span className='sep'>▸</span>
+        <span className='seg'>Skills</span>
+        <span className='sep'>▸</span>
+        <span className='seg'>Feats</span>
+      </div>
+
+      <div className='home-wrap'>
+
+        {/* Hero — portrait + name input + level chip. */}
+        <div className='hero' ref={ref}>
+          <div
+            className='portrait'
+            title='Select portrait'
+            onClick={() => {
+              openContextModal({
+                modal: 'selectImage',
+                title: <Title order={3}>Select Portrait</Title>,
+                innerProps: {
+                  options: getAllPortraitImages(),
+                  onSelect: (option: ImageOption) => {
                     setCharacter((prev) => {
                       if (!prev) return prev;
                       return {
                         ...prev,
-                        level: newLevel,
-                        meta_data: {
-                          ...prev.meta_data,
-                          reset_hp: true,
+                        details: {
+                          ...prev.details,
+                          image_url:
+                            prev.details?.image_url === option.url ? undefined : option.url,
                         },
                       };
                     });
+                  },
+                  category: 'portraits',
+                },
+              });
+            }}
+          >
+            {character?.details?.image_url ? (
+              <img src={character.details.image_url} alt='Character Portrait' />
+            ) : (
+              <IconUserCircle size={36} stroke={1.5} />
+            )}
+            <span className='tag'>+</span>
+          </div>
+
+          <div className='name-field'>
+            <div className='lbl'>
+              Name
+              <span className='rule' />
+              <em>— sign the page</em>
+            </div>
+            <div className='input-row'>
+              {displayNameInput && (
+                <input
+                  key={character?.name}
+                  className='name-input'
+                  type='text'
+                  placeholder='Unknown Wanderer'
+                  defaultValue={
+                    character?.name === 'Unknown Wanderer' ? '' : character?.name ?? ''
+                  }
+                  onChange={(e) => {
+                    setCharacter((prev) => {
+                      if (!prev) return prev;
+                      return { ...prev, name: e.target.value };
+                    });
+                  }}
+                />
+              )}
+              <button
+                type='button'
+                className='reroll'
+                title='Reroll a name'
+                disabled={loadingGenerateName}
+                onClick={async () => {
+                  if (!character) return;
+                  setLoadingGenerateName(true);
+                  const names = await generateNames(character, 1);
+                  setLoadingGenerateName(false);
+                  if (names.length > 0) {
+                    const name = names[0].replace(/\*/g, '');
+                    setCharacter((prev) => (prev ? { ...prev, name } : prev));
+                    refreshNameInput();
+                  } else {
+                    showNotification({
+                      title: 'Failed to Generate Name',
+                      message: 'Please try again.',
+                      color: 'red',
+                      icon: null,
+                      autoClose: 3000,
+                    });
                   }
                 }}
-                styles={{
-                  input: {
-                    backgroundColor: IMPRINT_BG_COLOR,
-                    borderColor: IMPRINT_BORDER_COLOR,
-                  },
+              >
+                <IconRefreshDot size={16} stroke={1.5} />
+              </button>
+            </div>
+          </div>
+
+          <div className='lvl-card'>
+            <div className='lbl'>
+              Level
+              <small>1 – 20</small>
+            </div>
+            <div>
+              <input
+                key={character?.level}
+                type='number'
+                min={1}
+                max={20}
+                defaultValue={character?.level ?? 1}
+                onBlur={(e) => {
+                  const newLevel = Math.min(20, Math.max(1, parseInt(e.target.value || '1', 10)));
+                  const oldLevel = character?.level ?? 0;
+                  if (newLevel === oldLevel) return;
+                  if (oldLevel > newLevel) {
+                    openConfirmLevelChangeModal(oldLevel, newLevel);
+                  } else {
+                    setCharacter((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            level: newLevel,
+                            meta_data: { ...prev.meta_data, reset_hp: true },
+                          }
+                        : prev
+                    );
+                  }
                 }}
               />
-            </Group>
-          </Box>
-        </Stack>
-      </Group>
-      {isPhone ? (
-        <Stack h='100%'>
-          <Box h={390}>{getOptionsSection()}</Box>
-          {getSidebarSection()}
-        </Stack>
-      ) : (
-        <Group gap={10} align='flex-start' wrap='nowrap' h={props.pageHeight - height - topGap}>
-          <Box style={{ flexBasis: '65%' }} h='100%'>
-            {getOptionsSection()}
-          </Box>
-          <Box style={{ flexBasis: 'calc(35% - 10px)' }} h='100%'>
-            {getSidebarSection()}
-          </Box>
-        </Group>
-      )}
-    </Stack>
+            </div>
+            <div className='steps'>
+              <button
+                type='button'
+                onClick={() => {
+                  const v = character?.level ?? 1;
+                  if (v >= 20) return;
+                  setCharacter((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          level: v + 1,
+                          meta_data: { ...prev.meta_data, reset_hp: true },
+                        }
+                      : prev
+                  );
+                }}
+              >
+                ▴
+              </button>
+              <button
+                type='button'
+                onClick={() => {
+                  const v = character?.level ?? 1;
+                  if (v <= 1) return;
+                  openConfirmLevelChangeModal(v, v - 1);
+                }}
+              >
+                ▾
+              </button>
+            </div>
+            <div className='of'>
+              of <b>20</b>
+            </div>
+          </div>
+        </div>
+
+        {/* Sourcebook panel — codex tabs + book-rows. */}
+        <div className='panel'>
+
+          <div className='tabs-row'>
+            <button
+              type='button'
+              className={`tab-btn${activeTab === 'books' ? ' on' : ''}`}
+              onClick={() => setActiveTab('books')}
+            >
+              <IconBooks size={14} />
+              Books
+              <span className='ct'>{totalAvailableBooks}</span>
+            </button>
+            <button
+              type='button'
+              className={`tab-btn${activeTab === 'homebrew' ? ' on' : ''}`}
+              onClick={() => setActiveTab('homebrew')}
+            >
+              <IconAsset size={14} />
+              Homebrew
+              <span className='ct'>{homebrewBundles.length}</span>
+            </button>
+            <button
+              type='button'
+              className={`tab-btn${activeTab === 'variants' ? ' on' : ''}`}
+              onClick={() => setActiveTab('variants')}
+            >
+              <IconVocabulary size={14} />
+              Variant Rules
+              <span className='ct'>9</span>
+            </button>
+            <button
+              type='button'
+              className='tab-options'
+              onClick={() => setActiveTab('options')}
+              style={activeTab === 'options' ? { color: 'var(--gold)' } : undefined}
+            >
+              <IconSettings size={13} />
+              Options
+            </button>
+          </div>
+
+          {activeTab === 'books' && (
+            <>
+              <div className='panel-subhead'>
+                <div className='lhs'>
+                  <span><b>{totalAvailableBooks}</b> Sources Available</span>
+                  <em>— official tomes you can draw on</em>
+                </div>
+                <div className='actions'>
+                  <div className='act on'>All</div>
+                  <div className='act'>Enabled</div>
+                  <div className='act'>Restricted</div>
+                </div>
+              </div>
+
+              <div className='book-list'>
+                {bookGroups.map((group, idx) => {
+                  const groupBooks = books.filter((b) => b.group === group.key);
+                  const enabled = groupBooks.filter((b) => hasBookEnabled(b.id)).length;
+                  const total = groupBooks.length;
+                  const allOn = total > 0 && enabled === total;
+                  const noneOn = enabled === 0;
+                  const fillPct = total > 0 ? (enabled / total) * 100 : 0;
+                  const locked = total === 0;
+                  return (
+                    <div
+                      key={group.key}
+                      className={`book-row${idx === 2 ? ' divider-top' : ''}${locked ? ' locked' : ''}`}
+                      onClick={() => {
+                        const groupIds = groupBooks.map((b) => b.id);
+                        if (groupIds.length === 0) return;
+                        setBooksEnabled(groupIds, !allOn);
+                      }}
+                    >
+                      <div className='ico'>
+                        <IconBook2 size={20} stroke={1.6} />
+                      </div>
+                      <div className='nm'>
+                        {group.name}
+                        <small>{group.subtitle}</small>
+                      </div>
+                      <div className='progress'>
+                        <div className='nums'>
+                          <b>{enabled}</b> / {total} <em>books</em>
+                        </div>
+                        <div className='bar'>
+                          <div
+                            className={`fill${noneOn ? ' partial' : ''}`}
+                            style={{ right: `${100 - fillPct}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className='pf'>{group.pf}</div>
+                      <div
+                        className={`toggle${allOn ? ' on' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const groupIds = groupBooks.map((b) => b.id);
+                          if (groupIds.length === 0) return;
+                          setBooksEnabled(groupIds, !allOn);
+                        }}
+                      >
+                        <div className='knob' />
+                      </div>
+                      <div className='chev' />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {activeTab !== 'books' && (
+            <div className='tab-body'>
+              {/* Homebrew / Variants / Options panels still use the
+                  legacy Mantine widgets — getOptionsSection picks the
+                  active panel via its own internal <Tabs>. */}
+              {getOptionsSection()}
+              {activeTab === 'options' && getSidebarSection()}
+            </div>
+          )}
+
+        </div>
+
+        {/* Foot — summary + Continue. */}
+        <div className='home-foot'>
+          <div className='summary'>
+            Bound to <b>{enabledBookCount}</b> sources <span style={{ color: 'var(--ink-deep)' }}>·</span>
+            <span style={{ color: 'var(--ink-muted)' }}> drawing your tome's lore.</span>
+          </div>
+          <button
+            type='button'
+            className='btn-continue'
+            onClick={() => props.onContinue?.()}
+          >
+            <span className='lhs'>
+              Continue to Builder
+              <span className='arrow' />
+            </span>
+          </button>
+        </div>
+
+      </div>
+    </>
   );
 }

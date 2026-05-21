@@ -1,5 +1,6 @@
 import { getPublicUser } from '@auth/user-manager';
 import BlurBox from '@common/BlurBox';
+import CodexLoadingOverlay from '@common/CodexLoadingOverlay';
 import { findContentUpdates } from '@content/content-update';
 import {
   Center,
@@ -16,7 +17,6 @@ import {
   useMantineTheme,
   useMantineColorScheme,
   Button,
-  LoadingOverlay,
   Select,
 } from '@mantine/core';
 import { IconSearch, IconExternalLink } from '@tabler/icons-react';
@@ -83,7 +83,7 @@ export function Component(props: {}) {
 
   return (
     <Center>
-      <LoadingOverlay visible={isFetching} />
+      <CodexLoadingOverlay visible={isFetching} />
       <Box maw={500} w='100%'>
         <BlurBox w={'100%'} p='md'>
           <Stack gap={0} pb={10}>

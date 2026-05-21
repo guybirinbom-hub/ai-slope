@@ -44,41 +44,85 @@ configureBackendPaths();
 let mainWindow = null;
 let backend = null;
 
-// Inline loading screen that lives inside the main window itself — no
-// separate splash. We open the main window immediately on app.whenReady,
-// show this while the backend boots, and swap to APP_URL once the gateway
-// is listening. This makes perceived startup ~Chromium's load time instead
-// of (Chromium + Postgres + PostgREST).
-const LOADING_HTML = `<!doctype html><html><head><meta charset="utf-8">
-<title>Wanderer's Guide</title>
-<style>
-  body { margin:0; font-family: system-ui, sans-serif; background:#1a1b1e; color:#c1c2c5;
-         display:flex; align-items:center; justify-content:center; height:100vh; }
-  .box { text-align:center; }
-  .title { font-size: 28px; margin-bottom: 18px; letter-spacing: 0.5px; }
-  .status { font-size: 14px; color:#909296; min-height: 1.4em; }
-  .err { color:#ff6b6b; white-space: pre-wrap; text-align:left; max-width: 520px;
-         margin: 12px auto 0; font-family: ui-monospace, monospace; font-size: 12px; }
-  .spinner { width: 40px; height: 40px; border-radius: 50%;
-             border: 3px solid #2c2e33; border-top-color: #4dabf7;
-             margin: 0 auto 22px; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-</style></head><body>
-  <div class="box">
-    <div class="spinner"></div>
-    <div class="title">Wanderer's Guide</div>
-    <div class="status" id="s">Starting local backend…</div>
-    <div class="err" id="e"></div>
-  </div>
-</body></html>`;
-const LOADING_DATA_URL = 'data:text/html;charset=utf-8,' + encodeURIComponent(LOADING_HTML);
+// Single-instance lock. Without this, if the user closes the window
+// and re-launches before the previous process has finished shutting
+// down (pg.stop has up to ~10s of pg_ctl grace + a 6s outer cap), the
+// 2nd instance tries to bind port 9000 and the embedded pg lock file
+// at the same time as the 1st, and both end up half-broken — the user
+// sees an indefinitely-stuck "Starting…" splash on the 2nd launch and
+// the 3rd launch finally works because by then the 1st is fully gone.
+//
+// With this lock: the 2nd launch's process exits immediately, and we
+// surface the existing window instead. The Electron docs recommend
+// doing this synchronously at the top of main, BEFORE any window or
+// backend init, so we get out of the way before grabbing any
+// resources.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  // Another instance is already running. Quit immediately — the
+  // running instance will handle the 'second-instance' event below
+  // and focus its window.
+  app.quit();
+  process.exit(0);
+}
+app.on('second-instance', () => {
+  // Someone tried to launch us again while we're alive — bring our
+  // existing window to the front so the user sees something happened.
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
 
+// Codex parchment loading screen. Lives in electron/codex-loading.html
+// (so the file picker / design canvas can preview it) and is loaded
+// into the main window via loadFile() at startup, then swapped for the
+// real APP_URL once the gateway is listening. The React shell renders
+// the SAME file inside BackendReadyGate (served from
+// frontend/public/codex-loading.html) so users never see a style
+// break between the Electron-level boot stage and the React-level
+// "warming up the database" stage.
+const LOADING_FILE = path.join(__dirname, 'codex-loading.html');
+
+// setStatus() is now error-only: the loading HTML cycles its own
+// status flavour text on a loop, but if the backend fails to start
+// we still need to surface the real error to the user. We flip the
+// hidden .err-overlay visible and write the message into #err-msg.
 function setStatus(win, text, isError = false) {
   if (!win || win.isDestroyed()) return;
+  // Non-error status pings are no-ops — the new codex loader owns
+  // its own flavour rotation and doesn't expose a "current step"
+  // hook. We keep the parameter for source-compat with callers.
+  if (!isError) return;
   const escaped = JSON.stringify(text);
-  const target = isError ? 'e' : 's';
   win.webContents
-    .executeJavaScript(`document.getElementById(${JSON.stringify(target)})&&(document.getElementById(${JSON.stringify(target)}).textContent = ${escaped})`)
+    .executeJavaScript(
+      'var o=document.getElementById("err-overlay"),m=document.getElementById("err-msg");' +
+      'if(m)m.textContent=' + escaped + ';' +
+      'if(o)o.classList.add("on");'
+    )
+    .catch(() => {});
+}
+
+// Push a real progress value (0–100) to the codex loader. Safe to call
+// before the page is parsed — failed executeJavaScripts are swallowed.
+function setLoaderProgress(win, pct) {
+  if (!win || win.isDestroyed()) return;
+  const n = Math.max(0, Math.min(100, Number(pct) || 0));
+  win.webContents
+    .executeJavaScript(
+      'window.codexProgress && window.codexProgress(' + n + ');'
+    )
+    .catch(() => {});
+}
+
+// Trigger the d20 land + final 100% jump. Called RIGHT before we swap
+// the splash for APP_URL so the dice lock is the last thing the user
+// sees before the real frontend mounts.
+function completeLoader(win) {
+  if (!win || win.isDestroyed()) return;
+  win.webContents
+    .executeJavaScript('window.codexComplete && window.codexComplete();')
     .catch(() => {});
 }
 
@@ -108,10 +152,19 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
-  // Start with the inline loading screen so the user sees the window
+  // Start with the codex loading file so the user sees the window
   // immediately even before the backend is up.
-  mainWindow.loadURL(LOADING_DATA_URL);
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.loadFile(LOADING_FILE);
+  // Open maximized. The BrowserWindow constructor's `width`/`height`
+  // give us a sensible restore-size when the user clicks the
+  // "restore" button (codex middle window control) — we just want
+  // the initial layout to fill the screen. We call `.maximize()`
+  // before `.show()` so the window doesn't flash at the restore size
+  // before snapping to fullscreen.
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://localhost') || url.startsWith('app://')) {
@@ -139,41 +192,55 @@ function createMainWindow() {
 // without touching pg, so they work the whole time.
 async function startBackend() {
   const t0 = Date.now();
-  setStatus(mainWindow, 'Starting…');
+
+  // Stage 1 — backend module imported (filesystem + JS parse).
+  // The codex loader currently sits at 0; nudge it to 15% so the bar
+  // moves immediately after Electron paints the first frame.
+  setLoaderProgress(mainWindow, 15);
   backend = await import('./backend/index.mjs');
   console.log('[main] backend module loaded after', Date.now() - t0, 'ms');
+  setLoaderProgress(mainWindow, 35);
 
-  // Gateway first — it can serve the frontend static bundle (and the
-  // /auth/v1 stub + /wg/ready) without pg being up.
+  // Stage 2 — gateway listening. This is the point at which the
+  // renderer COULD load /auth/v1 and /wg/ready, but we want the
+  // splash to finish its landing animation first.
   const t1 = Date.now();
   await backend.startGateway();
   console.log('[main] backend.startGateway() took', Date.now() - t1, 'ms');
+  setLoaderProgress(mainWindow, 60);
 
-  // Swap the loading-data-URL for the real app NOW. The bundle starts
-  // downloading + parsing on the renderer side while we kick off the
-  // expensive pg + postgrest warm-up below.
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.loadURL(APP_URL).catch((err) => {
-      console.error('[main] loadURL failed:', err);
-    });
-  }
-
-  // pg + postgrest warm-up runs in the background. We don't await this
-  // before the loadURL above — it's allowed to take its time. Once it
-  // resolves we mark the backend ready, which the frontend polls for via
-  // /wg/ready before firing data fetches.
+  // Stage 3 — kick off pg + postgrest warm-up in the background. We
+  // intentionally don't await it before the loadURL below; the
+  // frontend bundle parses while pg starts. BackendReadyGate inside
+  // the React app shows its own copy of the loader (iframed) while
+  // pg finishes warming, and that one gets its 100% from
+  // markReady(). The progress reported here covers the Electron
+  // side only: module → gateway → "about to navigate".
   const t2 = Date.now();
-  backend
-    .start()
-    .then(() => {
-      console.log('[main] backend.start() took', Date.now() - t2, 'ms');
-      console.log('[main] total boot:', Date.now() - t0, 'ms');
-      backend.markReady();
-    })
-    .catch((err) => {
-      console.error('[main] backend.start() failed:', err);
-      backend.markReady({ error: String(err && err.message || err) });
-    });
+  const startPromise = backend.start();
+  startPromise.then(() => {
+    console.log('[main] backend.start() took', Date.now() - t2, 'ms');
+    console.log('[main] total boot:', Date.now() - t0, 'ms');
+    backend.markReady();
+  }).catch((err) => {
+    console.error('[main] backend.start() failed:', err);
+    backend.markReady({ error: String(err && err.message || err) });
+  });
+
+  // Trigger the d20 land + 100% jump on the splash, then swap to
+  // APP_URL. We give the lock animation ~700ms to play before
+  // navigating (.42s land keyframe + tail buffer so the user has
+  // time to actually SEE the final number) — without this buffer
+  // loadURL rips out the document mid-animation and the moment we
+  // designed for never lands.
+  completeLoader(mainWindow);
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.loadURL(APP_URL).catch((err) => {
+        console.error('[main] loadURL failed:', err);
+      });
+    }
+  }, 700);
 }
 
 app.whenReady().then(async () => {
@@ -182,7 +249,7 @@ app.whenReady().then(async () => {
     await startBackend();
   } catch (err) {
     console.error('[main] backend failed to start:', err);
-    setStatus(mainWindow, 'Failed to start the local backend.');
+    setStatus(mainWindow, 'The codex is sealed shut.');
     setStatus(mainWindow, String(err && err.stack || err), true);
   }
 });

@@ -59,6 +59,11 @@ import {
   getResizableModalContextProps,
   useModalSizePersistence,
 } from '@utils/use-resizable-modal';
+import {
+  passesItemGroupFilter,
+  extractAncestrySize,
+  matchesCastTime,
+} from './filter-helpers';
 import { getStatBlockDisplay, getStatDisplay } from '@variables/initial-stats-display';
 import { meetsPrerequisites } from '@variables/prereq-detection';
 import { getFinalProfValue } from '@variables/variable-helpers';
@@ -316,9 +321,12 @@ export function selectContent<T = Record<string, any>>(
   // Default 1300×800 doubles the old 'xl' footprint, fitting the
   // multi-column filter panel + option list comfortably on a 1080p
   // monitor.
+  // Unified at 1500×900 to match the other codex popups (Add Items,
+  // Manage Spells, Advanced Search). Still user-resizable via the
+  // drag handle so they can grow it if they need more room.
   const resizable = getResizableModalContextProps('select-content', {
-    width: 1300,
-    height: 800,
+    width: 1500,
+    height: 900,
   });
 
   openContextModal({
@@ -497,7 +505,13 @@ export default function SelectContentModal({
     }
 
     // ── Tri-state chip filters ──────────────────────────────────────────
-    if (!triStateMatches(filterState.rarities, option.rarity as any)) return false;
+    // Rarity defaults to 'COMMON' when null/absent — matching PF2e's
+    // implicit-common convention. Without this default, including
+    // "Common" in the filter would silently drop every option whose
+    // rarity field is null (the majority of base items), which the user
+    // experienced as "Common filter shows nothing".
+    const rarity = (option.rarity ?? 'COMMON') as any;
+    if (!triStateMatches(filterState.rarities, rarity)) return false;
 
     // Availability defaults to 'STANDARD' when null/absent (PF2e convention).
     const availability = (option.availability ?? 'STANDARD') as any;
@@ -557,14 +571,27 @@ export default function SelectContentModal({
       if (!triStateMatches(filterState.spellTypes, kind)) return false;
     }
 
-    // Size (items only — creatures encode size via traits, not a field).
-    if (t === 'item' && filterState.sizes.size > 0) {
-      if (!triStateMatches(filterState.sizes, option.size as any)) return false;
+    // Size — items have a direct size field; ancestries store size in
+    // their operations JSON (no size column), so we route through
+    // extractAncestrySize. Creatures encode size via traits, not a
+    // field, and aren't checked here.
+    if (filterState.sizes.size > 0) {
+      if (t === 'item') {
+        if (!triStateMatches(filterState.sizes, option.size as any)) return false;
+      } else if (t === 'ancestry') {
+        const sz = extractAncestrySize(option);
+        if (!triStateMatches(filterState.sizes, sz as any)) return false;
+      }
     }
 
-    // Item group (items only).
+    // Item group — the chip labels are 37 PF2e categories (Alchemical
+    // Items, Held Items, Wands, …) that mostly map to TRAITS rather
+    // than to the 7-value `item.group` enum. `passesItemGroupFilter`
+    // dispatches each label to the right comparison.
     if (t === 'item' && filterState.itemGroups.size > 0) {
-      if (!triStateMatches(filterState.itemGroups, option.group as any)) return false;
+      if (!passesItemGroupFilter(option, filterState.itemGroups as Map<string, 'include' | 'exclude'>)) {
+        return false;
+      }
     }
 
     // Traits — every selected trait ID must appear in option.traits (AND
@@ -594,13 +621,24 @@ export default function SelectContentModal({
       }
     }
 
+    // ── Cast Time (spells only) ─────────────────────────────────────────
+    // The Cast Time chip puts a value like 'one-or-two' or '1 minute'
+    // into state.cast. Spells store cast as either the canonical 'to'-form
+    // enum ('ONE-TO-TWO-ACTIONS') or a free-text duration, so a naïve
+    // substring check misses the 'or'-form chips. matchesCastTime resolves
+    // the chip to the right substring set.
+    if (t === 'spell' && filterState.cast.trim()) {
+      if (!matchesCastTime(option.cast, filterState.cast.trim())) return false;
+    }
+
     // ── Free-text substring filters ─────────────────────────────────────
     // Each entry maps a filter-state key to the option's field name (if
     // different). Empty filter strings short-circuit; all matching is
-    // case-insensitive substring.
+    // case-insensitive substring. The `cast` key is intentionally
+    // omitted — for spells we handled it above; for non-spells `cast`
+    // doesn't apply.
     const textChecks: Array<[keyof ContentFilterState, string]> = [
       ['description', 'description'],
-      ['cast', 'cast'],
       ['defense', 'defense'],
       ['targets', 'targets'],
       ['frequency', 'frequency'],
@@ -722,7 +760,11 @@ export default function SelectContentModal({
 
   const getSelectionContents = (selectionOptions: React.ReactNode) => {
     return (
-      <Stack gap={10}>
+      // flex-fill chain: this Stack stretches inside the outer flex Box
+      // (see line ~1038) so the filter panel / option list below can
+      // flex-1 themselves. Without this the panel collapses to its
+      // intrinsic height and leaves a dead-space gap below.
+      <Stack gap={10} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Search row: input + Filters toggle button, both same height. The
             Filters button is sized to match the TextInput visually so they
             read as siblings rather than search-plus-tiny-action. The body
@@ -791,17 +833,30 @@ export default function SelectContentModal({
           )}
         </Group>
 
-        {/* Body: either the filter panel OR the results list. Mutually
-            exclusive — opening filters hides results and vice versa.
-            filterState lives in the SelectContentModal scope so it
-            survives the unmount cleanly. */}
-        {filtersOpen && !isCustomSelectMode ? (
+        {/* Filter panel + results live TOGETHER when open. Previously
+            they were mutually exclusive, which meant the user couldn't
+            see the list shrink as they toggled chips — so they
+            reasonably concluded "the filters don't filter". Now the
+            panel takes the top ~38vh (scrolls internally) and the
+            results fill below, so every chip click visibly narrows the
+            list. */}
+        {filtersOpen && !isCustomSelectMode && (
           <Box
             p='sm'
             style={{
               backgroundColor: IMPRINT_BG_COLOR,
               border: `1px solid ${IMPRINT_BORDER_COLOR}`,
               borderRadius: theme.radius.md,
+              // Capped height so the list stays visible below. The
+              // inner Stack (with the :has(> .codex-filter-block)
+              // rule in codex-bridge.css) flex-fills this Box and
+              // scrolls internally when filters overflow.
+              flex: '0 0 auto',
+              maxHeight: '38vh',
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
             }}
           >
             <SelectContentFilters
@@ -816,9 +871,8 @@ export default function SelectContentModal({
               allowedTraitIds={allowedTraitIds}
             />
           </Box>
-        ) : (
-          selectionOptions
         )}
+        {selectionOptions}
       </Stack>
     );
   };
@@ -1016,18 +1070,16 @@ export default function SelectContentModal({
   /// ------------------ ///
 
   return (
-    <Stack>
+    // Stack + inner Box now flex-fill the modal body. The previous
+    // implementation pinned the Box to a fixed 620/700px height which
+    // left dead space at the bottom whenever the user-resizable modal
+    // was taller than that — exactly what the user was seeing in the
+    // Add Spell / Add Item screenshots. With flex:1 + minHeight:0 the
+    // option list (or the filter panel) grows to whatever vertical
+    // space the modal frame gives us.
+    <Stack style={{ flex: 1, minHeight: 0 }} gap={10}>
       {innerProps.options?.description}
-      {/* Inner content area height. Bumped from 530/470 → 700/620 to
-          take advantage of the larger default modal (1300×800).
-          Note: these are fixed pixel heights, so making the modal
-          even bigger via the resize handle won't grow this further —
-          there'll be empty space below. A future pass could flex
-          this chain end-to-end (Stack → Box → SelectionOptions's
-          ScrollArea) so resize translates into more visible rows,
-          but that's a bigger refactor across multiple callsites of
-          SelectionOptions. */}
-      <Box style={{ position: 'relative', height: isClassFeat || isHeritage || isAncestryFeat ? 700 : 620 }}>
+      <Box style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {isClassFeat && (
           <Tabs value={classFeatTab} onChange={setClassFeatTab}>
             <Tabs.List grow mb={10}>
@@ -1284,7 +1336,7 @@ export default function SelectContentModal({
         )}
 
         {!(isClassFeat || isHeritage || isAncestryFeat) && (
-          <Box>
+          <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             {getSelectionContents(
               <SelectionOptions
                 type={innerProps.type}
@@ -1493,7 +1545,18 @@ export function SelectionOptionsInner(props: {
 
   return (
     <>
-      <ScrollArea viewportRef={viewport} h={props.h ?? 540} scrollbars='y' style={{ position: 'relative' }}>
+      {/* h='100%' + flex:1 makes the ScrollArea fill whatever vertical
+          space its flex parent gives it, which now varies depending on
+          whether the filter panel is open above. With the previous fixed
+          540px (or fixed calc), the ScrollArea overflowed the modal
+          frame whenever the filter panel was also visible — clipping
+          the bottom of the option list. */}
+      <ScrollArea
+        viewportRef={viewport}
+        h={props.h ?? '100%'}
+        style={props.h ? { position: 'relative' } : { position: 'relative', flex: 1, minHeight: 0 }}
+        scrollbars='y'
+      >
         {props.isLoading ? (
           <Loader
             type='bars'
@@ -2221,7 +2284,13 @@ export function BaseSelectionOption(props: {
       {!isPhone && props.rightSection && (
         <Group wrap='nowrap' justify='flex-end' style={{ marginLeft: 'auto' }}>
           <Box>{props.rightSection}</Box>
-          {displayButton ? <Box w={props.includeOptions ? 95 : 55}></Box> : null}
+          {/* Placeholder reserves space for the absolute-positioned
+              SELECT button so trait pills don't bleed underneath. The
+              old 55 / 95 widths were narrower than the SELECT button
+              itself (~95px) so traits visually overlapped the button —
+              widened to 120 / 160 to give the button clearance + a
+              small gap between traits and SELECT. */}
+          {displayButton ? <Box w={props.includeOptions ? 160 : 120}></Box> : null}
         </Group>
       )}
 

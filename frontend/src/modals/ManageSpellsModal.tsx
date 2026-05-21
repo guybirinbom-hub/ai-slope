@@ -128,16 +128,33 @@ export default function ManageSpellsModal(props: {
       opened={props.opened}
       onClose={props.onClose}
       title={<Title order={3}>Manage {isRituals ? 'Rituals' : `Spells - ${toLabel(props.source)}`}</Title>}
-      styles={{
-        body: {
-          paddingRight: 2,
-        },
-      }}
-      size={props.type === 'SLOTS-AND-LIST' ? 'xl' : 'md'}
+      // Tag the body with a marker class so codex-bridge.css can flex
+      // the body + the inner Stack to fill the modal frame, killing the
+      // dead-space gap the user was seeing under short spell lists.
+      classNames={{ body: 'codex-manage-spells-body' }}
+      // Unified with the other codex popups (Add Items, Add Spell).
+      // 1500px wide matches the design footprint. The body grows
+      // tall enough for the spellbook + add-spell button without
+      // scrolling pinching against the page.
+      size={1500}
       keepMounted={false}
       zIndex={props.zIndex}
     >
-      <Stack style={{ position: 'relative' }} mx={10}>
+      <Stack
+        // The inline flex layout works WITH the .codex-manage-spells-body
+        // CSS rules — the body is set to display:flex, so this Stack
+        // flex-grows to fill the modal. Without `minHeight: 0` the inner
+        // ScrollArea would push its parent past the modal frame.
+        style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        mx={10}
+        className='codex-manage-spells-stack'
+      >
+        {/* All three `type` modes now collapse to the spellbook list.
+            The SlotsSection grid (the "SELECT SPELL" buttons per slot)
+            was removed at the user's request — slot-filling lives on
+            the spell page now via the gold "+ Prepare X-Rank Spell"
+            buttons, so the manage modal only manages the spellbook
+            itself (add / remove / re-rank known spells). */}
         {props.type === 'LIST-ONLY' ? (
           <ListSection
             id={props.id}
@@ -153,44 +170,32 @@ export default function ManageSpellsModal(props: {
             }}
           />
         ) : props.type === 'SLOTS-AND-LIST' ? (
-          <Grid>
-            <Grid.Col span={6}>
-              <ListSection
-                id={props.id}
-                entity={props.entity}
-                setEntity={props.setEntity}
-                spells={spells ?? []}
-                source={props.source}
-                searchQuery={searchQuery}
-                filter={props.filter}
-                setSearchQuery={(val) => {
-                  setSearchQuery(val);
-                }}
-              />
-            </Grid.Col>
-            <Grid.Col span={6}>
-              <LoadingOverlay visible={isFetching} />
-              <SlotsSection
-                id={props.id}
-                entity={props.entity}
-                setEntity={props.setEntity}
-                filter={props.filter}
-                slots={slots}
-                spells={spells ?? []}
-                source={props.source}
-              />
-            </Grid.Col>
-          </Grid>
+          <ListSection
+            id={props.id}
+            entity={props.entity}
+            setEntity={props.setEntity}
+            spells={spells ?? []}
+            source={props.source}
+            searchQuery={searchQuery}
+            filter={props.filter}
+            setSearchQuery={(val) => {
+              setSearchQuery(val);
+            }}
+          />
         ) : (
           <>
             <LoadingOverlay visible={isFetching} />
-            <SlotsSection
+            <ListSection
               id={props.id}
               entity={props.entity}
               setEntity={props.setEntity}
-              filter={props.filter}
-              slots={slots}
+              spells={spells ?? []}
               source={props.source}
+              searchQuery={searchQuery}
+              filter={props.filter}
+              setSearchQuery={(val) => {
+                setSearchQuery(val);
+              }}
             />
           </>
         )}
@@ -416,7 +421,7 @@ const ListSection = (props: {
   };
 
   return (
-    <Box>
+    <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <SelectSpellRankModal
         spell={rankSelectSpell}
         onConfirm={(spell, rank) => {
@@ -426,7 +431,7 @@ const ListSection = (props: {
           setRankSelectSpell(null);
         }}
       />
-      <Group>
+      <Group style={{ flex: '0 0 auto' }}>
         <TextInput
           style={{ flex: 1 }}
           leftSection={<IconSearch size='0.9rem' />}
@@ -463,6 +468,13 @@ const ListSection = (props: {
               {
                 showButton: true,
                 overrideLabel: `Add ${isRituals ? 'Ritual' : 'Spell'}`,
+                // The ManageSpells parent opens at zIndex 500 (set by
+                // its caller in CodexPanels). Without an explicit
+                // zIndex here, selectContent defaults to 499 and the
+                // Add Spell modal renders BEHIND its parent — the
+                // user can see it flash on but can't click any
+                // option. Bumping above 500 puts it on top.
+                zIndex: 600,
 
                 filterFn: (spellRec: Record<string, any>) => {
                   const s = spellRec as Spell;
@@ -487,7 +499,10 @@ const ListSection = (props: {
           Add {isRituals ? 'Ritual' : 'Spell'}
         </Button>
       </Group>
-      <ScrollArea h={`calc(min(70dvh, ${EDIT_MODAL_HEIGHT - 100}px))`} scrollbars='y'>
+      {/* flex:1 lets the spell list fill the modal — replaces the old
+          fixed calc() height that was leaving big dead space under short
+          lists. scrollbars='y' keeps the horizontal scrollbar off. */}
+      <ScrollArea style={{ flex: 1, minHeight: 0, marginTop: 10 }} scrollbars='y'>
         <Stack gap={0}>
           {props.spells.map((spell, index) => (
             <SpellSelectionOption
@@ -504,6 +519,20 @@ const ListSection = (props: {
                     return !(entry.spell_id === spellId && entry.rank === spell.rank && entry.source === props.source);
                   });
 
+                  // Cascade: any prepared slot at this source that
+                  // referenced the deleted spell is now stranded
+                  // (slot.spell_id points at a spell no longer in the
+                  // spellbook). Clear those slots so they become
+                  // available-to-fill again. Spontaneous casters cast
+                  // via rank-only slot matching so they're unaffected
+                  // — but the filter is safe to run for them too
+                  // since their slots never carry a spell_id.
+                  const slots = (c.spells?.slots ?? []).map((s) =>
+                    s.source === props.source && s.spell_id === spellId
+                      ? { ...s, spell_id: undefined, exhausted: false }
+                      : s
+                  );
+
                   return {
                     ...c,
                     spells: {
@@ -513,7 +542,8 @@ const ListSection = (props: {
                         focus_point_current: 0,
                         innate_casts: [],
                       }),
-                      list: list,
+                      list,
+                      slots,
                     },
                   };
                 });

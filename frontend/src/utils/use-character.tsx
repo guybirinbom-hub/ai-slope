@@ -1,6 +1,12 @@
 import { characterState } from '@atoms/characterAtoms';
 import { getCachedPublicUser } from '@auth/user-manager';
 import { applyConditions } from '@conditions/condition-handler';
+import {
+  getAllCustomModes,
+  getModeToggleKey,
+  type CustomMode,
+} from '@modes/custom-modes';
+import { addVariableBonus } from '@variables/variable-manager';
 import { defineDefaultSources } from '@content/content-store';
 import { saveCustomization } from '@content/customization-cache';
 import { applyEquipmentPenalties } from '@items/inv-utils';
@@ -126,9 +132,15 @@ export default function useCharacter(
   const [operationResults, setOperationResults] = useState<OperationCharacterResultPackage>();
   const executingOperations = useRef<number | null>(null);
 
-  const [debouncedCharacter] = useDebouncedValue(character, 800);
+  // Debounce the character state before the operation recompile fires.
+  // Was 800ms — far too laggy for discrete actions (adjusting a
+  // condition, ticking a hero point, toggling Equip), which made the
+  // sheet feel sluggish since stat updates couldn't appear until the
+  // window elapsed. 250ms is short enough to feel instant on user
+  // input but still batches rapid keystrokes in text fields.
+  const [debouncedCharacter] = useDebouncedValue(character, 250);
   const prevDebouncedCharacter = usePrevious(debouncedCharacter);
-  const setCharacterDebounced = useDebouncedCallback(setCharacter, 800);
+  const setCharacterDebounced = useDebouncedCallback(setCharacter, 250);
 
   const getUpdateHash = (c: Character | null | undefined) => {
     return hashData(
@@ -220,6 +232,35 @@ export default function useCharacter(
 
     // Apply conditions after everything else
     applyConditions('CHARACTER', debouncedCharacter.details?.conditions ?? []);
+
+    // Apply user-created custom modes that are currently active. The
+    // mode list is the union of (a) global modes saved in localStorage
+    // and (b) character-scoped modes on character.meta_data.custom_modes.
+    // "Active" comes from the same ACTIVE_MODES list the built-in modes
+    // use, so toggling either kind of mode lives in the same UI.
+    {
+      const activeKeys = new Set(debouncedCharacter.meta_data?.active_modes ?? []);
+      const allModes = getAllCustomModes(
+        (debouncedCharacter.meta_data as { custom_modes?: CustomMode[] } | undefined)
+          ?.custom_modes
+      );
+      for (const mode of allModes) {
+        if (!activeKeys.has(getModeToggleKey(mode))) continue;
+        for (const effect of mode.effects) {
+          if (!effect.variable) continue;
+          const bonusType =
+            effect.type && effect.type !== 'untyped' ? effect.type : undefined;
+          addVariableBonus(
+            'CHARACTER',
+            effect.variable,
+            effect.value || 0,
+            bonusType,
+            effect.text ?? '',
+            `Mode: ${mode.name}`
+          );
+        }
+      }
+    }
 
     if (debouncedCharacter.meta_data?.reset_hp !== false) {
       // To reset hp, we need to confirm health

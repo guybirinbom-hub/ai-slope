@@ -51,22 +51,42 @@
 
 .sp-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 5px 10px;
+  /* 4-per-row at desktop widths; falls back gracefully at narrower
+     breakpoints. Rows themselves are compacted to 28px min-height
+     so 4×4 spells fit comfortably above the fold. Breakpoints lowered
+     so 4 cols persist down to ~1100px (the previous 1500px cutoff
+     was dropping most laptop screens to 3 cols). */
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 5px 8px;
 }
-@media (max-width: 1200px) { .sp-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 800px) { .sp-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .sp-grid { grid-template-columns: 1fr 1fr 1fr; } }
+@media (max-width: 850px)  { .sp-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px)  { .sp-grid { grid-template-columns: 1fr; } }
 .sp {
   display: grid;
-  grid-template-columns: 36px 1fr auto;
+  /* Cost · Name · Stat · Cast/Restore button. The Cast column is
+     auto so it collapses to 0 when no .sp-act is rendered. Tightened
+     from 36px/8gap/6pad to 24px/6gap/3pad so 4-ish rows fit per
+     viewport at default zoom. */
+  grid-template-columns: 24px 1fr auto auto;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 3px 8px;
+  min-height: 28px;
   background: var(--bg-card);
   border: 1px solid var(--rule-soft);
   transition: border-color .12s, background .12s;
   cursor: pointer;
   position: relative;
+}
+/* When a slot is exhausted (used), grey it heavily so the player can
+   scan-read what's left at a glance. */
+.sp.exhausted {
+  opacity: 0.45;
+  background: transparent;
+}
+.sp.exhausted:hover {
+  opacity: 0.6;
 }
 .sp:hover {
   border-color: var(--gold-deep);
@@ -77,8 +97,8 @@
 .sp .cost { display: flex; align-items: center; justify-self: center; line-height: 1; }
 .sp .nm {
   font-family: 'Cinzel', serif; font-weight: 600;
-  font-size: 12px; color: var(--ink);
-  letter-spacing: .04em; line-height: 1.15;
+  font-size: 10.5px; color: var(--ink);
+  letter-spacing: .04em; line-height: 1.1;
 }
 .sp .nm em {
   display: inline;
@@ -90,9 +110,32 @@
 .sp .nm small {
   display: block;
   font-family: 'Cormorant Garamond', serif;
-  font-weight: 500; font-size: 11px;
+  font-weight: 500; font-size: 10px;
   color: var(--ink-muted); letter-spacing: .02em;
   margin-top: 1px; font-style: italic;
+}
+/* Spell trait chips — small uppercase tags inside the row, after the
+ * spell name. Capped at 5 in the renderer. The .sp-tag chips are
+ * deliberately understated so they don't fight the spell name. */
+.sp .sp-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.sp .sp-tag {
+  font-family: 'Cinzel', serif;
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  background: rgba(201, 161, 59, 0.06);
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-muted);
+  line-height: 1.2;
+  white-space: nowrap;
 }
 .sp .stat {
   font-family: 'Cinzel', serif; font-size: 11px;
@@ -105,6 +148,125 @@
   font-weight: 500; text-transform: uppercase;
 }
 .sp .stat.dim { color: var(--ink-dim); }
+
+/* Inline Cast / Restore button on prepared-caster slot rows. Sits at
+ * the right edge of the row; clicking flips the slot's exhausted
+ * state without opening the full cast-spell drawer. The "Restore"
+ * variant tints crimson so the player notices when they're undoing
+ * an earlier "Use". */
+.sp .sp-act {
+  font-family: 'Cinzel', serif;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.sp .sp-act:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold);
+}
+.sp .sp-act.restore {
+  color: var(--crimson, #c66060);
+}
+.sp .sp-act.restore:hover {
+  border-color: var(--crimson, #b34a4a);
+  color: var(--crimson, #c66060);
+}
+/* Empty-slot picker button — full-width gold parchment surface that
+ * sits inline with the .sp rows in a spell rank's grid. Visually
+ * matches the "SELECT SPELL" buttons from the legacy manage modal
+ * so the player has a clear "tap this to fill the slot" affordance
+ * right on the spell page. One button per empty slot. */
+.sp-add {
+  display: block;
+  width: 100%;
+  /* Match .sp row padding so the button has the same height as a
+     filled-spell row, so the grid cells align nicely. */
+  padding: 6px 10px;
+  min-height: 38px;
+  margin: 0;
+  /* Subtle parchment surface with a gold outline + gold lettering.
+     The earlier solid-gold gradient was too loud on a page already
+     full of gold accents — this reads as "another tile in the grid"
+     instead of dominating the whole page. */
+  background: var(--bg-card);
+  border: 1px dashed var(--gold-deep);
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  box-sizing: border-box;
+}
+.sp-add:hover {
+  background: linear-gradient(180deg, rgba(201, 161, 59, 0.1), rgba(201, 161, 59, 0.02));
+  border-color: var(--gold);
+  border-style: solid;
+}
+.sp-add:active {
+  transform: translateY(1px);
+}
+.sp-add:hover {
+  filter: brightness(1.08);
+}
+.sp-add:active {
+  transform: translateY(1px);
+}
+.sp-add .plus {
+  display: inline-block;
+  margin-right: 8px;
+  font-weight: 900;
+  font-size: 13px;
+  vertical-align: -1px;
+}
+
+/* Compact Rest button — sits INLINE in the .sub class line next to
+ * "ANCESTRY · CLASS". Sized to ride the same baseline as the small
+ * Cinzel text so it doesn't overflow the .label block or steal
+ * vertical space from the crest row. */
+.rest-btn-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 10px;
+  /* vertical-align: middle so the chip baseline matches the small
+   * caps text it rides next to, not the descender baseline. */
+  vertical-align: middle;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--gold-deep);
+  border-radius: 3px;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+  /* Pop the chip slightly above the text baseline so the box looks
+   * intentional next to the surrounding small caps. */
+  position: relative;
+  top: -1px;
+}
+.rest-btn-compact:hover {
+  background: rgba(201, 161, 59, 0.1);
+  border-color: var(--gold);
+}
+.rest-btn-compact .rest-icon {
+  font-size: 11px;
+  line-height: 1;
+}
 
 /* Toolbars (spells / inventory / feats search + filters + add).
    Flex layout — search field on the left grows, filter chips +
@@ -272,14 +434,21 @@
 
 .it-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 5px 10px;
+  /* 4-per-row by default so item cards match the spell / action /
+     feat grids visually. Steps down by one column at each breakpoint
+     so the inner row layout stays legible. */
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 5px 8px;
 }
-@media (max-width: 1200px) { .it-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 800px) { .it-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1300px) { .it-grid { grid-template-columns: 1fr 1fr 1fr; } }
+@media (max-width: 1000px) { .it-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px)  { .it-grid { grid-template-columns: 1fr; } }
 .it {
   display: grid;
-  grid-template-columns: 30px 1fr auto auto;
+  /* Icon · Name · Qty · Bulk · Actions. The actions column is auto
+     so it collapses to 0 when the item has no equip/invest buttons
+     (consumables, scrolls, coins, etc.). */
+  grid-template-columns: 30px 1fr auto auto auto;
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
@@ -359,13 +528,21 @@
 
 .feat-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 12px;
+  /* 4-per-row matching the spell / item / action grids. Old default
+     was 2 cols which made the feat panel feel sparse next to the
+     denser spell/item lists. */
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 6px 10px;
 }
-@media (max-width: 900px) { .feat-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1300px) { .feat-grid { grid-template-columns: 1fr 1fr 1fr; } }
+@media (max-width: 1000px) { .feat-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px)  { .feat-grid { grid-template-columns: 1fr; } }
 .feat {
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  /* Two-column grid (name + meta) since the gold .lvl circle was
+   * removed. Previous layout was [30px 1fr auto] with the badge
+   * occupying the first column. */
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
@@ -386,16 +563,6 @@
 .feat.feature {
   border-left: 2px solid var(--gold-bright);
   background: linear-gradient(180deg, rgba(201,161,59,.04), var(--bg-card));
-}
-.feat .lvl {
-  width: 26px; height: 26px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, rgba(201,161,59,.12), rgba(201,161,59,.02));
-  border: 1.2px solid var(--gold-deep);
-  color: var(--gold-bright);
-  display: grid; place-items: center;
-  font-family: 'Cinzel', serif; font-weight: 700; font-size: 13px;
-  line-height: 1; justify-self: center;
 }
 .feat .nm {
   font-family: 'Cinzel', serif; font-weight: 600;
@@ -551,7 +718,14 @@
    sheet to exactly viewport-minus-titlebar height, scrolling only
    happens inside the cols where it belongs. */
 .codex-sheet-root {
-  height: calc(100dvh - 32px);
+  /* Pin the sheet to exactly viewport height. The `-32px` we had
+     here was an old reservation for the native Electron title bar
+     overlay — but the codex sheet renders its own .winbar in-page
+     now, and titleBarStyle: 'hidden' means there's no native chrome
+     reserved at all. Subtracting that 32px left a strip of empty
+     space at the bottom of every sheet tab that the user could
+     scroll into — fixed by just using the full viewport height. */
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
 }
@@ -565,31 +739,718 @@
 .codex-sheet-page > .topbar { flex: 0 0 auto; }
 .codex-sheet-page > .body { flex: 1; min-height: 0; }
 
-/* Sidebar action dock — Modes / Campaign / Dice Roller buttons.
-   Sticky at the bottom of the scrollable column so they stay
-   visible even when the sidebar's content overflows (e.g. zoomed
-   in). Background bg-card so scrolled content underneath doesn't
-   bleed through. */
+/* Sidebar action dock — visually integrated as another sidebar
+   section. Renders as the last block in the vitals column with the
+   same parchment chrome (card background, gold rule top, padding) as
+   .sec entries above it, so the dice / campaign buttons look like
+   they belong there instead of floating as a separate dock. */
 .col.left .sidebar-actions {
-  position: sticky;
-  bottom: 0;
-  margin-top: auto;
-  padding: 12px 0 4px;
-  border-top: 1px solid var(--rule-soft);
-  background: var(--bg);
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   justify-content: center;
-  z-index: 5;
+  align-items: center;
+  position: relative;
+}
+/* Corner ticks matching other vital cards. */
+.col.left .sidebar-actions::before,
+.col.left .sidebar-actions::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--gold-deep);
+}
+.col.left .sidebar-actions::before {
+  top: -1px;
+  left: -1px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.col.left .sidebar-actions::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: 0;
+  border-top: 0;
 }
 .col.left .sidebar-actions .mantine-ActionIcon-root {
-  background: var(--bg-card) !important;
+  background: transparent !important;
   border: 1px solid var(--rule-soft);
   color: var(--gold) !important;
   border-radius: 0 !important;
+  /* Slimmer than the old 38px — the dock now reads as accent
+     buttons rather than primary actions, since the main flow
+     (Rest, hamburger) lives elsewhere. */
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+}
+.col.left .sidebar-actions .mantine-ActionIcon-root svg {
+  /* Mantine's ActionIcon centers its icon at 60% of its width by
+     default — at 28px that's ~17px which gets cropped on the dice
+     glyph. Force the icon to fit. */
+  width: 16px;
+  height: 16px;
 }
 .col.left .sidebar-actions .mantine-ActionIcon-root:hover {
+  border-color: var(--gold);
+  background: rgba(201, 161, 59, 0.08) !important;
+}
+
+/* -----------------------------------------------------------------
+ * Inventory drag-and-drop
+ *
+ * Three states the visual needs to communicate:
+ *   1. The dragged row dims so the user can see they grabbed it.
+ *   2. The current drop-target section glows gold so the user knows
+ *      where the item will land if they release here.
+ *   3. The cursor on draggable rows hints at the affordance.
+ * --------------------------------------------------------------- */
+.it[draggable='true'] { cursor: grab; }
+.it[draggable='true']:active { cursor: grabbing; }
+.it.dragging {
+  opacity: 0.35;
+  /* Killing the gold hover glow so the dimmed source doesn't keep
+     looking interactive while the user is holding it elsewhere. */
+  border-color: var(--rule-soft) !important;
+  background: var(--bg-card) !important;
+}
+.sec.drop-target {
+  outline: 1px dashed var(--gold);
+  outline-offset: 3px;
+  background: linear-gradient(180deg, rgba(201, 161, 59, 0.07), transparent 35%);
+}
+.sec.drop-target .sec-title .label { color: var(--gold); }
+
+/* Action buttons inside an inventory row (Equip / Invest / Implant).
+ * Sit at the right edge of the row in a compact stack. The buttons
+ * use the codex parchment style (no Mantine) so they match the rest
+ * of the row — gold border on hover, slightly darker when active. */
+.it .it-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.it .row-act {
+  font-family: 'Cinzel', serif;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  white-space: nowrap;
+}
+.it .row-act:hover:not(:disabled) {
   border-color: var(--gold-deep);
-  background: rgba(201, 161, 59, 0.06) !important;
+  color: var(--gold);
+}
+.it .row-act.on {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: linear-gradient(180deg, rgba(201, 161, 59, 0.08), transparent 70%);
+}
+.it .row-act:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* =================================================================
+ * Conditions + Modes modal
+ *
+ * Codex-styled modal that replaces both the bare condition drawer
+ * and the floating Modes button. Two tabs at top, a scrollable body,
+ * and a single Add button anchored at the bottom for the Conditions
+ * tab. Modes apply on toggle so they have no commit footer.
+ * ============================================================== */
+.cm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  z-index: 9700;
+  /* Keep the click target on the overlay itself so the close-on-
+     outside-click works. The inner .cm-modal stops propagation. */
+}
+.cm-modal {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  background: var(--bg);
+  border: 1px solid var(--gold-deep);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  font-family: 'Cormorant Garamond', serif;
+  color: var(--ink);
+  /* Corner ticks matching the codex card aesthetic. */
+  position: relative;
+}
+.cm-modal::before,
+.cm-modal::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--gold);
+}
+.cm-modal::before {
+  top: -1px;
+  left: -1px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.cm-modal::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: 0;
+  border-top: 0;
+}
+.cm-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: stretch;
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(180deg, #1a140c 0%, #110d08 100%);
+}
+.cm-tab {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--rule-soft);
+  color: var(--ink-dim);
+  padding: 14px 16px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s, background 0.15s;
+}
+.cm-tab:hover {
+  color: var(--ink);
+  background: rgba(201, 161, 59, 0.04);
+}
+.cm-tab.on {
+  color: var(--gold);
+  background: linear-gradient(180deg, rgba(201, 161, 59, 0.07), transparent 80%);
+}
+.cm-tab.on::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 2px;
+  background: var(--gold);
+  box-shadow: 0 0 14px rgba(201, 161, 59, 0.55);
+}
+.cm-close {
+  background: transparent;
+  border: none;
+  color: var(--ink-dim);
+  padding: 0 16px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: color 0.12s;
+}
+.cm-close:hover {
+  color: var(--gold);
+}
+.cm-body {
+  overflow-y: auto;
+  padding: 8px 0;
+  /* Keep scroll inside the modal, not the page. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-deep) transparent;
+}
+.cm-body::-webkit-scrollbar {
+  width: 6px;
+}
+.cm-body::-webkit-scrollbar-thumb {
+  background: var(--gold-deep);
+}
+.cm-cond-list {
+  display: flex;
+  flex-direction: column;
+}
+.cm-cond-row {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--rule-soft);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.cm-cond-row:hover {
+  background: rgba(201, 161, 59, 0.04);
+}
+.cm-cond-row.selected {
+  background: linear-gradient(180deg, rgba(201, 161, 59, 0.1), rgba(201, 161, 59, 0.02));
+  border-left: 2px solid var(--gold);
+  padding-left: 16px;
+}
+.cm-cond-row.already .cm-cond-name {
+  color: var(--gold);
+}
+.cm-cond-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cm-cond-name {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  flex: 0 0 auto;
+}
+.cm-cond-already {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  padding: 2px 6px;
+  border: 1px solid var(--gold-deep);
+}
+.cm-cond-vals {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+.cm-cond-val {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 700;
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+}
+.cm-cond-val:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold);
+}
+.cm-cond-val.on {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #1a140c;
+}
+.cm-cond-desc {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink-muted);
+  margin-top: 4px;
+}
+.cm-mode-toggle {
+  margin-left: auto;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.cm-mode-toggle:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold);
+}
+.cm-mode-toggle.on {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: linear-gradient(180deg, rgba(201, 161, 59, 0.1), transparent 70%);
+}
+.cm-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--rule);
+  background: linear-gradient(180deg, #110d08, #1a140c);
+}
+.cm-foot-hint {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ink-muted);
+  flex: 1 1 auto;
+}
+.cm-add-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 8px 22px;
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+  border: 1px solid var(--gold);
+  color: #1a140c;
+  cursor: pointer;
+  transition: filter 0.12s;
+}
+.cm-add-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.cm-add-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+.cm-empty {
+  padding: 30px 24px;
+  text-align: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+/* -----------------------------------------------------------------
+ * Condition chip refinements — values get -/+ buttons in addition
+ * to the close x. Value-less chips keep only the close x.
+ * --------------------------------------------------------------- */
+.cond .step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--rule-soft);
+  background: transparent;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+}
+.cond .step:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold);
+}
+.cond .val {
+  margin: 0 4px;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+/* Harmful condition tint — applied to the chip in the vitals panel
+ * (added inline via class). Crimson border + accent so the player can
+ * scan severity at a glance vs neutral conditions like Helpful. */
+.cond.harmful {
+  border-color: var(--crimson, #b34a4a);
+  background: linear-gradient(180deg, rgba(179, 74, 74, 0.16), rgba(179, 74, 74, 0.04));
+  color: var(--crimson, #c66060);
+}
+.cond.harmful .val {
+  color: var(--crimson, #c66060);
+}
+
+/* ─── Search strip inside the Conditions/Modes modal ──────────────
+ * Sits between the tabs and the body. Houses the live-filter input
+ * and (on the Modes tab) the "+ Create Mode" trigger. */
+.cm-search-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule-soft);
+  background: rgba(0, 0, 0, 0.15);
+}
+.cm-search {
+  flex: 1 1 auto;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px;
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.12s;
+}
+.cm-search:focus {
+  border-color: var(--gold-deep);
+}
+.cm-create-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--gold-deep);
+  color: var(--gold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.cm-create-btn:hover {
+  background: rgba(201, 161, 59, 0.08);
+}
+
+/* Harmful condition row in the picker — crimson accent for visual
+ * triage. */
+.cm-cond-row.harmful .cm-cond-name {
+  color: var(--crimson, #c66060);
+}
+.cm-cond-row.harmful.selected {
+  border-left-color: var(--crimson, #b34a4a);
+  background: linear-gradient(180deg, rgba(179, 74, 74, 0.08), rgba(179, 74, 74, 0.02));
+}
+
+.cm-cond-name {
+  cursor: pointer;
+}
+.cm-cond-scope {
+  display: inline-block;
+  margin-left: 8px;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  padding: 1px 6px;
+  border: 1px solid var(--rule-soft);
+  border-radius: 0;
+  vertical-align: 1px;
+}
+
+/* Description side-drawer shown when a condition / mode name is
+ * clicked. Slides in from the right edge instead of popping centered
+ * — matches the app's drawer pattern (Mantine Drawer with
+ * position='right') so it feels consistent with other content
+ * description panels (feats, items, spells, etc.). Click the dimmed
+ * area to dismiss; the inner box stops propagation. */
+.cm-desc-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 9800;
+}
+.cm-desc-box {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 100vw);
+  background: var(--bg);
+  border-left: 1px solid var(--gold-deep);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.55);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  animation: cm-desc-slide 200ms ease-out;
+}
+@keyframes cm-desc-slide {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.cm-desc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(180deg, #1a140c, #110d08);
+}
+.cm-desc-title {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.cm-desc-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+  white-space: pre-wrap;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-deep) transparent;
+}
+/* Inline condition cross-link inside a description. Subtle gold
+ * underline that brightens on hover — same affordance the rest of
+ * the app uses for content links, so the reader recognizes them
+ * without us having to add icons or chips. */
+.cm-cond-link {
+  color: var(--gold);
+  text-decoration: underline;
+  text-decoration-color: var(--gold-deep);
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.12s, text-decoration-color 0.12s;
+}
+.cm-cond-link:hover {
+  color: var(--gold-bright, var(--gold));
+  text-decoration-color: var(--gold);
+}
+
+/* Edit buttons on custom mode rows. */
+.cm-mode-edit {
+  width: 26px;
+  height: 26px;
+  margin-left: 4px;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: 11px;
+  display: grid;
+  place-items: center;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.cm-mode-edit:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold);
+}
+.cm-mode-edit.danger:hover {
+  border-color: var(--crimson, #b34a4a);
+  color: var(--crimson, #c66060);
+}
+
+/* ─── ModeEditor form ──────────────────────────────────────────── */
+.cm-editor {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-deep) transparent;
+}
+.cm-editor-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: start;
+  gap: 12px;
+}
+.cm-editor-row label {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  padding-top: 6px;
+}
+.cm-editor-row input[type='text'],
+.cm-editor-row textarea {
+  width: 100%;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px;
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  color: var(--ink);
+  outline: none;
+  resize: vertical;
+}
+.cm-editor-row input[type='text']:focus,
+.cm-editor-row textarea:focus {
+  border-color: var(--gold-deep);
+}
+.cm-scope-toggle {
+  display: flex;
+  gap: 6px;
+}
+.cm-scope-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.cm-scope-btn.on {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: linear-gradient(180deg, rgba(201, 161, 59, 0.1), transparent 70%);
+}
+.cm-editor-effects {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--rule-soft);
+  padding-top: 12px;
+}
+.cm-editor-effects-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.cm-effect-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 110px 26px;
+  gap: 6px;
+  align-items: center;
+}
+.cm-effect-row select,
+.cm-effect-row input {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  padding: 4px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  color: var(--ink);
+  outline: none;
+}
+.cm-effect-row select:focus,
+.cm-effect-row input:focus {
+  border-color: var(--gold-deep);
+}
+.cm-effect-val {
+  text-align: center;
+}
+.cm-mini-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.cm-mini-btn:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold);
+}
+.cm-mini-btn.danger:hover {
+  border-color: var(--crimson, #b34a4a);
+  color: var(--crimson, #c66060);
+}
+.cm-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
 }

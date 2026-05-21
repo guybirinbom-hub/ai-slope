@@ -68,6 +68,7 @@ export default defineConfig({
       '@export': path.resolve(__dirname, './src/process/export'),
       '@homebrew': path.resolve(__dirname, './src/process/homebrew'),
       '@conditions': path.resolve(__dirname, './src/process/conditions'),
+      '@modes': path.resolve(__dirname, './src/process/modes'),
       '@spells': path.resolve(__dirname, './src/process/spells'),
       '@character': path.resolve(__dirname, './src/process/character'),
       '@css': path.resolve(__dirname, './src/css'),

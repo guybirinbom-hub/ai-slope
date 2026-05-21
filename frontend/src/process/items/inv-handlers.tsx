@@ -75,6 +75,41 @@ export const handleAddItem = async (
 };
 
 /**
+ * Recursively strip an item by id from a list AND from every nested
+ * container_contents under it. Returns a new array — does not mutate
+ * the input. Used by both delete and the delete-half of move so an
+ * item that lives 2+ containers deep still disappears from its
+ * original home.
+ *
+ * The previous one-level-deep filter assumed all containers were
+ * top-level, which broke as soon as the new codex inventory panel
+ * exposed nested containers (a belt-pouch inside a backpack) — moving
+ * an item out of a nested pouch left a phantom copy behind.
+ */
+const deepRemoveById = (items: InventoryItem[], id: string): InventoryItem[] =>
+  items
+    .filter((i) => i.id !== id)
+    .map((i) =>
+      isItemContainer(i.item)
+        ? { ...i, container_contents: deepRemoveById(i.container_contents, id) }
+        : i
+    );
+
+/**
+ * Recursively replace an item by id with a fresh clone, anywhere in
+ * the inventory tree. Mirrors deepRemoveById — used by handleUpdateItem
+ * so edits to a deeply-nested item land in the right place.
+ */
+const deepReplaceById = (items: InventoryItem[], replacement: InventoryItem): InventoryItem[] =>
+  items.map((i) => {
+    if (i.id === replacement.id) return cloneDeep(replacement);
+    if (isItemContainer(i.item)) {
+      return { ...i, container_contents: deepReplaceById(i.container_contents, replacement) };
+    }
+    return i;
+  });
+
+/**
  * Utility function to handle deleting an item from the inventory
  * @param setEntity - LivingEntity state setter
  * @param invItem - Inventory item to delete
@@ -83,13 +118,7 @@ export const handleDeleteItem = (setEntity: SetterOrUpdater<LivingEntity | null>
   setEntity((prev) => {
     if (!prev) return prev;
 
-    const newItems = cloneDeep(prev.inventory?.items.filter((item) => item.id !== invItem.id) ?? []);
-    // Remove from all containers
-    newItems.forEach((item) => {
-      if (isItemContainer(item.item)) {
-        item.container_contents = item.container_contents.filter((containedItem) => containedItem.id !== invItem.id);
-      }
-    });
+    const newItems = deepRemoveById(cloneDeep(prev.inventory?.items ?? []), invItem.id);
 
     return {
       ...prev,
@@ -118,23 +147,7 @@ export const handleUpdateItem = (setEntity: SetterOrUpdater<LivingEntity | null>
   setEntity((prev) => {
     if (!prev) return prev;
 
-    const newItems = cloneDeep(prev.inventory?.items ?? []).map((item) => {
-      if (item.id === invItem.id) {
-        return cloneDeep(invItem);
-      }
-      return item;
-    });
-    // Update if it's in a container
-    newItems.forEach((item) => {
-      if (isItemContainer(item.item)) {
-        item.container_contents = item.container_contents.map((containedItem) => {
-          if (containedItem.id === invItem.id) {
-            return cloneDeep(invItem);
-          }
-          return containedItem;
-        });
-      }
-    });
+    const newItems = deepReplaceById(cloneDeep(prev.inventory?.items ?? []), invItem);
 
     return {
       ...prev,
@@ -155,54 +168,95 @@ export const handleUpdateItem = (setEntity: SetterOrUpdater<LivingEntity | null>
 };
 
 /**
- * Utility function to handle moving an item in the inventory
- * @param setEntity - LivingEntity state setter
- * @param invItem - Inventory item to move
- * @param containerItem - Container item to move to
+ * Recursively push `item` into the container with the given id,
+ * anywhere in the tree. No-op if no container with that id exists.
+ * Returns a new array — does not mutate input.
+ */
+const deepPushIntoContainer = (
+  items: InventoryItem[],
+  containerId: string,
+  item: InventoryItem
+): InventoryItem[] =>
+  items.map((i) => {
+    if (i.id === containerId && isItemContainer(i.item)) {
+      return { ...i, container_contents: [...i.container_contents, item] };
+    }
+    if (isItemContainer(i.item)) {
+      return { ...i, container_contents: deepPushIntoContainer(i.container_contents, containerId, item) };
+    }
+    return i;
+  });
+
+/**
+ * Utility function to handle moving an item in the inventory.
+ *
+ * Two cases:
+ *   containerItem === null  → unstored (back to the top-level list)
+ *   containerItem !== null  → into that container's container_contents
+ *
+ * Works regardless of where the source item currently lives (top-level
+ * or nested any number of containers deep) — we use the deep-walk
+ * helpers to find and remove it. A single setEntity callback handles
+ * both the remove and re-insert atomically so the UI never observes
+ * the "in-between" state where the item exists nowhere.
+ *
+ * Cycle guard: if the user tries to move a container into one of its
+ * own descendants we silently no-op. Without this you could orphan a
+ * whole sub-tree (move Backpack into Belt-Pouch where Belt-Pouch is
+ * inside Backpack → the tree forms a loop and disappears).
  */
 export const handleMoveItem = (
   setEntity: SetterOrUpdater<LivingEntity | null>,
   invItem: InventoryItem,
   containerItem: InventoryItem | null
 ) => {
-  const movingItem = cloneDeep(invItem);
-  handleDeleteItem(setEntity, invItem);
-  setTimeout(() => {
-    setEntity((prev) => {
-      if (!prev) return prev;
+  setEntity((prev) => {
+    if (!prev) return prev;
 
-      let newItems: InventoryItem[] = [];
-      if (containerItem) {
-        const foundContainer = cloneDeep(prev.inventory?.items.find((item) => item.id === containerItem.id));
-        if (!foundContainer) return prev;
-        movingItem.is_equipped = false;
-        newItems = cloneDeep(prev.inventory?.items ?? []).map((item) => {
-          if (item.id === foundContainer.id) {
-            item.container_contents.push(movingItem);
-          }
-          return item;
-        });
-      } else {
-        newItems = [...cloneDeep(prev.inventory?.items ?? []), movingItem];
-      }
-
-      return {
-        ...prev,
-        inventory: {
-          ...(prev?.inventory ?? {
-            coins: {
-              cp: 0,
-              sp: 0,
-              gp: 0,
-              pp: 0,
-            },
-            items: [],
-          }),
-          items: newItems,
-        },
+    // Cycle guard. If the item being moved is itself a container,
+    // collect its descendant ids and refuse to drop into any of them
+    // (or into itself). This walks the source-tree view, not the
+    // post-removal view, which is fine — we only care about identity.
+    if (containerItem && isItemContainer(invItem.item)) {
+      const forbidden = new Set<string>([invItem.id]);
+      const walk = (list: InventoryItem[]) => {
+        for (const i of list) {
+          forbidden.add(i.id);
+          if (isItemContainer(i.item)) walk(i.container_contents);
+        }
       };
-    });
-  }, 100);
+      walk(invItem.container_contents);
+      if (forbidden.has(containerItem.id)) return prev;
+    }
+
+    // Remove from wherever it currently is.
+    let working = deepRemoveById(cloneDeep(prev.inventory?.items ?? []), invItem.id);
+
+    // Insert into the new home.
+    const moving = cloneDeep(invItem);
+    if (containerItem) {
+      moving.is_equipped = false;
+      working = deepPushIntoContainer(working, containerItem.id, moving);
+    } else {
+      working = [...working, moving];
+    }
+
+    return {
+      ...prev,
+      inventory: {
+        ...(prev?.inventory ?? {
+          coins: {
+            cp: 0,
+            sp: 0,
+            gp: 0,
+            pp: 0,
+          },
+          items: [],
+        }),
+        items: working,
+      },
+    };
+  });
 };
 
 /**

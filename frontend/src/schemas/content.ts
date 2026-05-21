@@ -851,6 +851,31 @@ export const LivingEntitySchema = z.object({
           })
         )
         .optional(),
+      // Character-scoped custom modes — user-defined toggleable
+      // buffs/debuffs that only apply to this character (vs the
+      // global modes stored in localStorage). Each mode owns a name,
+      // description, and a list of variable bonuses applied while
+      // active. See process/modes/custom-modes.ts for the runtime
+      // type; we keep the schema loose because Operation-style data
+      // would explode the schema and the engine treats each effect
+      // as a plain {variable, value, type, text} record.
+      custom_modes: z
+        .array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            description: z.string(),
+            effects: z.array(
+              z.object({
+                variable: z.string(),
+                value: z.number(),
+                type: z.enum(['status', 'circumstance', 'item', 'untyped']).optional(),
+                text: z.string().optional(),
+              })
+            ),
+          })
+        )
+        .optional(),
     })
     .nullable(),
 });

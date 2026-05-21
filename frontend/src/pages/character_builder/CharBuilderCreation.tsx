@@ -1,4 +1,6 @@
-import D20Loader from '@assets/images/D20Loader';
+// D20Loader replaced by CodexLoadingOverlay (the iframed
+// /codex-loading.html). Import kept commented out for archaeology.
+import CodexLoadingOverlay from '@common/CodexLoadingOverlay';
 import { characterState } from '@atoms/characterAtoms';
 import { drawerState } from '@atoms/navAtoms';
 import { CharacterInfo } from '@common/CharacterInfo';
@@ -47,7 +49,7 @@ import {
 } from '@schemas/content';
 import { ImageOption } from '@schemas/index';
 import { OperationSelect } from '@schemas/operations';
-import { VariableListStr, VariableProf } from '@schemas/variables';
+import { VariableAttr, VariableListStr, VariableProf } from '@schemas/variables';
 import { getAllPortraitImages } from '@utils/portrait-images';
 import { displayResistWeak } from '@utils/resist-weaks';
 import { isCharacterBuilderMobile } from '@utils/screen-sizes';
@@ -60,6 +62,7 @@ import { useAtom, useAtomValue } from 'jotai';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import useCharacter from '@utils/use-character';
 import { phoneQuery } from '@utils/mobile-responsive';
+import { toLabel } from '@utils/strings';
 import ImprintButton from '@common/ImprintButton';
 import BuilderSpellPicks from './BuilderSpellPicks';
 import DeepBackgroundForm from './DeepBackgroundForm';
@@ -98,13 +101,15 @@ export default function CharBuilderCreation(props: { characterId: number; pageHe
     <Box
       style={{
         width: '100%',
-        height: '300px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        height: 'calc(100vh - 80px)',
+        position: 'relative',
       }}
     >
-      <D20Loader size={100} color={theme.colors[theme.primaryColor][5]} percentage={percentage} status='Loading...' />
+      {/* Codex parchment loader replaces the bespoke D20Loader so
+          every transition feels coherent. percentage is still pushed
+          into the iframe via postMessage so the bar reflects the
+          existing 0→100 ramp. */}
+      <CodexLoadingOverlay visible position='absolute' />
     </Box>
   );
 
@@ -136,9 +141,11 @@ export function CharBuilderCreationInner(props: {
   pageHeight: number;
   onFinishLoading: () => void;
 }) {
-  const isMobile = isCharacterBuilderMobile();
+  // isMobile / isPhone were used by the legacy 2-col layout's mobile
+  // Drawer + a Preview button; both are gone in the new 3-col codex
+  // body. Keeping isPhone — it still gates the inner Accordion's
+  // ScrollArea scrollbar style.
   const isPhone = useMediaQuery(phoneQuery());
-  const [statPanelOpened, setStatPanelOpened] = useState(false);
 
   const [levelItemValue, setLevelItemValue] = useState<string | null>(null);
 
@@ -163,191 +170,302 @@ export function CharBuilderCreationInner(props: {
     );
   });
 
+  // selectedLevel drives which level's options appear in the main
+  // column. Defaults to the character's current level and snaps to it
+  // whenever the character's level changes. .lv chips set it.
+  const [selectedLevel, setSelectedLevel] = useState<number>(character?.level ?? 1);
+  useEffect(() => { setSelectedLevel(character?.level ?? 1); }, [character?.level]);
+
+  const maxLevel = 20;
+  const currentLevel = character?.level ?? 1;
+
+  // ── Level chip strip — circles 1..20; ones below current level are
+  //    'done', the selectedLevel one is 'on'. Click to jump.
+  const renderLevelStrip = (
+    <div className='levels'>
+      <span className='lab'>
+        Level <b>{currentLevel}</b> / {maxLevel}
+      </span>
+      <span
+        className='nav-arrow'
+        title='Prev'
+        onClick={() => setSelectedLevel(Math.max(0, selectedLevel - 1))}
+      >
+        ‹
+      </span>
+      <div className='lv-track'>
+        {Array.from({ length: maxLevel }, (_, i) => i + 1).map((lvl) => {
+          const cls =
+            lvl < currentLevel ? 'done' : lvl === selectedLevel ? 'on' : '';
+          return (
+            <span
+              key={lvl}
+              className={`lv ${cls}`.trim()}
+              onClick={() => setSelectedLevel(lvl)}
+            >
+              {lvl}
+            </span>
+          );
+        })}
+      </div>
+      <span
+        className='nav-arrow'
+        title='Next'
+        onClick={() => setSelectedLevel(Math.min(maxLevel, selectedLevel + 1))}
+      >
+        ›
+      </span>
+    </div>
+  );
+
+  // The single LevelSection rendered in .col.main — pulled out so we
+  // can pass it through a Mantine Accordion (LevelSection wraps its
+  // content in Accordion.Item, so we need the Accordion shell with a
+  // value matching the section's level).
+  const mainLevelItem = (
+    <LevelSection
+      key={selectedLevel}
+      level={selectedLevel}
+      opened={true}
+      content={props.content}
+      operationResults={results}
+    />
+  );
+
   return (
-    <Group gap={0} px={isMobile ? undefined : 'sm'}>
-      {isMobile ? (
-        <Drawer
-          opened={statPanelOpened}
-          onClose={() => {
-            setStatPanelOpened(false);
-          }}
-          title={<Title order={3}>Character Stats</Title>}
-          size='xs'
-          styles={{ ...DRAWER_TITLEBAR_FIX }}
-          transitionProps={{ duration: 200 }}
-        >
-          <CharacterStatSidebar content={props.content} pageHeight={window.innerHeight - 80} />
-        </Drawer>
-      ) : (
-        <Box style={{ flexBasis: '35%' }}>
-          <CharacterStatSidebar content={props.content} pageHeight={props.pageHeight} />
-        </Box>
-      )}
-      <Box style={{ flexBasis: isMobile ? '100%' : 'calc(65% - 10px)' }}>
-        {isMobile && (
-          <>
-            <Group px='sm' justify='space-between' align='flex-start' wrap='nowrap'>
-              <CharacterInfo
-                character={character}
-                hideImage
-                onClickAncestry={() => {
+    <>
+      {renderLevelStrip}
+      <div className='body'>
+
+        {/* LEFT — Origin / Attributes / Vitals */}
+        <div className='col left'>
+          <div>
+            <div className='sec-title compact'><span className='lozenge'>❦</span><span className='label'>Origin</span></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div
+                className='origin'
+                onClick={() => {
                   selectContent<Ancestry>(
                     'ancestry',
                     (option) => {
-                      // Wipe old data
                       const selections = removeParentSelections('ancestry', character?.operation_data?.selections);
-                      setCharacter((prev) => {
-                        if (!prev) return prev;
-                        return {
-                          ...prev,
-                          details: {
-                            ...prev.details,
-                            ancestry: option,
-                          },
-                          operation_data: {
-                            ...prev.operation_data,
-                            selections,
-                          },
-                        };
-                      });
+                      setCharacter((prev) => prev ? { ...prev, details: { ...prev.details, ancestry: option }, operation_data: { ...prev.operation_data, selections } } : prev);
                     },
-                    {
-                      selectedId: character?.details?.ancestry?.id,
-                    }
+                    { selectedId: character?.details?.ancestry?.id }
                   );
                 }}
-                onClickBackground={() => {
+              >
+                <div className='ic'>A</div>
+                <div>
+                  <div className='nm'>Ancestry</div>
+                  <div className='v'>{character?.details?.ancestry?.name ?? '—'}</div>
+                </div>
+              </div>
+              <div
+                className='origin'
+                onClick={() => {
                   selectContent<Background>(
                     'background',
                     (option) => {
-                      // Wipe old data
                       const selections = removeParentSelections('background', character?.operation_data?.selections);
-                      setCharacter((prev) => {
-                        if (!prev) return prev;
-                        return {
-                          ...prev,
-                          details: {
-                            ...prev.details,
-                            background: option,
-                          },
-                          operation_data: {
-                            ...prev.operation_data,
-                            selections,
-                          },
-                        };
-                      });
+                      setCharacter((prev) => prev ? { ...prev, details: { ...prev.details, background: option }, operation_data: { ...prev.operation_data, selections } } : prev);
                     },
-                    {
-                      selectedId: character?.details?.background?.id,
-                    }
+                    { selectedId: character?.details?.background?.id }
                   );
                 }}
-                onClickClass={() => {
+              >
+                <div className='ic'>B</div>
+                <div>
+                  <div className='nm'>Background</div>
+                  <div className='v'>{character?.details?.background?.name ?? '—'}</div>
+                </div>
+              </div>
+              <div
+                className='origin'
+                onClick={() => {
                   selectContent<Class>(
                     'class',
                     (option) => {
-                      handleClassArchetypeSelection(character, setCharacter, option, '1');
-
-                      // Wipe old data
                       let selections = removeParentSelections('class_', character?.operation_data?.selections);
                       if (!character?.variants?.dual_class) {
                         selections = removeParentSelections('class-feature', selections);
                       }
-                      setCharacter((prev) => {
-                        if (!prev) return prev;
-                        return {
-                          ...prev,
-                          details: {
-                            ...prev.details,
-                            class: option,
-                            class_archetype: undefined,
-                          },
-                          operation_data: {
-                            ...prev.operation_data,
-                            selections,
-                          },
-                        };
-                      });
+                      setCharacter((prev) => prev ? { ...prev, details: { ...prev.details, class: option, class_archetype: undefined }, operation_data: { ...prev.operation_data, selections } } : prev);
                     },
-                    {
-                      selectedId: character?.details?.class?.id,
-                      filterFn: (option) => option.id !== character?.details?.class_2?.id,
-                    }
+                    { selectedId: character?.details?.class?.id }
                   );
-                }}
-                onClickClass2={() => {
-                  selectContent<Class>(
-                    'class',
-                    (option) => {
-                      handleClassArchetypeSelection(character, setCharacter, option, '2');
-
-                      // Wipe old data
-                      const selections = removeParentSelections('class-2_', character?.operation_data?.selections);
-                      setCharacter((prev) => {
-                        if (!prev) return prev;
-                        return {
-                          ...prev,
-                          details: {
-                            ...prev.details,
-                            class_2: option,
-                            class_archetype_2: undefined,
-                          },
-                          operation_data: {
-                            ...prev.operation_data,
-                            selections,
-                          },
-                        };
-                      });
-                    },
-                    {
-                      selectedId: character?.details?.class_2?.id,
-                      filterFn: (option) => option.id !== character?.details?.class?.id,
-                    }
-                  );
-                }}
-              />
-              <Button
-                leftSection={<IconId size={14} />}
-                variant='subtle'
-                size='xs'
-                onClick={() => {
-                  setStatPanelOpened((prev) => !prev);
                 }}
               >
-                Preview
-              </Button>
-            </Group>
-            <Divider mt={5} />
-          </>
-        )}
-        <ScrollArea h={props.pageHeight + (isMobile ? -100 : 0)} type={isPhone ? 'never' : undefined} scrollbars='y'>
-          <Accordion
-            value={levelItemValue}
-            onChange={setLevelItemValue}
-            variant='filled'
-            styles={{
-              label: {
-                paddingTop: 5,
-                paddingBottom: 5,
-              },
-              control: {
-                paddingLeft: 13,
-                paddingRight: 13,
-              },
-              item: {
-                marginTop: 0,
-                marginBottom: 5,
-              },
-              content: {
-                paddingInline: isPhone ? 0 : undefined,
-              },
-            }}
-          >
-            {levelItems}
-          </Accordion>
-        </ScrollArea>
-      </Box>
-    </Group>
+                <div className='ic'>C</div>
+                <div>
+                  <div className='nm'>Class</div>
+                  <div className='v'>{character?.details?.class?.name ?? '—'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className='sec-title compact'><span className='lozenge'>✦</span><span className='label'>Attributes</span></div>
+            <div className='ab-grid'>
+              {([
+                { vn: 'ATTRIBUTE_STR', label: 'Str' },
+                { vn: 'ATTRIBUTE_DEX', label: 'Dex' },
+                { vn: 'ATTRIBUTE_CON', label: 'Con' },
+                { vn: 'ATTRIBUTE_INT', label: 'Int' },
+                { vn: 'ATTRIBUTE_WIS', label: 'Wis' },
+                { vn: 'ATTRIBUTE_CHA', label: 'Cha' },
+              ]).map(({ vn, label }) => {
+                // WG stores attribute variables as ATTRIBUTE_STR /
+                // ATTRIBUTE_DEX / etc — NOT bare STR/DEX. value.value
+                // is the modifier itself (-5 to +5+); the underlying
+                // ability score for display is 10 + 2 × modifier.
+                const v = getVariable<VariableAttr>('CHARACTER', vn);
+                const mod = v?.value?.value ?? 0;
+                const score = 10 + mod * 2;
+                const sign = mod >= 0 ? '+' : '';
+                return (
+                  <div key={vn} className='ab'>
+                    <div className='glyph'>{label}</div>
+                    <div className='mod'>{sign}{mod}</div>
+                    <div className='score'>{score}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div className='sec-title compact'><span className='lozenge'>♥</span><span className='label'>Vitals</span></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <div className='hp-card'>
+                <div className='lbl'>HP Max</div>
+                <div className='v'>{displayFinalHealthValue('CHARACTER')}</div>
+              </div>
+              <div className='hp-card'>
+                <div className='lbl'>Class DC</div>
+                <div className='v'>{displayFinalProfValue('CHARACTER', 'CLASS_DC', true)}</div>
+              </div>
+              <div className='hp-card'>
+                <div className='lbl'>Perception</div>
+                <div className='v'>{displayFinalProfValue('CHARACTER', 'PERCEPTION')}</div>
+              </div>
+              <div className='hp-card'>
+                <div className='lbl'>Spell DC</div>
+                <div className='v'>{displayFinalProfValue('CHARACTER', 'SPELL_DC', true)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* MAIN — level focus. Shows ONLY the selectedLevel's choice
+            cards, expanded. The chip strip above swaps which level is
+            displayed. */}
+        <div className='col main'>
+          <div className='level-head'>
+            <div className='level-emblem'><span className='num'>{selectedLevel}</span></div>
+            <div className='meta'>
+              <div className='eyebrow'>The Chronicle · Level {selectedLevel}</div>
+              <div className='lede'>Pick what your wanderer learns at this level. Some choices are auto-granted by class; others are yours to make.</div>
+            </div>
+          </div>
+          <ScrollArea h={props.pageHeight - 120} type={isPhone ? 'never' : undefined} scrollbars='y'>
+            <Accordion
+              value={`${selectedLevel}`}
+              defaultValue={`${selectedLevel}`}
+              variant='filled'
+              styles={{
+                label: { paddingTop: 5, paddingBottom: 5 },
+                control: { paddingLeft: 13, paddingRight: 13 },
+                item: { marginTop: 0, marginBottom: 5 },
+                content: { paddingInline: isPhone ? 0 : undefined },
+              }}
+            >
+              {mainLevelItem}
+            </Accordion>
+          </ScrollArea>
+        </div>
+
+        {/* RIGHT — codex Skill Proficiency / Saves & Perception /
+            Weapon & Armor. Mirrors the mockup's compact .sk-list
+            rail; uses getAllSkillVariables + displayFinalProfValue
+            + compileProficiencyType for the data so values stay
+            in lockstep with the character sheet. */}
+        <div className='col right'>
+
+          <div>
+            <div className='sec-title compact'><span className='lozenge'>✦</span><span className='label'>Skill Proficiency</span><span className='sub'>T E M L</span></div>
+            <div className='sk-list'>
+              {getAllSkillVariables('CHARACTER').map((sk) => {
+                const profLetter = compileProficiencyType(sk.value);
+                const value = displayFinalProfValue('CHARACTER', sk.name);
+                const nm = toLabel(sk.name.replace(/^SKILL_/, '').replace(/_/g, ' '));
+                return (
+                  <div key={sk.name} className='sk'>
+                    <span className={`pf ${profLetter}`}>{profLetter}</span>
+                    <span className='nm'>{nm}</span>
+                    <span className='v'>{value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div className='sec-title compact'><span className='lozenge'>✠</span><span className='label'>Saves &amp; Perception</span></div>
+            <div className='sk-list'>
+              {([
+                { vn: 'SAVE_FORT', label: 'Fortitude' },
+                { vn: 'SAVE_REFLEX', label: 'Reflex' },
+                { vn: 'SAVE_WILL', label: 'Will' },
+                { vn: 'PERCEPTION', label: 'Perception' },
+              ]).map(({ vn, label }) => {
+                const v = getVariable<VariableProf>('CHARACTER', vn);
+                const profLetter = compileProficiencyType(v?.value);
+                const value = displayFinalProfValue('CHARACTER', vn);
+                return (
+                  <div key={vn} className='sk'>
+                    <span className={`pf ${profLetter}`}>{profLetter}</span>
+                    <span className='nm'>{label}</span>
+                    <span className='v'>{value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div className='sec-title compact'><span className='lozenge'>⚔</span><span className='label'>Weapon &amp; Armor</span></div>
+            <div className='sk-list'>
+              {([
+                { vn: 'SIMPLE_WEAPONS', label: 'Simple weapons' },
+                { vn: 'MARTIAL_WEAPONS', label: 'Martial weapons' },
+                { vn: 'ADVANCED_WEAPONS', label: 'Advanced weapons' },
+                { vn: 'UNARMED_ATTACKS', label: 'Unarmed' },
+                { vn: 'LIGHT_ARMOR', label: 'Light armor' },
+                { vn: 'MEDIUM_ARMOR', label: 'Medium armor' },
+                { vn: 'HEAVY_ARMOR', label: 'Heavy armor' },
+                { vn: 'UNARMORED_DEFENSE', label: 'Unarmored' },
+              ]).map(({ vn, label }) => {
+                const v = getVariable<VariableProf>('CHARACTER', vn);
+                if (!v) return null;
+                const profLetter = compileProficiencyType(v.value);
+                const value = displayFinalProfValue('CHARACTER', vn);
+                return (
+                  <div key={vn} className='sk'>
+                    <span className={`pf ${profLetter}`}>{profLetter}</span>
+                    <span className='nm'>{label}</span>
+                    <span className='v'>{value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </>
   );
 }
 

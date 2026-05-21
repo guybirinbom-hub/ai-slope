@@ -19,6 +19,15 @@ import './index.css';
 // pages we've migrated to the codex design language.
 import './css/codex.css';
 import './css/codex-panels.css';
+// Codex shell for the character builder Home tab (Sources step).
+// Loaded before codex-bridge.css so the bridge can still override
+// individual Mantine selectors that bleed through.
+import './css/codex-home.css';
+// Codex shell for the character builder Build step.
+import './css/codex-builder.css';
+// Codex Notes + Details tab bodies (parchment page editor +
+// dossier hero / origins / proficiencies).
+import './css/codex-notes-details.css';
 // Mantine → Codex bridge. Overrides Mantine's CSS variables (colors,
 // fonts, radius) + component-specific classes so EVERY Mantine
 // component in the app picks up the codex aesthetic. Pages that

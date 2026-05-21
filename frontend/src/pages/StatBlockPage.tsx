@@ -1,9 +1,10 @@
+import CodexLoadingOverlay from '@common/CodexLoadingOverlay';
 import StatBlockSection from '@common/StatBlockSection';
 import { GUIDE_BLUE } from '@constants/data';
 import { fetchContentById } from '@content/content-store';
 import DrawerBase from '@drawers/DrawerBase';
 import { generateColors } from '@mantine/colors-generator';
-import { ActionIcon, Box, Button, createTheme, LoadingOverlay, MantineProvider, Stack, Text } from '@mantine/core';
+import { ActionIcon, Box, Button, createTheme, MantineProvider, Stack, Text } from '@mantine/core';
 import { makeRequest } from '@requests/request-manager';
 import { IconMoon, IconSun } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
@@ -46,7 +47,7 @@ export function Component() {
   };
 
   if (isLoading) {
-    return <LoadingOverlay visible />;
+    return <CodexLoadingOverlay visible />;
   }
   if (!entity) {
     return (

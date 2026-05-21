@@ -120,6 +120,7 @@ export default function InventoryPanel(props: {
   const openAddItemDrawer = () => {
     openContextModal({
       modal: 'addItems',
+      size: 1500,
       title: (
         <Group wrap='nowrap' gap={20} justify='space-between'>
           <Title order={3}>Add Items</Title>

@@ -19,13 +19,21 @@ import BlurBox from '@common/BlurBox';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getPublicUser } from '@auth/user-manager';
 import { GUIDE_BLUE } from '@constants/data';
-import { IconAlertTriangle, IconCode, IconPalette, IconTrash } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCode, IconPalette, IconShadow, IconTrash } from '@tabler/icons-react';
+import {
+  CustomMode,
+  getGlobalCustomModes,
+  setGlobalCustomModes,
+  targetLabelForVariable,
+} from '@modes/custom-modes';
+import { ModeEditor } from '@pages/character_sheet/ConditionsModesModal';
 import { useDebouncedValue, useDidUpdate } from '@mantine/hooks';
 import { makeRequest } from '@requests/request-manager';
 import { modals } from '@mantine/modals';
 import { showNotification } from '@mantine/notifications';
 import { useAtom } from 'jotai';
 import { userState } from '@atoms/userAtoms';
+import { useState } from 'react';
 
 export function Component() {
   setPageTitle(`Settings`);
@@ -260,6 +268,18 @@ function ProfileSection() {
               </Accordion.Panel>
             </Accordion.Item>
 
+            {/* Modes — manage user-created modes. This page only
+                surfaces *global* modes (the ones that show up on
+                every character); character-specific modes still live
+                on the character sheet's Conditions+Modes modal.
+                Storage is localStorage; no network round-trip. */}
+            <Accordion.Item value='modes'>
+              <Accordion.Control icon={<IconShadow size='0.9rem' />}>Modes</Accordion.Control>
+              <Accordion.Panel>
+                <ModesSettings />
+              </Accordion.Panel>
+            </Accordion.Item>
+
             {/* Danger Zone: full uninstall (wipes pg data + the app
                 binary itself). No remote state to worry about — every
                 byte the app ever wrote lives in either userData or
@@ -342,5 +362,143 @@ function ProfileSection() {
           </Accordion>
       </BlurBox>
     </Box>
+  );
+}
+
+/**
+ * Settings → Modes panel. CRUD for *global* user modes (the ones that
+ * show on every character). For character-specific modes the user
+ * uses the per-character editor inside the character sheet's
+ * Conditions+Modes modal — both reuse the same ModeEditor component
+ * so the form behavior stays in one place.
+ */
+function ModesSettings() {
+  // Track the saved list in state so renders refresh after edits.
+  // localStorage isn't reactive, so we bump a counter when we write.
+  const [, setTick] = useState(0);
+  const modes = getGlobalCustomModes();
+  // Either 'list' (default) or a CustomMode being edited / created.
+  // `null` means "show list"; an object means the editor is open.
+  const [editing, setEditing] = useState<CustomMode | null>(null);
+
+  const refresh = () => setTick((t) => t + 1);
+
+  const save = (m: CustomMode) => {
+    // Settings page only manages globals — force scope.
+    const next = { ...m, scope: 'global' as const };
+    const list = getGlobalCustomModes();
+    const idx = list.findIndex((x) => x.id === next.id);
+    setGlobalCustomModes(
+      idx >= 0 ? list.map((x) => (x.id === next.id ? next : x)) : [...list, next]
+    );
+    setEditing(null);
+    refresh();
+  };
+
+  const remove = (m: CustomMode) => {
+    if (!window.confirm(`Delete "${m.name}"? This removes it from every character.`)) return;
+    setGlobalCustomModes(getGlobalCustomModes().filter((x) => x.id !== m.id));
+    refresh();
+  };
+
+  if (editing) {
+    // ModeEditor is the same form used inside the character sheet.
+    // Wrapped in a Mantine Stack with a small dark surface so it sits
+    // visually inside the accordion without looking like it floated
+    // in from elsewhere.
+    return (
+      <Box style={{ background: 'var(--mantine-color-default-hover)' }}>
+        <ModeEditor
+          mode={{ ...editing, scope: 'global' }}
+          onCancel={() => setEditing(null)}
+          onSave={save}
+        />
+      </Box>
+    );
+  }
+
+  return (
+    <Stack gap='sm'>
+      <Text size='xs' c='dimmed'>
+        Modes saved here apply to every character. For modes tied to one
+        specific character (a class-specific stance with that character's
+        damage numbers), use the Modes tab inside the character sheet's
+        condition picker.
+      </Text>
+      <Box>
+        <Button
+          variant='light'
+          size='compact-sm'
+          onClick={() =>
+            setEditing({
+              id: crypto.randomUUID(),
+              name: '',
+              description: '',
+              effects: [],
+              scope: 'global',
+            })
+          }
+        >
+          + Create Mode
+        </Button>
+      </Box>
+      {modes.length === 0 ? (
+        <Text size='sm' c='dimmed' fs='italic'>
+          No global modes yet. Click "Create Mode" to make one.
+        </Text>
+      ) : (
+        <Stack gap={6}>
+          {modes.map((m) => (
+            <Box
+              key={m.id}
+              style={{
+                padding: 10,
+                border: '1px solid var(--mantine-color-default-border)',
+              }}
+            >
+              <Group justify='space-between' align='flex-start' wrap='nowrap'>
+                <Box style={{ flex: 1 }}>
+                  <Text fw={600}>{m.name || '(unnamed)'}</Text>
+                  {m.description && (
+                    <Text size='xs' c='dimmed' lh={1.4}>
+                      {m.description}
+                    </Text>
+                  )}
+                  {m.effects.length > 0 && (
+                    <Text size='xs' c='dimmed' mt={4}>
+                      {m.effects
+                        .map(
+                          (e) =>
+                            `${e.value >= 0 ? '+' : ''}${e.value} ${targetLabelForVariable(e.variable)}${
+                              e.type && e.type !== 'untyped' ? ` (${e.type})` : ''
+                            }`
+                        )
+                        .join(', ')}
+                    </Text>
+                  )}
+                </Box>
+                <Group gap={6} wrap='nowrap'>
+                  <Button
+                    size='compact-xs'
+                    variant='subtle'
+                    onClick={() => setEditing(m)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size='compact-xs'
+                    variant='subtle'
+                    color='red'
+                    onClick={() => remove(m)}
+                  >
+                    Delete
+                  </Button>
+                </Group>
+              </Group>
+            </Box>
+          ))}
+        </Stack>
+      )}
+    </Stack>
   );
 }

@@ -30,7 +30,8 @@ import { isPlayable } from '@utils/character';
 import { getAllBackgroundImages } from '@utils/background-images';
 import { setPageTitle } from '@utils/document-change';
 import { hasPatreonAccess } from '@utils/patreon';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAtom, useAtomValue } from 'jotai';
 
@@ -223,26 +224,10 @@ export function Component() {
             Archived
           </span>
         </div>
-        <div className='view-toggle'>
-          <div className='vt on' title='Grid view'>
-            <svg viewBox='0 0 16 16' fill='currentColor'>
-              <rect x='2' y='2' width='5' height='5' />
-              <rect x='9' y='2' width='5' height='5' />
-              <rect x='2' y='9' width='5' height='5' />
-              <rect x='9' y='9' width='5' height='5' />
-            </svg>
-          </div>
-          <div className='vt' title='Table view (coming soon)'>
-            <svg viewBox='0 0 16 16' fill='currentColor'>
-              <rect x='2' y='3' width='12' height='2' />
-              <rect x='2' y='7' width='12' height='2' />
-              <rect x='2' y='11' width='12' height='2' />
-            </svg>
-          </div>
-        </div>
-        <div className='iconbtn' title='Sort (alphabetical)'>
-          ⇕
-        </div>
+        {/* Grid-only view; alphabetical-only sort. The toolbar's
+            view-toggle + sort buttons were removed because the user
+            doesn't need them — table view was never implemented and
+            sort was always alphabetical anyway. */}
         <Menu
           shadow='md'
           width={240}
@@ -489,10 +474,55 @@ function CharacterCard(props: {
   const queryClient = useQueryClient();
   const [menuOpened, setMenuOpened] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Right-click context menu state. `null` when closed; { x, y } in
+  // viewport coords when open. Rendered as a fixed-position div so it
+  // floats over the card grid without affecting layout. We close it
+  // on document-level mousedown (anywhere outside the menu), on
+  // Escape, and after any item action completes.
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const ctxRef = useRef<HTMLDivElement | null>(null);
 
   const playable = isPlayable(character);
   const archived = !!(character.meta_data as Record<string, unknown> | undefined)?.archived;
   const initial = character.name?.trim()?.[0]?.toUpperCase() || '?';
+
+  // Close the right-click menu when the user clicks elsewhere or
+  // presses Escape. Re-attach on every open so the listener is fresh.
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) setCtxMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCtxMenu(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [ctxMenu]);
+
+  // After the menu mounts, measure it and clamp the position so it
+  // never spills past the right or bottom viewport edges. Runs in a
+  // layout effect so the correction lands before the browser paints —
+  // user never sees the menu in the wrong spot. We only adjust if
+  // overflowing; the requested cursor position is honored otherwise.
+  useLayoutEffect(() => {
+    if (!ctxMenu || !ctxRef.current) return;
+    const rect = ctxRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const pad = 8; // breathing room from edge
+    let nx = ctxMenu.x;
+    let ny = ctxMenu.y;
+    if (nx + rect.width > vw - pad) nx = Math.max(pad, vw - rect.width - pad);
+    if (ny + rect.height > vh - pad) ny = Math.max(pad, vh - rect.height - pad);
+    if (nx !== ctxMenu.x || ny !== ctxMenu.y) {
+      setCtxMenu({ x: nx, y: ny });
+    }
+  }, [ctxMenu]);
 
   // hp_current is stored; hp_max sometimes is, sometimes computed.
   // Treat strings or missing as unknown and show a dash.
@@ -537,6 +567,15 @@ function CharacterCard(props: {
       onClick={() => {
         if (!playable) return;
         navigate(`/sheet/${character.id}`);
+      }}
+      onContextMenu={(e) => {
+        // Right-click anywhere on the card opens the quick-action
+        // menu (Export/Archive for active; Export/Make Active/Delete
+        // for archived). Suppress the browser's default menu so it
+        // doesn't fight ours.
+        e.preventDefault();
+        e.stopPropagation();
+        setCtxMenu({ x: e.clientX, y: e.clientY });
       }}
       style={{ opacity: loading ? 0.5 : 1, pointerEvents: loading ? 'none' : 'auto' }}
     >
@@ -597,11 +636,11 @@ function CharacterCard(props: {
 
       <div className='ch-foot'>
         <div className='l'>
-          <span className='last'>
-            {/* Updated-at if the schema carries one; else show id. */}
-            #<b>{character.id}</b>
-          </span>
-          {heroPoints > 0 && (
+          {/* Hero-point pip strip only — the raw `#<id>` we used to
+              show here was the internal database row id, which is
+              meaningless to the user (and confusing — they thought it
+              was a level or roster number). Dropped per request. */}
+          {heroPoints > 0 ? (
             <span style={{ color: 'var(--ink-dim)' }}>
               Hero
               <span className='ch-hp-mini'>
@@ -610,6 +649,10 @@ function CharacterCard(props: {
                 ))}
               </span>
             </span>
+          ) : (
+            // Keep an empty span so the flex row's spacing stays
+            // identical whether or not the hero-point chip is shown.
+            <span />
           )}
         </div>
         <Menu
@@ -701,9 +744,126 @@ function CharacterCard(props: {
           {playable ? 'Open' : 'Continue'}
         </span>
       </div>
+
+      {/* Right-click context menu. Portaled to document.body — if we
+          rendered inside `.ch-card`, the hover-state `transform:
+          translateY(-1px)` on the card would re-parent fixed-position
+          coordinates to the card itself, and the menu would jump
+          around as the hover flickers between card and menu. The
+          portal puts it as a sibling of <App> with no transformed
+          ancestor, so `position: fixed` anchors to the viewport like
+          it should.
+
+          Item set depends on whether the character is archived:
+            active   → Export to JSON, Archive
+            archived → Export to JSON, Make Active, Delete
+          (Edit-in-builder, copy, stat block, PDF still live in the
+          ⋯ overflow menu — this is the quick-action subset only.) */}
+      {ctxMenu && createPortal(
+        <div
+          ref={ctxRef}
+          role='menu'
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            position: 'fixed',
+            left: ctxMenu.x,
+            top: ctxMenu.y,
+            minWidth: 180,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--rule-soft)',
+            boxShadow: '0 8px 24px rgba(0,0,0,.35)',
+            padding: '4px 0',
+            zIndex: 10000,
+            fontFamily: 'inherit',
+            color: 'var(--ink)',
+          }}
+        >
+          <button
+            type='button'
+            onClick={async (e) => {
+              e.stopPropagation();
+              setCtxMenu(null);
+              setLoading(true);
+              await exportToJSON(character);
+              setLoading(false);
+            }}
+            style={ctxItemStyle}
+          >
+            Export to JSON
+          </button>
+          {archived ? (
+            <>
+              <button
+                type='button'
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  setCtxMenu(null);
+                  setLoading(true);
+                  await setCharacterArchived(character, false);
+                  setLoading(false);
+                  onRefetch();
+                }}
+                style={ctxItemStyle}
+              >
+                Make Active
+              </button>
+              <div style={ctxDividerStyle} />
+              <button
+                type='button'
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCtxMenu(null);
+                  openConfirmDeleteModal();
+                }}
+                style={{ ...ctxItemStyle, color: 'var(--accent-crimson, #b34a4a)' }}
+              >
+                Delete
+              </button>
+            </>
+          ) : (
+            <button
+              type='button'
+              onClick={async (e) => {
+                e.stopPropagation();
+                setCtxMenu(null);
+                setLoading(true);
+                await setCharacterArchived(character, true);
+                setLoading(false);
+                onRefetch();
+              }}
+              style={ctxItemStyle}
+            >
+              Archive
+            </button>
+          )}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
+
+// Native-button styling for the right-click menu items. Kept as
+// module-level constants so each item doesn't allocate a fresh object
+// every render. `as const` keeps TS happy about literal-string values
+// like 'block' and 'transparent' fitting CSSProperties.
+const ctxItemStyle = {
+  display: 'block',
+  width: '100%',
+  textAlign: 'left',
+  padding: '8px 14px',
+  background: 'transparent',
+  border: 'none',
+  color: 'inherit',
+  font: 'inherit',
+  cursor: 'pointer',
+} as const;
+const ctxDividerStyle = {
+  height: 1,
+  background: 'var(--rule-soft)',
+  margin: '4px 0',
+} as const;
 
 async function createCharacter() {
   const images = getAllBackgroundImages();
@@ -714,6 +874,42 @@ async function createCharacter() {
     details: { background_image_url: randomImageUrl },
   });
   return result;
+}
+
+/**
+ * Toggle a character's archived flag. The "archived" state lives in
+ * `meta_data.archived` — there's no dedicated column; the segmented
+ * filter on the toolbar reads the same field. We merge instead of
+ * replacing `meta_data` so we don't clobber other fields like
+ * `reset_hp`, `dice_history`, etc.
+ *
+ * Shows a transient notification while the request is in flight so
+ * the user knows the action took.
+ */
+async function setCharacterArchived(character: Character, archived: boolean) {
+  const verb = archived ? 'Archiving' : 'Restoring';
+  const notifId = `archive-character-${character.id}`;
+  showNotification({
+    id: notifId,
+    title: `${verb} "${character.name}"`,
+    message: 'Please wait…',
+    autoClose: false,
+    withCloseButton: false,
+    loading: true,
+  });
+  const prevMeta = (character.meta_data ?? {}) as Record<string, unknown>;
+  await makeRequest('update-character', {
+    id: character.id,
+    meta_data: { ...prevMeta, archived },
+  });
+  hideNotification(notifId);
+  showNotification({
+    title: archived ? 'Archived' : 'Made active',
+    message: archived
+      ? `"${character.name}" has been moved to the archive.`
+      : `"${character.name}" is active again.`,
+    autoClose: 2500,
+  });
 }
 
 async function deleteCharacter(character: Character) {

@@ -25,6 +25,7 @@
       "@export/*": ["src/process/export/*"],
       "@homebrew/*": ["src/process/homebrew/*"],
       "@conditions/*": ["src/process/conditions/*"],
+      "@modes/*": ["src/process/modes/*"],
       "@spells/*": ["src/process/spells/*"],
       "@character/*": ["src/process/character/*"],
       "@css/*": ["src/css/*"],

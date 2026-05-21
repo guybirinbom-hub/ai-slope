@@ -47,11 +47,19 @@ import {
 import { compileProficiencyType } from '@variables/variable-utils';
 import { useAtom } from 'jotai';
 import { drawerState } from '@atoms/navAtoms';
-import { confirmHealth } from './entity-handler';
+import { confirmHealth, handleRest } from './entity-handler';
+import { showNotification } from '@mantine/notifications';
 import CompanionsPanel from './panels/CompanionsPanel';
-import DetailsPanel from './panels/DetailsPanel';
-import NotesPanel from './panels/NotesPanel';
+// The legacy Mantine-based DetailsPanel / NotesPanel are no longer
+// referenced — replaced by CodexDetailsPanel / CodexNotesPanel which
+// render directly into the codex .body grid as two sibling .col divs.
+// Keeping the panels/ files on disk for now; they ship 0 KB into the
+// bundle once nothing imports them.
 import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel, CodexActivitiesPanel } from './CodexPanels';
+import { CodexNotesPanel } from './CodexNotesPanel';
+import { CodexDetailsPanel } from './CodexDetailsPanel';
+import ConditionsModesModal, { HARMFUL_CONDITIONS, ConditionDescription } from './ConditionsModesModal';
+import { getAllConditions } from '@conditions/condition-handler';
 import { useNavigate } from 'react-router-dom';
 
 type CodexTab =
@@ -321,6 +329,25 @@ export default function CodexSheet(props: {
     );
   };
 
+  // Direct-set the XP value (from the click-to-edit input). Unlike
+  // addXp this is a raw assignment — the user typed an exact number
+  // and we trust it. We still clamp to >= 0 and walk into the next
+  // level if the input overshoots the per-level cap so the level/xp
+  // pair stays consistent.
+  const setXp = (raw: number) => {
+    if (!character) return;
+    if (isNaN(raw) || raw < 0) raw = 0;
+    let newXp = raw;
+    let newLevel = character.level ?? 1;
+    while (newXp >= XP_PER_LEVEL) {
+      newXp -= XP_PER_LEVEL;
+      newLevel += 1;
+    }
+    setCharacter((c) =>
+      c ? { ...c, experience: newXp, level: newLevel } : c
+    );
+  };
+
   const removeCondition = (name: string) => {
     setCharacter((c) =>
       c
@@ -334,6 +361,40 @@ export default function CodexSheet(props: {
         : c
     );
   };
+
+  // Bump a condition's numeric value up or down. Conditions without a
+  // value never call this — only the -/+ buttons rendered next to
+  // value-bearing chips do. Clamps at 1 (going below removes the
+  // condition entirely so the player doesn't get stuck with a stale
+  // 0-value entry). The condition-handler's compiledConditions()
+  // already re-derives cascading effects on the next recompile.
+  const adjustConditionValue = (name: string, delta: number) => {
+    setCharacter((c) => {
+      if (!c) return c;
+      const list = c.details?.conditions ?? [];
+      const idx = list.findIndex((cn) => cn.name === name);
+      if (idx < 0) return c;
+      const cur = list[idx].value ?? 1;
+      const next = cur + delta;
+      let nextList: typeof list;
+      if (next < 1) {
+        nextList = list.filter((_, i) => i !== idx);
+      } else {
+        nextList = list.slice();
+        nextList[idx] = { ...nextList[idx], value: next };
+      }
+      return { ...c, details: { ...c.details, conditions: nextList } };
+    });
+  };
+
+  // The Conditions + Modes modal opens from the vitals "+ add" chip
+  // (and there's no separate Modes button anymore — modes are a tab
+  // inside the same modal). Stored as local UI state so it doesn't
+  // need to round-trip through the drawer system.
+  const [cmModalOpen, setCmModalOpen] = useState(false);
+  // Condition description popover state. Opened by clicking the chip
+  // body in the vitals (separate from the +-/x controls).
+  const [showCondDesc, setShowCondDesc] = useState<{ name: string; description: string } | null>(null);
 
   // ---- Render ----
 
@@ -384,13 +445,55 @@ export default function CodexSheet(props: {
             <div className='crest'>{initial}</div>
             <div className='label'>
               <div className='nm'>{character?.name?.toUpperCase() || 'UNNAMED'}</div>
+              {/* Class line + inline Rest button — user explicitly
+                  marked the position next to "ANCESTRY · CLASS" so the
+                  Rest control rides shotgun on the same row instead of
+                  hanging off to the right of the .who block. Same
+                  handleRest flow — heals HP, refunds focus/spell slots,
+                  refreshes daily-use items, drops Fatigued, decrements
+                  Drained/Doomed. */}
               <div className='sub'>
                 {ancestryName || '—'} <i>·</i> {className || '—'}
+                <button
+                  type='button'
+                  className='rest-btn-compact'
+                  title='Take a Rest (recover HP, refill slots, refresh daily items)'
+                  onClick={() => {
+                    if (!character) return;
+                    handleRest(
+                      'CHARACTER',
+                      character as LivingEntity,
+                      setCharacter as unknown as SetterOrUpdater<LivingEntity | null>
+                    );
+                    showNotification({
+                      title: 'Rested',
+                      message: 'HP, spell slots, focus, and daily-use items refreshed.',
+                      autoClose: 1800,
+                    });
+                  }}
+                >
+                  <span className='rest-icon'>☾</span>
+                  <span>Rest</span>
+                </button>
               </div>
             </div>
           </div>
 
-          <div className='tabs'>
+          <div
+            className='tabs'
+            onWheel={(e) => {
+              // Convert vertical wheel motion to horizontal scroll on
+              // the tab strip — mice with no horizontal-scroll wheel
+              // still let the user reach off-screen tabs by scrolling
+              // up/down. Only intercept when deltaY is the dominant
+              // axis; if the user is using a trackpad or horizontal
+              // mouse, leave their natural horizontal delta alone.
+              const el = e.currentTarget;
+              if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                el.scrollLeft += e.deltaY;
+              }
+            }}
+          >
             {TABS.map((t) => (
               <div
                 key={t.id}
@@ -411,7 +514,9 @@ export default function CodexSheet(props: {
               <div className='row'>
                 <span>XP</span>
                 <span className='nums'>
-                  <b>{xp}</b> / {XP_PER_LEVEL}
+                  <XpValueInput value={xp} onChange={setXp} />
+                  {' / '}
+                  {XP_PER_LEVEL}
                 </span>
               </div>
               <div className='bar'>
@@ -426,7 +531,13 @@ export default function CodexSheet(props: {
         </div>
 
         {/* ============================ BODY ============================ */}
-        <div className='body'>
+        {/* The body modifier class re-templates the grid: Notes adds
+            a middle 280px page list; Details swaps the right 1fr for
+            a 320px origins/proficiencies rail. All other tabs keep
+            the default 224px + 1fr grid from codex.css. */}
+        <div
+          className={`body${activeTab === 'notes' ? ' body--notes' : activeTab === 'details' ? ' body--details' : ''}`}
+        >
           {/* ============ LEFT RAIL (persistent across all tabs) ============ */}
           <div className='col left'>
             {/* Vitals — 5 tiles: HP (span-2), Class DC, Spell DC, Armor,
@@ -714,30 +825,70 @@ export default function CodexSheet(props: {
                   </div>
                   <div className='sec-body'>
                     <div className='cond-row'>
-                      {conditions.map((cond) => (
-                        <span key={cond.name} className='cond'>
-                          {cond.name}
-                          {cond.value != null && cond.value > 0 ? ` ${cond.value}` : ''}
+                      {conditions.map((cond) => {
+                        const hasValue = cond.value != null && cond.value > 0;
+                        const harmful = HARMFUL_CONDITIONS.has(cond.name);
+                        return (
                           <span
-                            className='x'
+                            key={cond.name}
+                            className={`cond${harmful ? ' harmful' : ''}`}
                             onClick={(e) => {
+                              // Click the chip body (not -/+/x) → show
+                              // full description in a small popover.
                               e.stopPropagation();
-                              removeCondition(cond.name);
+                              setShowCondDesc({
+                                name: cond.name,
+                                description: cond.description || '',
+                              });
                             }}
+                            style={{ cursor: 'pointer' }}
+                            title='Click for full description'
                           >
-                            ✕
+                            {cond.name}
+                            {hasValue && (
+                              <>
+                                <button
+                                  type='button'
+                                  className='step'
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    adjustConditionValue(cond.name, -1);
+                                  }}
+                                  aria-label='Decrease value'
+                                  title='Decrease value (removes at 0)'
+                                >
+                                  −
+                                </button>
+                                <span className='val'>{cond.value}</span>
+                                <button
+                                  type='button'
+                                  className='step'
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    adjustConditionValue(cond.name, +1);
+                                  }}
+                                  aria-label='Increase value'
+                                  title='Increase value'
+                                >
+                                  +
+                                </button>
+                              </>
+                            )}
+                            <span
+                              className='x'
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeCondition(cond.name);
+                              }}
+                            >
+                              ✕
+                            </span>
                           </span>
-                        </span>
-                      ))}
+                        );
+                      })}
                       <span
                         className='cond add'
-                        onClick={() =>
-                          openDrawer({
-                            type: 'condition',
-                            data: { id: 'CHARACTER' },
-                            extra: { addToHistory: true },
-                          })
-                        }
+                        onClick={() => setCmModalOpen(true)}
                         style={{ cursor: 'pointer' }}
                       >
                         + add
@@ -769,10 +920,11 @@ export default function CodexSheet(props: {
                   </div>
                 </section>
 
-                {/* Sidebar action bar — Modes / Campaign / Dice. The
-                    legacy floating buttons (bottom-left anchored)
-                    obscure content; the design wants them docked at
-                    the bottom of the vitals rail. */}
+                {/* Rest button moved to the topbar's .who block
+                    (next to the character name). The old section
+                    here was crowding the vitals column. */}
+
+                {/* Sidebar action bar — Campaign / Dice. */}
                 {props.sidebarActions && (
                   <div className='sidebar-actions'>{props.sidebarActions}</div>
                 )}
@@ -880,6 +1032,18 @@ export default function CodexSheet(props: {
                   </div>
                 </section>
 
+                {/* Favorites — quick-access to anything the player has
+                    starred (feats, items, spells, actions, etc.) from
+                    any drawer's bottom-left star button. Sits between
+                    Abilities & Skills and Activities per request, so
+                    it's at the top of the action-y portion of the
+                    page. Hidden when no favorites yet to avoid clutter. */}
+                <CodexFavorites
+                  character={character}
+                  setCharacter={setCharacter}
+                  openDrawer={openDrawer as unknown as (next: unknown) => void}
+                />
+
                 {/* Activities — strikes (equipped weapons), universal/
                     exploration/downtime actions in three modes. Fully
                     codex-styled .act-grid / .act rows (no Mantine). */}
@@ -896,10 +1060,14 @@ export default function CodexSheet(props: {
               </div>
           )}
 
-          {/* Non-main tabs: render the appropriate codex panel
-              full-width inside .codex-tab-body, sitting next to the
-              persistent sidebar. */}
-          {activeTab !== 'main' && (
+          {/* Non-main tabs: most panels render full-width inside
+              .codex-tab-body, sitting next to the persistent left rail.
+              Notes and Details are special — their mockups expect the
+              .body grid to be 3-column (left + middle + right), so
+              their codex panels return TWO sibling .col divs that
+              slot directly into the body grid instead of being wrapped
+              in .codex-tab-body. */}
+          {activeTab !== 'main' && activeTab !== 'notes' && activeTab !== 'details' && (
             <div className='codex-tab-body'>
               {activeTab === 'spells' && (
                 <CodexSpellsPanel
@@ -926,25 +1094,68 @@ export default function CodexSheet(props: {
               {activeTab === 'companions' && (
                 <CompanionsPanel panelHeight={props.panelHeight} panelWidth={props.panelWidth} />
               )}
-              {activeTab === 'notes' && (
-                <NotesPanel
-                  panelHeight={props.panelHeight}
-                  panelWidth={props.panelWidth}
-                  entity={character}
-                  setEntity={setCharacter as unknown as SetterOrUpdater<LivingEntity | null>}
-                />
-              )}
-              {activeTab === 'details' && (
-                <DetailsPanel
-                  content={content}
-                  panelHeight={props.panelHeight}
-                  panelWidth={props.panelWidth}
-                />
-              )}
             </div>
+          )}
+          {activeTab === 'notes' && (
+            <CodexNotesPanel
+              character={character}
+              setCharacter={setCharacter as unknown as SetterOrUpdater<LivingEntity | null>}
+            />
+          )}
+          {activeTab === 'details' && (
+            <CodexDetailsPanel
+              character={character}
+              setCharacter={setCharacter as unknown as SetterOrUpdater<LivingEntity | null>}
+              content={content}
+            />
           )}
         </div>
       </div>
+
+      {/* Conditions + Modes modal — opens from the vitals "+ add"
+          chip. Rendered at the sheet root so it floats above all
+          tabs / drawers. */}
+      <ConditionsModesModal
+        opened={cmModalOpen}
+        onClose={() => setCmModalOpen(false)}
+        character={character}
+        setCharacter={setCharacter}
+        content={content}
+      />
+
+      {/* Condition description popover. Triggered by clicking a chip
+          in the vitals condition row (not the -/+/x controls — those
+          stop propagation). Reuses the same overlay styles as the
+          modal's description popover for consistency. */}
+      {showCondDesc && (
+        <div
+          className='cm-desc-overlay'
+          onClick={() => setShowCondDesc(null)}
+        >
+          <div className='cm-desc-box' onClick={(e) => e.stopPropagation()}>
+            <div className='cm-desc-head'>
+              <span className='cm-desc-title'>{showCondDesc.name}</span>
+              <button
+                type='button'
+                className='cm-close'
+                onClick={() => setShowCondDesc(null)}
+                aria-label='Close'
+              >
+                ✕
+              </button>
+            </div>
+            <div className='cm-desc-body'>
+              <ConditionDescription
+                text={showCondDesc.description}
+                conditions={getAllConditions()}
+                onConditionClick={(c) =>
+                  setShowCondDesc({ name: c.name, description: c.description })
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1007,6 +1218,61 @@ function HpInput(props: { value: number; onChange: (next: string) => void }) {
 }
 
 /**
+ * Click-to-edit XP value. Displays the current XP in bold inline;
+ * clicking it swaps for a number input that commits on blur or Enter.
+ * The styling matches the surrounding `.xp .nums b` text so the
+ * inline-edit experience is invisible — same font, same weight, same
+ * width-ish (we cap the input width so the row layout doesn't jump
+ * around as the user types).
+ */
+function XpValueInput(props: { value: number; onChange: (next: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(`${props.value}`);
+  if (!editing) {
+    return (
+      <b
+        style={{ cursor: 'text' }}
+        title='Click to edit XP'
+        onClick={() => {
+          setDraft(`${props.value}`);
+          setEditing(true);
+        }}
+      >
+        {props.value}
+      </b>
+    );
+  }
+  return (
+    <input
+      autoFocus
+      type='number'
+      min={0}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setEditing(false);
+        const n = parseInt(draft, 10);
+        if (!isNaN(n)) props.onChange(n);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        if (e.key === 'Escape') setEditing(false);
+      }}
+      style={{
+        width: 48,
+        background: 'transparent',
+        border: 0,
+        outline: 0,
+        color: 'inherit',
+        font: 'inherit',
+        fontWeight: 700,
+        padding: 0,
+      }}
+    />
+  );
+}
+
+/**
  * XP add form: small inline input + submit button. The codex aesthetic
  * is a thin gold-rule rectangle; styled by .add-xp in codex.css.
  */
@@ -1038,6 +1304,103 @@ function AddXpForm(props: { onAdd: (amount: number) => void }) {
       </button>
     </form>
   );
+}
+
+/**
+ * Favorites — codex-styled quick-access section on the main tab.
+ * Reads `meta_data.favorites` (saved via the drawer star button) and
+ * renders each entry as a clickable row that reopens the source
+ * drawer. Inv-items resolve through the inventory tree (including
+ * nested containers); other types just reopen with `{id}`.
+ *
+ * Hidden when the favorites list is empty so it doesn't clutter the
+ * page for new characters.
+ */
+function CodexFavorites(props: {
+  character: Character | null;
+  setCharacter: SetterOrUpdater<Character | null>;
+  // The drawer-open atom setter. The strict type unifies poorly with
+  // useAtom's inferred generic; we accept any callable here and trust
+  // the call site to pass the right object shape.
+  openDrawer: (next: unknown) => void;
+}) {
+  const { character, openDrawer } = props;
+  const favs =
+    (character?.meta_data as { favorites?: { type: string; id: number | string; name: string }[] } | undefined)
+      ?.favorites ?? [];
+  if (favs.length === 0) return null;
+  return (
+    <section className='sec'>
+      <div className='sec-title'>
+        <span className='lozenge'>★</span>
+        <span className='label'>Favorites</span>
+        <span className='sub'>
+          <b>{favs.length}</b>
+        </span>
+      </div>
+      <div className='sec-body'>
+        <div className='act-grid'>
+          {favs.map((fav) => (
+            <div
+              key={`${fav.type}-${fav.id}`}
+              className='act'
+              style={{ cursor: 'pointer' }}
+              onClick={() => {
+                if (fav.type === 'inv-item') {
+                  // Resolve inv-item id back to the live InventoryItem.
+                  // Walk containers too so an item inside a backpack
+                  // still opens correctly.
+                  const flat: import('@schemas/content').InventoryItem[] = [];
+                  for (const i of character?.inventory?.items ?? []) {
+                    flat.push(i);
+                    flat.push(...(i.container_contents ?? []));
+                  }
+                  const invItem = flat.find((i) => String(i.id) === String(fav.id));
+                  if (!invItem) return;
+                  openDrawer({
+                    type: 'inv-item',
+                    data: { invItem, storeID: 'CHARACTER' },
+                    extra: { addToHistory: true },
+                  });
+                  return;
+                }
+                openDrawer({
+                  type: fav.type as 'spell' | 'feat' | 'action' | 'item' | 'class-feature',
+                  data: { id: fav.id },
+                  extra: { addToHistory: true },
+                });
+              }}
+            >
+              <div className='nm'>{fav.name}</div>
+              <div className='stat dim'>{labelizeFavType(fav.type)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Human-readable label for a favorite's drawer type. Used as the
+ *  trailing subtitle on each favorite row. */
+function labelizeFavType(type: string): string {
+  switch (type) {
+    case 'spell': return 'Spell';
+    case 'feat': return 'Feat';
+    case 'action': return 'Action';
+    case 'class-feature': return 'Feature';
+    case 'inv-item': return 'Item';
+    case 'item': return 'Item';
+    case 'ancestry': return 'Ancestry';
+    case 'background': return 'Background';
+    case 'class': return 'Class';
+    case 'creature': return 'Creature';
+    case 'language': return 'Language';
+    case 'sense': return 'Sense';
+    case 'heritage': return 'Heritage';
+    case 'physical-feature': return 'Feature';
+    default: return type;
+  }
 }
 
 /**
@@ -1193,7 +1556,10 @@ function CodexNavMenu(props: {
     { label: 'Characters', path: '/characters' },
     { label: 'Homebrew', path: '/homebrew' },
     { label: 'Settings', path: '/account' },
-    { label: 'Edit in Builder', path: `/builder/${props.characterId}`, divider: true },
+    // ?tab=builder hint tells CharacterBuilderPage to open the
+    // Builder step (not Home). Without it the user has to manually
+    // click forward through Home → Builder every time.
+    { label: 'Edit in Builder', path: `/builder/${props.characterId}?tab=builder`, divider: true },
   ];
 
   return (

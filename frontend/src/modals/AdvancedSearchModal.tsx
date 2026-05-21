@@ -403,7 +403,10 @@ export function AdvancedSearchModal<C = Record<string, any>>(props: {
         props.onClose?.();
       }}
       title={<Title order={3}>Advanced Search</Title>}
-      size={'md'}
+      // Match the other codex popups (Add Items, Add Spell, Manage
+      // Spells). 1500px so all filter blocks fit side-by-side and
+      // the result list has room.
+      size={1500}
       closeOnClickOutside={false}
       closeOnEscape={false}
       keepMounted={false}

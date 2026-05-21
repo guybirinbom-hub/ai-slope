@@ -1,5 +1,6 @@
 import { getJsonV4Content } from '@export/json/json-v4';
-import { Box, Group, LoadingOverlay, Stack, Title, Text, Divider } from '@mantine/core';
+import { Box, Group, Stack, Title, Text, Divider } from '@mantine/core';
+import CodexLoadingOverlay from '@common/CodexLoadingOverlay';
 import { useQuery } from '@tanstack/react-query';
 import {
   AbilityBlock,
@@ -101,7 +102,7 @@ export default function StatBlockSection(props: {
   //
 
   if (!data || isLoading) {
-    return <LoadingOverlay visible />;
+    return <CodexLoadingOverlay visible />;
   }
 
   //

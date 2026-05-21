@@ -191,13 +191,29 @@ export function favoriteFromDrawer(
   if (!drawerData) return null;
   // Non-favoritable drawers — these are stat pop-overs / managers /
   // generic dialogs, none of which the player would want to "favorite".
+  // Note: 'cast-spell' is intentionally NOT here — even though it's
+  // technically a cast-trigger overlay, it's the only spell drawer the
+  // codex sheet opens, and we want spells to be favoritable. We save
+  // its favorite as the plain 'spell' type below so reopening it later
+  // pulls up the standard spell description drawer.
   const NON_FAVORITABLE = new Set([
     'generic', 'character', 'condition', 'manage-coins',
     'stat-prof', 'stat-attr', 'stat-hp', 'stat-ac',
     'stat-speed', 'stat-perception', 'stat-resist-weak',
-    'stat-weapon', 'cast-spell', 'add-spell',
+    'stat-weapon', 'add-spell',
   ]);
   if (NON_FAVORITABLE.has(drawerType)) return null;
+
+  // cast-spell payload carries the full spell. We favorite it as a
+  // generic 'spell' so the saved entry can later reopen via the plain
+  // spell drawer (which doesn't need the source/tradition/exhaustion
+  // wiring cast-spell expects).
+  if (drawerType === 'cast-spell') {
+    const spell = drawerData.spell;
+    const id = drawerData.id ?? spell?.id;
+    if (id == null || !spell?.name) return null;
+    return { type: 'spell', id, name: spell.name };
+  }
 
   if (drawerType === 'inv-item') {
     const inv = drawerData.invItem;

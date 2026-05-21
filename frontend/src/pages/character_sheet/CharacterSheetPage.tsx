@@ -1,4 +1,4 @@
-import D20Loader from '@assets/images/D20Loader';
+// D20Loader replaced by the iframed /codex-loading.html — see `loader` below.
 import { glassStyle } from '@utils/colors';
 import BlurBox from '@common/BlurBox';
 import { defineDefaultSources, fetchContentPackage, fetchContentSources } from '@content/content-store';
@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   Center,
-  Indicator,
   Menu,
   Popover,
   SimpleGrid,
@@ -32,7 +31,6 @@ import {
   IconNotebook,
   IconNotes,
   IconPaw,
-  IconShadow,
   IconX,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
@@ -42,7 +40,7 @@ import { setPageTitle } from '@utils/document-change';
 import { isPhoneSized, phoneQuery, tabletQuery } from '@utils/mobile-responsive';
 import { toLabel } from '@utils/strings';
 import { getVariable } from '@variables/variable-manager';
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useLoaderData } from 'react-router-dom';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import CompanionsPanel from './panels/CompanionsPanel';
@@ -61,7 +59,9 @@ import HealthSection from './sections/HealthSection';
 import SpeedSection from './sections/SpeedSection';
 import { GiRollingDices } from 'react-icons/gi';
 import { convertToSetEntity } from '@utils/type-fixing';
-import ModesDrawer from '@common/modes/ModesDrawer';
+// ModesDrawer was the standalone "modes" floating drawer. Modes now
+// live inside CodexSheet's ConditionsModesModal (one of its two tabs)
+// so the standalone drawer is no longer mounted from this page.
 import CampaignDrawer from '@pages/campaign/CampaignDrawer';
 import useCharacter from '@utils/use-character';
 import { getAnchorStyles } from '@utils/anchor';
@@ -121,22 +121,62 @@ export function Component(props: {}) {
     return interval.stop;
   }, []);
 
+  // Codex parchment loader. Replaces the bespoke D20Loader so character
+  // sheet load matches the rest of the app's loading aesthetic. We send
+  // a `codex-progress` postMessage frame each time `percentage`
+  // updates so the bar in the iframe reflects the same 0→100 ramp the
+  // old D20Loader had.
+  //
+  // Two things to be careful about here:
+  //  1. The percentage variable can climb past 100 because the
+  //     useInterval keeps ticking until interval.stop() runs in
+  //     onFinishLoading — we cap at 95 so the loader visually settles
+  //     just shy of "done" instead of reaching its asymptote (where
+  //     Math.floor(99.95) hangs forever at "99 %").
+  //  2. When doneLoading flips true we explicitly send codex-complete
+  //     so the d20 lock animation actually plays out instead of
+  //     stalling at 95 — the parent's CSS toggles display:none on the
+  //     loader at the same moment, but the postMessage round-trip is
+  //     cheap and guarantees the dice lands cleanly if a future caller
+  //     keeps the iframe visible for the tail of the lock animation.
+  const loaderIframeRef = useRef<HTMLIFrameElement | null>(null);
+  useEffect(() => {
+    const win = loaderIframeRef.current?.contentWindow;
+    if (!win) return;
+    try {
+      win.postMessage(
+        { type: 'codex-progress', value: Math.min(percentage, 95) },
+        '*'
+      );
+    } catch {
+      // Cross-origin throws in stray dev contexts — fine to ignore.
+    }
+  }, [percentage]);
+  // Fire codex-complete exactly once when the sheet finishes loading.
+  // The iframe's complete() snaps current to 100, locks the d20, and
+  // plays the .land animation — same behaviour as
+  // BackendReadyGate's "ready" transition.
+  useEffect(() => {
+    if (!doneLoading) return;
+    const win = loaderIframeRef.current?.contentWindow;
+    if (!win) return;
+    try {
+      win.postMessage({ type: 'codex-complete' }, '*');
+    } catch {}
+  }, [doneLoading]);
   const loader = (
     <Box
       style={{
         width: '100%',
-        height: '300px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        height: 'calc(100vh - 80px)',
+        position: 'relative',
       }}
     >
-      <D20Loader
-        size={100}
-        color={theme.colors[theme.primaryColor][5]}
-        percentage={percentage}
-        status='Loading...'
-        hasStatusBg
+      <iframe
+        ref={loaderIframeRef}
+        src='/codex-loading.html'
+        title='Loading character sheet'
+        style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
       />
     </Box>
   );
@@ -193,23 +233,15 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
 
   setPageTitle(character && character.name.trim() ? character.name : 'Sheet');
 
-  const activeModes = getVariable<VariableListStr>('CHARACTER', 'ACTIVE_MODES')?.value || [];
-
   // Dice roller is lazy-loaded; loadedDiceRoller tracks whether to keep it
   // mounted after the first open (so it doesn't remount on subsequent opens).
   const [openedDiceRoller, setOpenedDiceRoller] = useState(false);
   const [loadedDiceRoller, setLoadedDiceRoller] = useState(false);
 
   const [openedCampaign, setOpenedCampaign] = useState(false);
-  const [openedModes, setOpenedModes] = useState(false);
-
-  // Filter ability blocks to only those of type 'mode' that are listed in MODE_IDS.
-  // Recalculates whenever character state or loading status changes.
-  const modes = useMemo(() => {
-    const givenModeIds = getVariable<VariableListStr>('CHARACTER', 'MODE_IDS')?.value || [];
-    return props.content.abilityBlocks.filter((block) => block.type === 'mode' && givenModeIds.includes(block.id + ''));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [character, isLoading, props.content]);
+  // The mode list itself is now derived inside ConditionsModesModal
+  // from MODE_IDS + content.abilityBlocks; no need to compute it here
+  // since the standalone Modes button is gone.
 
   return (
     <Box ref={ref} w='100%'>
@@ -228,47 +260,35 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
         panelHeight={panelHeight}
         sidebarActions={
           <>
-            {/* Modes — only when the character has at least one mode */}
-            {modes.length > 0 && (
-              <Indicator
-                disabled={activeModes.length === 0}
-                label={activeModes.length}
-                size={14}
-                offset={4}
-              >
-                <ActionIcon
-                  size={36}
-                  variant='light'
-                  aria-label='Modes'
-                  onClick={() => setOpenedModes((prev) => !prev)}
-                >
-                  <IconShadow size='1.4rem' stroke={1.5} />
-                </ActionIcon>
-              </Indicator>
-            )}
+            {/* Modes used to live here as a standalone icon. They're
+                now a tab inside the Conditions/Modes modal opened from
+                the vitals "+ add" chip — see CodexSheet's
+                ConditionsModesModal. The legacy state below is kept
+                only because the still-mounted SectionPanels block
+                (hidden, but referenced via React refs) imports it; we
+                no longer surface a Modes opener at this site. */}
             {character?.campaign_id && (
               <ActionIcon
-                size={36}
+                size={28}
                 variant='light'
                 aria-label='Campaign'
                 onClick={() => setOpenedCampaign((prev) => !prev)}
               >
-                <IconFlag size='1.4rem' stroke={1.5} />
+                <IconFlag size='1rem' stroke={1.5} />
               </ActionIcon>
             )}
-            {character?.options?.dice_roller && (
-              <ActionIcon
-                size={36}
-                variant='light'
-                aria-label='Dice Roller'
-                onClick={() => {
-                  if (!loadedDiceRoller) setLoadedDiceRoller(true);
-                  setOpenedDiceRoller(true);
-                }}
-              >
-                <GiRollingDices size='1.5rem' stroke={'1.5px'} />
-              </ActionIcon>
-            )}
+            {/* Dice roller is always available in the local fork. */}
+            <ActionIcon
+              size={28}
+              variant='light'
+              aria-label='Dice Roller'
+              onClick={() => {
+                if (!loadedDiceRoller) setLoadedDiceRoller(true);
+                setOpenedDiceRoller(true);
+              }}
+            >
+              <GiRollingDices size='1rem' stroke={'1.5px'} />
+            </ActionIcon>
           </>
         }
       />
@@ -307,7 +327,8 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
           />
         </Suspense>
       )}
-      {openedModes && <ModesDrawer content={props.content} opened={true} onClose={() => setOpenedModes(false)} />}
+      {/* ModesDrawer mount removed — modes live inside the
+          ConditionsModesModal opened from CodexSheet's vitals "+ add" chip. */}
       {openedCampaign && character?.campaign_id && (
         <CampaignDrawer campaignId={character?.campaign_id} opened={true} onClose={() => setOpenedCampaign(false)} />
       )}

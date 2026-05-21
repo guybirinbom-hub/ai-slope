@@ -1,30 +1,95 @@
+/**
+ * Add Items modal — codex redesign.
+ *
+ * Table layout that matches D:/Inst/Popups (1).html → screens/codex-popups.html
+ * Columns: LVL · ITEM · PRICE · ACTION (with BUY + GIVE buttons per row).
+ * Header has + Custom Item + Bulk Add + close-X; footer has Close + Done with
+ * a helper-text strip ("Buy deducts price from wallet · Give adds for free").
+ *
+ * The "Filters" button in the search row toggles an inline filter panel
+ * (SelectContentFilters from @common/select). It REPLACES the table while
+ * open — same modal, no second window. Previously this routed to a
+ * separate selectContent() picker which the user (correctly) found
+ * confusing; the panel now lives in-place like the SelectContent modal's
+ * filter panel does.
+ */
+
 import { drawerState } from '@atoms/navAtoms';
-import { ItemSelectionOption } from '@common/select/SelectContent';
 import { fetchContentAll, getDefaultSources } from '@content/content-store';
-import {
-  ActionIcon,
-  Center,
-  FocusTrap,
-  Group,
-  Loader,
-  Pagination,
-  ScrollArea,
-  Stack,
-  Text,
-  TextInput,
-  useMantineTheme,
-} from '@mantine/core';
-import { ContextModalProps } from '@mantine/modals';
-import { IconSearch, IconAdjustments, IconX } from '@tabler/icons-react';
-import { useQuery } from '@tanstack/react-query';
 import { Item } from '@schemas/content';
-import { labelToVariable } from '@variables/variable-utils';
-import { useEffect, useRef, useState } from 'react';
+import { ContextModalProps } from '@mantine/modals';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 import * as JsSearch from 'js-search';
-import { EDIT_MODAL_HEIGHT } from '@constants/data';
 import { isItemVisible } from '@content/content-hidden';
-import { AdvancedSearchModal } from './AdvancedSearchModal';
+import { labelToVariable } from '@variables/variable-utils';
+import { priceToString } from '@items/currency-handler';
+import SelectContentFilters, {
+  ContentFilterState,
+  DEFAULT_FILTER_STATE,
+  TriStateMap,
+  activeFilterCount,
+} from '@common/select/SelectContentFilters';
+import { passesItemGroupFilter } from '@common/select/filter-helpers';
+
+const NUM_PER_PAGE = 18;
+
+// ── Item-relevant subset of the filter logic used inside SelectContentModal.
+// Items don't care about spell ranges, cast time, spell traditions etc.,
+// so this implementation only checks the fields that actually appear on
+// items: level, rarity, availability, size, item group, traits, and the
+// free-text fields (description / usage / hands / bulk / craftRequirements).
+function triStateMatches<K>(map: TriStateMap<K>, value: K | undefined): boolean {
+  if (map.size === 0) return true;
+  if (value !== undefined && map.get(value) === 'exclude') return false;
+  const hasInclude = [...map.values()].includes('include');
+  if (hasInclude && (value === undefined || map.get(value) !== 'include')) return false;
+  return true;
+}
+
+function applyItemFilterState(item: Item, state: ContentFilterState): boolean {
+  const lvl = item.level ?? 0;
+  if (lvl < state.levelMin || lvl > state.levelMax) return false;
+
+  // Default rarity to COMMON, availability to STANDARD when null/absent —
+  // most base items have these fields unset and PF2e treats absence as
+  // the default value. Without this an active "Common include" chip
+  // would silently drop most items.
+  const rarity = (item.rarity ?? 'COMMON') as any;
+  if (!triStateMatches(state.rarities, rarity)) return false;
+  const availability = ((item as any).availability ?? 'STANDARD') as any;
+  if (!triStateMatches(state.availabilities, availability)) return false;
+  if (state.sizes.size > 0 && !triStateMatches(state.sizes, (item as any).size)) return false;
+  // Item group: the 37 chip labels map to traits/usage, not the 7-value
+  // `item.group` enum. Use the shared helper so this stays in lockstep
+  // with the SelectContentModal version.
+  if (state.itemGroups.size > 0 && !passesItemGroupFilter(item, state.itemGroups as Map<string, 'include' | 'exclude'>)) {
+    return false;
+  }
+
+  if (state.traits.length > 0) {
+    const traits = (item.traits ?? []) as number[];
+    if (!state.traits.every((id) => traits.includes(id))) return false;
+  }
+
+  // Free-text substring filters — same field mapping as SelectContentModal
+  // for items.
+  const textChecks: Array<[keyof ContentFilterState, string]> = [
+    ['description', 'description'],
+    ['usage', 'usage'],
+    ['hands', 'hands'],
+    ['bulk', 'bulk'],
+    ['craftRequirements', 'craft_requirements'],
+  ];
+  for (const [key, field] of textChecks) {
+    const needle = String(state[key] ?? '').trim().toLowerCase();
+    if (!needle) continue;
+    const haystack = String((item as any)[field] ?? '').toLowerCase();
+    if (!haystack.includes(needle)) return false;
+  }
+  return true;
+}
 
 export default function AddItemsModal({
   context,
@@ -35,11 +100,15 @@ export default function AddItemsModal({
   options?: { zIndex?: number };
 }>) {
   const [searchQuery, setSearchQuery] = useState('');
-  const NUM_PER_PAGE = 20;
   const [activePage, setPage] = useState(1);
-  const theme = useMantineTheme();
+  const [_drawer, openDrawer] = useAtom(drawerState);
 
-  const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
+  // Inline filter panel state. Replaces the table when open. See the
+  // applyItemFilterState pipeline below for the actual filter pass.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterState, setFilterState] = useState<ContentFilterState>(() => ({
+    ...DEFAULT_FILTER_STATE,
+  }));
 
   const { data: rawItems, isFetching } = useQuery({
     queryKey: [`find-items-add-items`],
@@ -50,7 +119,6 @@ export default function AddItemsModal({
     },
   });
 
-  // Filter options based on search query
   const search = useRef(new JsSearch.Search('id'));
   useEffect(() => {
     if (!rawItems) return;
@@ -59,20 +127,27 @@ export default function AddItemsModal({
     search.current.addDocuments(rawItems);
   }, [rawItems]);
 
-  const allFilteredItems = (
-    (searchQuery.trim() ? (search.current?.search(searchQuery.trim()) as Item[] | undefined) : (rawItems ?? [])) ?? []
-  ).sort((a, b) => {
-    if (a.level === b.level) return a.name.localeCompare(b.name);
-    return a.level - b.level;
-  });
-
-  useEffect(() => {
-    setPage(1);
-    scrollToTop();
+  // Largest level among loaded items — feeds the level slider's upper
+  // bound so the user can't drag past the actual data.
+  const itemMaxLevel = useMemo(() => {
+    if (!rawItems || rawItems.length === 0) return 25;
+    return rawItems.reduce((m, it) => Math.max(m, it.level ?? 0), 0);
   }, [rawItems]);
 
-  const viewport = useRef<HTMLDivElement>(null);
-  const scrollToTop = () => viewport.current?.scrollTo({ top: 0 });
+  const allFilteredItems = (
+    (searchQuery.trim() ? (search.current?.search(searchQuery.trim()) as Item[] | undefined) : (rawItems ?? [])) ?? []
+  )
+    .filter((item) => applyItemFilterState(item, filterState))
+    .sort((a, b) => {
+      if (a.level === b.level) return a.name.localeCompare(b.name);
+      return a.level - b.level;
+    });
+
+  // Reset to page 1 whenever the result set could change underneath us
+  // (text search, raw item load, or any filter chip toggle).
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, rawItems, filterState]);
 
   const handleAddItem = (item: Item, type: 'GIVE' | 'BUY' | 'FORMULA') => {
     const baseItem = item.meta_data?.base_item
@@ -92,152 +167,270 @@ export default function AddItemsModal({
     innerProps.onAddItem(injectedItem as Item, type);
   };
 
+  const totalCount = allFilteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / NUM_PER_PAGE));
+  const pageItems = allFilteredItems.slice((activePage - 1) * NUM_PER_PAGE, activePage * NUM_PER_PAGE);
+  const fromIndex = totalCount === 0 ? 0 : (activePage - 1) * NUM_PER_PAGE + 1;
+  const toIndex = Math.min(activePage * NUM_PER_PAGE, totalCount);
+
+  // Number of active (non-default) filter dimensions — shown after the
+  // Filters button label as "(N)" to make the active count visible at a
+  // glance.
+  const filterCount = activeFilterCount(filterState, 'item');
+
+  // Format the price for a row. Walks the meta_data.price object and
+  // converts to "12 gp" / "3 sp" / "5 cp" via the shared helper. Falls
+  // back to "—" when the item has no price (most magic items have a
+  // listed price; quest items / story items often don't).
+  const fmtPrice = (item: Item): { value: string; unit: string } => {
+    const raw = item.price;
+    if (!raw) return { value: '—', unit: '' };
+    const num = {
+      cp: typeof raw.cp === 'string' ? Number(raw.cp) || 0 : raw.cp,
+      sp: typeof raw.sp === 'string' ? Number(raw.sp) || 0 : raw.sp,
+      gp: typeof raw.gp === 'string' ? Number(raw.gp) || 0 : raw.gp,
+      pp: typeof raw.pp === 'string' ? Number(raw.pp) || 0 : raw.pp,
+    };
+    const s = priceToString(num);
+    if (s === '—') return { value: '—', unit: '' };
+    const m = s.match(/^([\d.,]+)\s*([a-z]+)?$/i);
+    if (m) return { value: m[1], unit: m[2] ?? '' };
+    return { value: s, unit: '' };
+  };
+
+  const subtitleFor = (item: Item): string | null => {
+    const usage = item.usage?.replace(/-/g, ' ');
+    const group = item.group?.toLowerCase();
+    return usage || group || null;
+  };
+
   return (
-    <Stack gap={5} justify='space-between' style={{ overflow: 'hidden' }}>
-      <Stack gap={5}>
-        <Group gap={10}>
-          <FocusTrap active={true}>
-            <TextInput
-              data-autofocus
-              style={{ flex: 1 }}
-              leftSection={<IconSearch size='0.9rem' />}
-              placeholder={`Search all items`}
-              value={searchQuery}
-              onChange={(e) => {
-                const value = e.target.value;
-                setPage(1);
-                setSearchQuery(value);
-              }}
-              rightSection={
-                searchQuery.trim() ? (
-                  <ActionIcon
-                    variant='subtle'
-                    size='md'
-                    color='gray'
-                    radius='xl'
-                    aria-label='Clear search'
-                    onClick={() => {
-                      setSearchQuery('');
-                    }}
-                  >
-                    <IconX size='1.2rem' stroke={2} />
-                  </ActionIcon>
-                ) : undefined
-              }
-              styles={{
-                input: {
-                  borderColor: searchQuery.trim().length > 0 ? theme.colors['guide'][8] : undefined,
-                },
-              }}
-            />
-          </FocusTrap>
-          <ActionIcon
-            size='lg'
-            variant='light'
-            radius='md'
-            aria-label='Advanced Search'
-            color='gray'
-            onClick={() => {
-              setAdvancedSearchOpen(true);
-            }}
+    <div className='codex-add-items'>
+      <div className='cai-header'>
+        <div className='cai-title'>✦ Add Items</div>
+        <div className='cai-header-actions'>
+          <button type='button' className='cai-chip-btn'>+ Custom Item</button>
+          <button type='button' className='cai-chip-btn'>Bulk Add</button>
+          <button
+            type='button'
+            className='cai-x'
+            onClick={() => context.closeModal(id)}
+            aria-label='Close'
           >
-            <IconAdjustments size='1rem' stroke={1.5} />
-          </ActionIcon>
-          <AdvancedSearchModal<Item>
-            opened={advancedSearchOpen}
-            presetFilters={{
-              type: 'item',
-              content_sources: getDefaultSources('PAGE'),
-            }}
-            extraFilterFn={(item) => isItemVisible('CHARACTER', item)}
-            onSelect={(item) => {
-              handleAddItem(item, 'GIVE');
-            }}
-            onClose={() => {
-              setAdvancedSearchOpen(false);
-              context.closeModal(id);
-            }}
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Search row */}
+      <div className='cai-search-row'>
+        <div className='cai-search'>
+          <span className='cai-search-icon' aria-hidden='true' />
+          <input
+            type='text'
+            placeholder='Search items by name…'
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
           />
-        </Group>
-      </Stack>
-      <ScrollArea
-        viewportRef={viewport}
-        h={EDIT_MODAL_HEIGHT - 80}
-        style={{ position: 'relative' }}
-        pr={5}
-        scrollbars='y'
-      >
-        {isFetching ? (
-          <Loader
-            type='bars'
-            style={{
-              position: 'absolute',
-              top: '35%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-            }}
-          />
+        </div>
+        <button
+          type='button'
+          className={`cai-filters-btn${filtersOpen ? ' on' : ''}`}
+          onClick={() => setFiltersOpen((v) => !v)}
+        >
+          ⚙ Filters{filterCount > 0 ? ` (${filterCount})` : ''}
+          <span className='cai-filters-caret' aria-hidden='true'>{filtersOpen ? '▴' : '▾'}</span>
+        </button>
+      </div>
+
+      {/* Body: filter panel when filtersOpen, table otherwise. The .cai-body
+          wrapper is the flex:1 region that fills whatever vertical space the
+          modal frame gives us — this is what kills the dead space the user
+          was seeing under the pager when the modal was taller than the
+          rows. */}
+      <div className='cai-body'>
+        {filtersOpen ? (
+          <div className='cai-filter-panel'>
+            <SelectContentFilters
+              type='item'
+              state={filterState}
+              onChange={setFilterState}
+              maxLevel={itemMaxLevel}
+            />
+            <div className='cai-filter-actions'>
+              <button
+                type='button'
+                className='cai-btn'
+                onClick={() => setFilterState({ ...DEFAULT_FILTER_STATE })}
+              >
+                Reset
+              </button>
+              <button
+                type='button'
+                className='cai-btn cai-foot-done'
+                onClick={() => setFiltersOpen(false)}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
         ) : (
-          <ItemsList
-            options={allFilteredItems.slice((activePage - 1) * NUM_PER_PAGE, activePage * NUM_PER_PAGE)}
-            onClick={(item, type) => {
-              handleAddItem(item, type);
-            }}
-          />
-        )}
-      </ScrollArea>
-      <Center>
-        {allFilteredItems && (
-          <Pagination
-            size='sm'
-            total={Math.ceil(allFilteredItems.length / NUM_PER_PAGE)}
-            value={activePage}
-            onChange={(value) => {
-              setPage(value);
-              scrollToTop();
-            }}
-          />
-        )}
-      </Center>
-    </Stack>
-  );
-}
+          <>
+            <div className='cai-table'>
+              <div className='cai-thead'>
+                <div className='cai-col-lvl'>Lvl</div>
+                <div className='cai-col-item'>Item</div>
+                <div className='cai-col-price'>Price</div>
+                <div className='cai-col-action'>Action</div>
+              </div>
+              <div className='cai-tbody'>
+                {isFetching && pageItems.length === 0 && (
+                  <div className='cai-empty'>Loading items…</div>
+                )}
+                {!isFetching && pageItems.length === 0 && (
+                  <div className='cai-empty'>
+                    {searchQuery.trim()
+                      ? `No items match "${searchQuery.trim()}".`
+                      : filterCount > 0
+                      ? 'No items match the current filters.'
+                      : 'No items available.'}
+                  </div>
+                )}
+                {pageItems.map((item) => {
+                  const price = fmtPrice(item);
+                  const subtitle = subtitleFor(item);
+                  return (
+                    <div
+                      key={item.id}
+                      className='cai-row'
+                      onClick={() =>
+                        openDrawer({
+                          type: 'item',
+                          data: { id: item.id },
+                          extra: { addToHistory: true },
+                        })
+                      }
+                    >
+                      <div className='cai-col-lvl cai-lvl'>{item.level ?? 0}</div>
+                      <div className='cai-col-item cai-name'>
+                        {item.name}
+                        {subtitle && <em className='cai-sub'>{subtitle}</em>}
+                      </div>
+                      <div className='cai-col-price cai-price'>
+                        {price.value}
+                        {price.unit && <span className='cai-unit'>{price.unit}</span>}
+                      </div>
+                      <div className='cai-col-action cai-action'>
+                        <button
+                          type='button'
+                          className='cai-btn cai-buy'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddItem(item, 'BUY');
+                          }}
+                        >
+                          Buy
+                        </button>
+                        <button
+                          type='button'
+                          className='cai-btn cai-give'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddItem(item, 'GIVE');
+                          }}
+                        >
+                          Give
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
-function ItemsList(props: {
-  options: Item[];
-  onClick: (item: Item, type: 'GIVE' | 'BUY' | 'FORMULA') => void;
-  onMetadataChange?: () => void;
-}) {
-  const [_drawer, openDrawer] = useAtom(drawerState);
+            <div className='cai-pager'>
+              <button
+                type='button'
+                className='cai-pg-nav'
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={activePage <= 1}
+                aria-label='Previous'
+              >
+                ‹
+              </button>
+              {(() => {
+                const out: (number | '…')[] = [];
+                const pushUnique = (v: number | '…') => {
+                  if (out[out.length - 1] !== v) out.push(v);
+                };
+                for (let p = 1; p <= totalPages; p++) {
+                  if (
+                    p === 1 ||
+                    p === totalPages ||
+                    (p >= activePage - 1 && p <= activePage + 1)
+                  ) {
+                    pushUnique(p);
+                  } else if (p === activePage - 2 || p === activePage + 2) {
+                    pushUnique('…');
+                  }
+                }
+                return out.map((p, i) =>
+                  p === '…' ? (
+                    <span key={`gap${i}`} className='cai-pg-gap'>
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      type='button'
+                      className={`cai-pg${p === activePage ? ' on' : ''}`}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </button>
+                  )
+                );
+              })()}
+              <button
+                type='button'
+                className='cai-pg-nav'
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={activePage >= totalPages}
+                aria-label='Next'
+              >
+                ›
+              </button>
+            </div>
+            <div className='cai-count'>
+              Showing {fromIndex} – {toIndex} of <b>{totalCount.toLocaleString()}</b> items
+            </div>
+          </>
+        )}
+      </div>
 
-  return (
-    <Stack gap={0}>
-      {props.options
-        .sort((a, b) => {
-          if (a.level === b.level) return a.name.localeCompare(b.name);
-          return a.level - b.level;
-        })
-        .map((item, index) => (
-          <ItemSelectionOption
-            key={index}
-            item={item}
-            onClick={(item) => {
-              props.onMetadataChange?.();
-              openDrawer({
-                type: 'item',
-                data: { id: item.id },
-                extra: { addToHistory: true },
-              });
-            }}
-            includeAdd
-            onAdd={props.onClick}
-          />
-        ))}
-      {props.options.length === 0 && (
-        <Text fz='sm' c='dimmed' ta='center' fs='italic' pt={25}>
-          No items found.
-        </Text>
-      )}
-    </Stack>
+      {/* Footer */}
+      <div className='cai-footer'>
+        <div className='cai-foot-hint'>
+          <b>Buy</b> deducts price from wallet <i>·</i> <b>Give</b> adds for free
+        </div>
+        <div className='cai-foot-actions'>
+          <button
+            type='button'
+            className='cai-btn cai-foot-close'
+            onClick={() => context.closeModal(id)}
+          >
+            Close
+          </button>
+          <button
+            type='button'
+            className='cai-btn cai-foot-done'
+            onClick={() => context.closeModal(id)}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

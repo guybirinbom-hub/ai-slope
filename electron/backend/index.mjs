@@ -865,8 +865,16 @@ export async function startGateway() {
   }
 
   return new Promise((resolve, reject) => {
-    gatewayServer = app.listen(config.gatewayPort, () => {
-      console.log('[gateway] listening on port', config.gatewayPort);
+    // Bind to 127.0.0.1 explicitly (not 0.0.0.0). Without an explicit
+    // host, Express listens on all interfaces, which makes Windows
+    // Defender Firewall flag the executable as a network-facing
+    // service and pop the "Allow this app on private/public
+    // networks?" prompt on every launch of an unsigned portable
+    // build. Localhost-only binding sidesteps the prompt — the
+    // embedded backend is strictly for the renderer in the same
+    // process, never served to the network.
+    gatewayServer = app.listen(config.gatewayPort, '127.0.0.1', () => {
+      console.log('[gateway] listening on 127.0.0.1:' + config.gatewayPort);
       resolve(gatewayServer);
     });
     gatewayServer.on('error', reject);
@@ -1063,6 +1071,14 @@ export async function start() {
       PGRST_DB_ANON_ROLE: 'anon',
       PGRST_JWT_SECRET: config.jwtSecret,
       PGRST_SERVER_PORT: String(config.postgrestPort),
+      // Bind to loopback only. PostgREST defaults to 0.0.0.0 (all
+      // interfaces), which triggers the Windows Defender Firewall
+      // "allow this app on private/public networks?" prompt on every
+      // launch of unsigned portable builds. We never serve PostgREST
+      // off-machine — the gateway in the same Electron process
+      // proxies to it via localhost — so loopback-only is correct
+      // and sidesteps the prompt.
+      PGRST_SERVER_HOST: '127.0.0.1',
       PGRST_DB_USE_LEGACY_GUCS: 'false',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
