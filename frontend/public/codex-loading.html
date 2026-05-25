@@ -348,13 +348,20 @@
   .signoff .quote {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
-    font-size: 11px;
-    letter-spacing: .08em;
-    color: var(--ink-deep);
+    /* Bumped from 11px / --ink-deep so the tip is actually readable
+       against the bg-dark gradient at the bottom of the loader. The
+       version/Synced labels stay --ink-deep (Cinzel-uppercase, less
+       important), but the player-facing tip needs to be visible. */
+    font-size: 14px;
+    letter-spacing: .04em;
+    color: var(--ink-dim);
     text-transform: none;
+    text-align: center;
+    max-width: 60%;
+    padding: 0 16px;
   }
-  .signoff .quote::before { content: '\201C'; color: var(--gold-deep); padding-right: 2px; }
-  .signoff .quote::after  { content: '\201D'; color: var(--gold-deep); padding-left: 2px; }
+  .signoff .quote::before { content: '\201C'; color: var(--gold); padding-right: 4px; }
+  .signoff .quote::after  { content: '\201D'; color: var(--gold); padding-left: 4px; }
 
   /* Error overlay — hidden by default; main.cjs flips
      #err-overlay visible on backend startup failure. The
