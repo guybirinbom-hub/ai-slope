@@ -54,8 +54,7 @@ import { modals } from '@mantine/modals';
 import { getWeaponStats } from '@items/weapon-handler';
 import { isAbilityBlockVisible } from '@content/content-hidden';
 import { hasTraitType } from '@utils/traits';
-import { getContentFast, getCachedContent } from '@content/content-store';
-import type { Trait } from '@schemas/content';
+import { getCachedContent } from '@content/content-store';
 import { AbilityBlock } from '@schemas/content';
 import { sign } from '@utils/numbers';
 
@@ -1164,16 +1163,11 @@ function SpellRow(props: {
   if (spell.rank > 0) subParts.push(`rank ${spell.rank}`);
   if (spell.duration) subParts.push(spell.duration);
   const subtitle = subParts.join(' · ');
-  // Trait chips — looked up from the content cache by id. Cap to the
-  // first 5 to keep the row readable; the drawer shows all of them
-  // anyway. Cached lookup so the row doesn't pay an async cost.
-  const traitNames =
-    (spell.traits ?? []).length > 0
-      ? getContentFast<Trait>('trait', spell.traits ?? [])
-          .map((t) => t.name)
-          .filter(Boolean)
-          .slice(0, 5)
-      : [];
+  // Trait chips removed from the spell row per request — they were
+  // visual noise on a small card and the full trait list is one
+  // click away in the spell drawer anyway. The Trait import + the
+  // getContentFast lookup also got dropped from this component so
+  // the row doesn't pay any cost.
   // Right-click context menu is offered whenever there's at least one
   // option to surface — signature toggle (spontaneous) OR replace
   // (prepared). For pure-vanilla rows the right-click does nothing.
@@ -1196,13 +1190,6 @@ function SpellRow(props: {
           {/* Gold star prefix for signature spells. */}
           {props.isSignature && <span className='sig-star'>★ </span>}
           {spell.name}
-          {traitNames.length > 0 && (
-            <span className='sp-tags'>
-              {traitNames.map((t) => (
-                <span key={t} className='sp-tag'>{t}</span>
-              ))}
-            </span>
-          )}
           {subtitle && <small>{subtitle}</small>}
         </div>
         <div className='stat'>
