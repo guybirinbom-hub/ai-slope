@@ -522,7 +522,7 @@
 
   <div class="signoff">
     <div class="v">Wanderer's Codex <b>v 1.4.2</b></div>
-    <div class="quote">Knowledge bound, adventure unbound.</div>
+    <div class="quote" id="tip"></div>
     <div class="v" style="text-align:right;">Local <b>&middot;</b> Synced</div>
   </div>
 
@@ -754,6 +754,44 @@
     }
     d20.classList.add('rolling');
     requestAnimationFrame(frame);
+  })();
+
+  // Random tip cycle (shuffle-without-replacement). Each load picks
+  // an unseen tip from the bank, persists the seen-set in
+  // localStorage, and resets once all tips have been shown so the
+  // next cycle starts fresh in a new random order. See
+  // inject-tips.cjs in the repo root for the source list and the
+  // patcher that wrote this block.
+  (function() {
+    var TIPS = ["Action economy is king — every action should pay rent.","Your reaction fires every round. Don't waste it.","+4 in your attack stat. +3 if you can't. Anything less is a tax.","Dex, Con, and Wis are your saves. Don't neglect them.","Dex mod + armor item bonus = 5. 6 in heavy armor.","An attack at MAP −10 is rarely the right third action.","Even a sling beats no ranged option at all.","If you cast, take at least one offensive cantrip.","Speed is tactical control. Boots, Longstrider, Fleet — they stack.","Initiative is a free action you get every fight.","Reconnaissance is round zero. Make it count.","A prepared caster who skips scouting is an inferior Sorcerer.","Invisibility Potion. Ghost Oil. Flight Potion. Cheap insurance.","The exploration activity you pick IS your initiative.","Pre-buff before opening the door. Most fights end before the buff does.","Talk to the locals — tensions in the enemy camp cut both ways.","Focus fire. An enemy at 1 HP hits as hard as one at full.","Make the target off-guard before the rest of the party piles in.","Flanking is +2 for one, free for the second. Trade movement for it.","Pick your damage type. Fire and slashing are not the same fight.","A condition on the boss spotlights the whole party's turn.","Target Reflex on giants. Will on brutes. Fortitude on rogues.","Saves can swing five or more between defenses. Pick the weak one.","Trip and Grapple use Athletics. Often better than swinging.","A Champion in a corridor is a fortress. Hold the line.","Don't be the one who charges in alone.","Delaying is framing the fight, not skipping it.","Persistent damage is a long-fight tax. Don't bank on it in three rounds.","Hero Points are best spent on bad luck — not bonus damage.","Don't burn your big combos on round 3 of a won fight.","True Strike on a Magus is a love letter.","Aid stacks with almost everything. A reliable +3 by mid level.","Knock prone, step back, eat the AoO when they stand. Repeat.","Concealment is one-sided when only your team can see through smoke.","Drop a wall between enemy groups. Fight them in waves.","PF2 casters trade brute force for the right tool.","Magic Missile has no save. Most illusions don't either.","Calm Emotions, Synesthesia, Befuddle — partial success still cripples.","Heighten your spells. A rank-3 Fear lights up the whole grid.","Summons aren't immune to much — but expendable counts as immunity.","Don't be Elad, read your character sheet.","ISOBU NEVER DIES!!!!!!!!!","Never trust Aria."];
+    var KEY = 'wg.loader.tips.seen';
+    var tipEl = document.getElementById('tip');
+    if (!tipEl) return;
+    var seen = [];
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) seen = JSON.parse(raw) || [];
+      if (!Array.isArray(seen)) seen = [];
+    } catch (e) { seen = []; }
+    // Clamp the seen-set to the current bank — if the bank shrinks
+    // between versions the old indices need to drop out.
+    seen = seen.filter(function(i) {
+      return typeof i === 'number' && i >= 0 && i < TIPS.length;
+    });
+    // Compute remaining (unseen) indices.
+    var pool = [];
+    for (var i = 0; i < TIPS.length; i++) {
+      if (seen.indexOf(i) === -1) pool.push(i);
+    }
+    // Once every tip has been shown, reset and start a fresh cycle.
+    if (pool.length === 0) {
+      seen = [];
+      for (var j = 0; j < TIPS.length; j++) pool.push(j);
+    }
+    var pick = pool[Math.floor(Math.random() * pool.length)];
+    seen.push(pick);
+    try { localStorage.setItem(KEY, JSON.stringify(seen)); } catch (e) {}
+    tipEl.textContent = TIPS[pick];
   })();
 </script>
 
