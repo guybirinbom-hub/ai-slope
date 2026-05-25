@@ -517,7 +517,7 @@
   <div class="footer">
     <div class="caption">
       <div class="status" id="status">
-        <span class="line on"><span class="quill">&#x2712;</span>Unsealing the codex&hellip;</span>
+        <span class="line on" id="tip-line"><span class="quill">&#x2712;</span><span id="tip-text">Unsealing the codex…</span></span>
       </div>
     </div>
     <div class="progress-row">
@@ -529,7 +529,6 @@
 
   <div class="signoff">
     <div class="v">Wanderer's Codex <b>v 1.4.2</b></div>
-    <div class="quote" id="tip"></div>
     <div class="v" style="text-align:right;">Local <b>&middot;</b> Synced</div>
   </div>
 
@@ -612,43 +611,6 @@
       m.style.opacity = (0.5 + Math.random() * 0.5).toFixed(2);
       wrap.appendChild(m);
     }
-  })();
-
-  // Rotating status copy. Cycles independently of real backend
-  // progress — purely flavour text. Real errors are surfaced via the
-  // .err-overlay below.
-  var STATUS_LINES = [
-    'Unsealing the codex…',
-    'Inscribing the page…',
-    'Consulting the bestiary…',
-    'Tuning the bardic strings…',
-    'Polishing the rapier…',
-    'Counting hero points…',
-    'Cross-referencing Pathfinder canon…',
-    'Whispering to the spell list…',
-    'The page is nearly turned.'
-  ];
-  (function() {
-    var status = document.getElementById('status');
-    var idx = 0;
-    function show(i) {
-      var old = status.querySelector('.line.on');
-      var next = document.createElement('span');
-      next.className = 'line';
-      next.innerHTML = '<span class="quill">✒</span>' + STATUS_LINES[i];
-      status.appendChild(next);
-      requestAnimationFrame(function() {
-        next.classList.add('on');
-        if (old) {
-          old.classList.remove('on');
-          setTimeout(function() { old.remove(); }, 600);
-        }
-      });
-    }
-    setInterval(function() {
-      idx = (idx + 1) % STATUS_LINES.length;
-      show(idx);
-    }, 1800);
   })();
 
   // Progress arc + d20 roll/lock — driven by REAL parent signals.
@@ -772,7 +734,7 @@
   (function() {
     var TIPS = ["Action economy is king — every action should pay rent.","Your reaction fires every round. Don't waste it.","+4 in your attack stat. +3 if you can't. Anything less is a tax.","Dex, Con, and Wis are your saves. Don't neglect them.","Dex mod + armor item bonus = 5. 6 in heavy armor.","An attack at MAP −10 is rarely the right third action.","Even a sling beats no ranged option at all.","If you cast, take at least one offensive cantrip.","Speed is tactical control. Boots, Longstrider, Fleet — they stack.","Initiative is a free action you get every fight.","Reconnaissance is round zero. Make it count.","A prepared caster who skips scouting is an inferior Sorcerer.","Invisibility Potion. Ghost Oil. Flight Potion. Cheap insurance.","The exploration activity you pick IS your initiative.","Pre-buff before opening the door. Most fights end before the buff does.","Talk to the locals — tensions in the enemy camp cut both ways.","Focus fire. An enemy at 1 HP hits as hard as one at full.","Make the target off-guard before the rest of the party piles in.","Flanking is +2 for one, free for the second. Trade movement for it.","Pick your damage type. Fire and slashing are not the same fight.","A condition on the boss spotlights the whole party's turn.","Target Reflex on giants. Will on brutes. Fortitude on rogues.","Saves can swing five or more between defenses. Pick the weak one.","Trip and Grapple use Athletics. Often better than swinging.","A Champion in a corridor is a fortress. Hold the line.","Don't be the one who charges in alone.","Delaying is framing the fight, not skipping it.","Persistent damage is a long-fight tax. Don't bank on it in three rounds.","Hero Points are best spent on bad luck — not bonus damage.","Don't burn your big combos on round 3 of a won fight.","True Strike on a Magus is a love letter.","Aid stacks with almost everything. A reliable +3 by mid level.","Knock prone, step back, eat the AoO when they stand. Repeat.","Concealment is one-sided when only your team can see through smoke.","Drop a wall between enemy groups. Fight them in waves.","PF2 casters trade brute force for the right tool.","Magic Missile has no save. Most illusions don't either.","Calm Emotions, Synesthesia, Befuddle — partial success still cripples.","Heighten your spells. A rank-3 Fear lights up the whole grid.","Summons aren't immune to much — but expendable counts as immunity.","Don't be Elad, read your character sheet.","ISOBU NEVER DIES!!!!!!!!!","Never trust Aria."];
     var KEY = 'wg.loader.tips.seen';
-    var tipEl = document.getElementById('tip');
+    var tipEl = document.getElementById('tip-text');
     if (!tipEl) return;
     var seen = [];
     try {
