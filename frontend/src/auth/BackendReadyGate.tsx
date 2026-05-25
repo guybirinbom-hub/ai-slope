@@ -7,51 +7,39 @@
 // toasts. This wrapper holds the user at a polished waiting screen until
 // the backend reports ready (typically 1-3 seconds after the window opens).
 //
-// Once ready, the children mount normally and React Query fires the real
-// data fetches against a fully-functional gateway.
+// IMPORTANT — no second dice here on purpose:
 //
-// The waiting screen is the codex parchment loader from
-// frontend/public/codex-loading.html (kept in sync with the identical
-// copy at electron/codex-loading.html that Electron loads BEFORE the
-// React bundle is even fetched). When `ready` flips true we
-// postMessage 'codex-complete' to the iframe, which triggers the d20
-// land + 100% animation; after a short tail we unmount the gate so
-// the user gets to see the d20 settle into its final number before
-// the real app paints over the loader.
+// The Electron splash (electron/codex-loading.html) ALREADY shows a
+// rolling d20 that locks on a number before main.cjs swaps the window to
+// APP_URL. If this gate then mounts its OWN iframe of /codex-loading.html
+// the user sees TWO consecutive dice rolls back-to-back, which feels like
+// the loader is "stuck on the rolled number" because they're really
+// staring at a second dice that just landed.
+//
+// Earlier versions of this file did that — and added timing logic to
+// orchestrate codex-complete + tail unmount on top. Every iteration
+// shipped with a subtle edge case (cleanup races, dep-array re-fires,
+// missing state propagation) that the user kept hitting in production.
+//
+// The radically simpler design: render a plain dark backdrop (same
+// colour as the splash) while we wait, swap to children the moment
+// the backend reports ready. No iframe, no postMessage, no timers.
+// If pg takes long enough on first-boot for the dark screen to be
+// uncomfortable, that's a backend perf bug — fix it there, not by
+// papering over it with a second dice animation that confuses the
+// user about whether the load is actually progressing.
 
 import { backendReadyState } from '@atoms/backendAtoms';
 import { useAtomValue } from 'jotai';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-
-const LAND_TAIL_MS = 480;
+import { type ReactNode } from 'react';
 
 export default function BackendReadyGate(props: { children: ReactNode }) {
   const { ready, error } = useAtomValue(backendReadyState);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const [hideAfterLand, setHideAfterLand] = useState(false);
 
-  // When the backend reports ready, send the iframe a 'codex-complete'
-  // postMessage so the d20 lock + 100% jump plays, then unmount the
-  // gate after the land animation has had time to finish. If we
-  // unmounted immediately on `ready`, the user would never see the
-  // final d20 face.
-  useEffect(() => {
-    if (!ready) return;
-    const iframe = iframeRef.current;
-    if (iframe && iframe.contentWindow) {
-      try {
-        iframe.contentWindow.postMessage({ type: 'codex-complete' }, '*');
-      } catch {
-        // Cross-origin failures are silenced — same-origin in
-        // production, but a sandboxed dev preview can occasionally
-        // throw. Either way we still want to hide the gate.
-      }
-    }
-    const t = setTimeout(() => setHideAfterLand(true), LAND_TAIL_MS);
-    return () => clearTimeout(t);
-  }, [ready]);
-
-  if (ready && hideAfterLand) return <>{props.children}</>;
+  // Backend reported ready — swap to the real app immediately. No
+  // tail, no animation, no second dice. The splash already did the
+  // visual hand-off; this is just a logical gate.
+  if (ready) return <>{props.children}</>;
 
   return (
     <div
@@ -62,22 +50,9 @@ export default function BackendReadyGate(props: { children: ReactNode }) {
         zIndex: 9999,
       }}
     >
-      <iframe
-        ref={iframeRef}
-        src='/codex-loading.html'
-        title='Loading'
-        style={{
-          width: '100%',
-          height: '100%',
-          border: 0,
-          display: 'block',
-        }}
-      />
-      {/* Real error from backend boot — overlay it on top of the
-          iframe instead of trying to message-pass into the iframe's
-          DOM. The iframe is purely visual; this overlay is the
-          escape-hatch surface for actual failures so users never end
-          up staring at a forever-spinning d20. */}
+      {/* Real error from backend boot — surface to the user so they
+          never end up staring at a forever-blank screen if pg fails
+          to start. */}
       {error && (
         <div
           style={{

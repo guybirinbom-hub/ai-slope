@@ -36,20 +36,64 @@ export function getFlatInvItems(inv: Inventory) {
  * @returns - Total bulk as a number
  */
 export function getInvBulk(inv: Inventory | undefined) {
-  let totalBulk = 0;
-  for (const invItem of inv?.items ?? []) {
-    totalBulk += getItemBulk(invItem);
-
-    if (isItemContainer(invItem.item)) {
-      const ignoredBulk = Number(invItem.item.meta_data?.bulk.ignored ?? 0);
-      const containerTotalBulk = invItem.container_contents.reduce(
-        (acc, containerItem) => acc + getItemBulk(containerItem),
-        0
-      );
-      totalBulk += Math.max(containerTotalBulk - ignoredBulk, 0);
+  // Recursive walk. Each item contributes its own bulk; each
+  // container additionally contributes (contents_total − ignored),
+  // clamped to ≥0. `contents_total` is itself a recursive walk so
+  // items nested 2+ containers deep are counted (the previous
+  // single-level loop silently dropped them, which under-counted
+  // bulk and the Encumbered check fired late or not at all).
+  //
+  // Spacious pouches / Bags of Holding work for free under this
+  // model: their `ignored` matches their PF2e "capacity" (e.g. 4
+  // bulk for Spacious Pouch Lesser, 25 for Bag of Holding I), so
+  // their contents contribute zero to character bulk as long as
+  // the player stays under the cap. If they overfill, the excess
+  // does count toward character bulk, which matches the rule that
+  // an over-stuffed spacious pouch is no longer balanced inside
+  // its extra-dimensional space.
+  const sumBulk = (items: InventoryItem[]): number => {
+    let sum = 0;
+    for (const invItem of items) {
+      sum += getItemBulk(invItem);
+      if (isItemContainer(invItem.item)) {
+        const ignored = Number(invItem.item.meta_data?.bulk?.ignored ?? 0);
+        const inside = sumBulk(invItem.container_contents);
+        sum += Math.max(inside - ignored, 0);
+      }
     }
-  }
-  return totalBulk;
+    return sum;
+  };
+  return sumBulk(inv?.items ?? []);
+}
+
+/**
+ * Sum the bulk of every item inside a container (recursively),
+ * BEFORE the container's own `ignored` reduction is applied. Used
+ * by the UI to display "X / Y bulk used" on container rows so the
+ * player can see how much room a spacious pouch / bag of holding
+ * has left. Does NOT add the container's own bulk.
+ *
+ * @param container - InventoryItem that must be a container
+ * @returns total bulk of contents (recursive), or 0 if not a container
+ */
+export function getContainerContentsBulk(container: InventoryItem): number {
+  if (!isItemContainer(container.item)) return 0;
+  const sumBulk = (items: InventoryItem[]): number => {
+    let sum = 0;
+    for (const invItem of items) {
+      sum += getItemBulk(invItem);
+      if (isItemContainer(invItem.item)) {
+        // Inside a nested container, the inner container's own
+        // ignored DOES reduce what bubbles up to its parent
+        // container's display. This matches getInvBulk's recursion.
+        const ignored = Number(invItem.item.meta_data?.bulk?.ignored ?? 0);
+        const inside = sumBulk(invItem.container_contents);
+        sum += Math.max(inside - ignored, 0);
+      }
+    }
+    return sum;
+  };
+  return sumBulk(container.container_contents);
 }
 
 /**

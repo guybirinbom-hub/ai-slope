@@ -10,6 +10,7 @@
     --crimson: #a83a25;
     --crimson-deep: #6f1f10;
     --sage: #5b7148;
+    --sage-bright: #82a06b;
     --bg: #15110b;
     --bg-2: #1c1710;
     --bg-3: #261e14;
@@ -429,7 +430,47 @@
   .sec.collapsed .sec-body { opacity: 0; pointer-events: none; }
 
   /* ============================ LEFT RAIL ============================ */
-  .vitals { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .vitals {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    /* min-width:0 is critical — without it, a child with overflowing
+       text (e.g. "+18/+13/+8" in Spell Atk) can expand its grid
+       track past the column width, pushing the whole grid past the
+       sidebar's right edge. With it, cells stay inside the column
+       and long text either shrinks or clips per the rules below. */
+    min-width: 0;
+  }
+  .vital { min-width: 0; overflow: hidden; }
+  .vital .num { min-width: 0; word-break: keep-all; }
+  /* Auto-shrink modes — switch to more columns + smaller cell font
+     when the count of non-HP cubes grows past 4, so the entire
+     vitals stack stays inside 2 rows below the HP card. The cube
+     count is computed in CodexSheet.tsx; matching CSS modifier
+     classes are appended to .vitals. */
+  .vitals.vitals-c3 { grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+  .vitals.vitals-c4 { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; }
+  .vitals.vitals-c3 .vital { padding: 6px 6px 7px; }
+  .vitals.vitals-c4 .vital { padding: 5px 5px 6px; }
+  .vitals.vitals-c3 .vital .num { font-size: 18px; }
+  .vitals.vitals-c4 .vital .num { font-size: 14px; }
+  .vitals.vitals-c3 .vital .label,
+  .vitals.vitals-c4 .vital .label {
+    font-size: 7.5px; letter-spacing: .14em;
+    /* Two-line wrap for cells like "SPELL DC" / "SPELL ATK" in the
+       narrow 3-col / 4-col layouts — without the explicit wrap they
+       overflow on the right and clip the gold corner ornament. */
+    white-space: normal;
+    line-height: 1.15;
+  }
+  /* HP card always claims the full row regardless of column count. */
+  .vitals.vitals-c3 .vital.span2 { grid-column: 1 / -1; }
+  .vitals.vitals-c4 .vital.span2 { grid-column: 1 / -1; }
+  /* Shield-block tile — same look as a regular vital but with a
+     crimson side stripe so the eye finds the shield(s) at a glance.
+     Goes deeper crimson when broken (HP at or below max/2).
+     The popover positioned absolutely below the tile escapes the
+     tile's overflow:hidden by being its own stacking context. */
+  .vital.shield { border-left: 2px solid var(--gold-deep); overflow: visible; }
+  .vital.shield.broken { border-left: 2px solid var(--crimson); }
   .vital {
     background: var(--bg-card);
     border: 1px solid var(--rule-soft);
@@ -605,6 +646,14 @@
     background: transparent;
     border: 1px dashed var(--rule-soft);
     color: var(--ink-muted);
+  }
+  /* Active mode chips — visually distinct from harmful conditions.
+     Conditions are red/orange (debuffs). Modes are gold/amber to
+     match the codex's "active stance / on" indicator look. */
+  .cond.mode {
+    background: rgba(201, 161, 59, .14);
+    border-color: rgba(201, 161, 59, .55);
+    color: var(--gold, #d8b35a);
   }
   .lang-list { display: flex; flex-wrap: wrap; gap: 4px; }
   .lang {
@@ -1411,4 +1460,659 @@
   [role='menu'] > button:hover {
     background: var(--bg-card-hover, rgba(255, 255, 255, .04));
     color: var(--gold);
+  }
+
+  /* ============================================================
+     BUILDER HOME — Codex Variants / Options / Homebrew panels
+     (mockup-3-variants-options.html)
+     ============================================================
+     These rules replace the Mantine Paper + Tabs + LinkSwitch +
+     ColorInput + half-width Image + BlurBox stack that previously
+     rendered the non-Books tabs in CharBuilderHome. Class names are
+     scoped under .codex-home-page → .panel → .tab-body-codex so they
+     don't leak into other surfaces. */
+  .panel-subhead.builder {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 4px 4px 14px;
+  }
+  .panel-subhead.builder .lhs {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: .22em;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+  .panel-subhead.builder .lhs em {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-muted);
+    text-transform: none;
+    letter-spacing: .04em;
+    margin-left: 8px;
+  }
+  .panel-subhead.builder .lhs b { color: var(--ink); font-weight: 700; }
+
+  /* 2-col variant grid; collapses to 1 col on narrow widths. */
+  .var-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  @media (max-width: 880px) { .var-grid { grid-template-columns: 1fr; } }
+
+  .var-row {
+    display: grid;
+    grid-template-columns: 30px 1fr auto auto;
+    gap: 12px;
+    align-items: start;
+    padding: 11px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--rule-soft);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    position: relative;
+  }
+  .var-row:hover { border-color: var(--rule); }
+  .var-row.on {
+    border-color: var(--gold-deep);
+    background:
+      radial-gradient(ellipse 50% 100% at 0% 50%, rgba(201,161,59,.08), transparent 70%),
+      var(--bg-card);
+  }
+  .var-row.on::before {
+    content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px;
+    background: var(--gold);
+  }
+  .var-row .ico {
+    width: 28px; height: 28px;
+    border: 1px solid var(--gold-deep);
+    background: var(--bg-2);
+    color: var(--gold);
+    display: grid; place-items: center;
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    transform: rotate(45deg);
+  }
+  .var-row .ico > span { transform: rotate(-45deg); }
+  .var-row.on .ico {
+    background:
+      radial-gradient(circle at 50% 50%, var(--gold-bright), var(--gold) 70%, var(--gold-deep));
+    color: var(--bg);
+    box-shadow: 0 0 8px rgba(201,161,59,.4);
+  }
+  .var-row .body { overflow: hidden; }
+  .var-row .nm {
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: .14em;
+    color: var(--ink);
+    text-transform: uppercase;
+  }
+  .var-row .sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--ink-muted);
+    margin-top: 3px;
+    line-height: 1.45;
+    letter-spacing: .02em;
+  }
+  .var-row .pip {
+    width: 16px; height: 16px;
+    border: 1px solid var(--gold-deep);
+    transform: rotate(45deg);
+    margin-top: 4px;
+    background: var(--bg-3);
+    flex-shrink: 0;
+  }
+  .var-row.on .pip {
+    background:
+      radial-gradient(circle at 50% 50%, var(--gold-bright) 0%, var(--gold) 60%, var(--gold-deep) 100%);
+    box-shadow: 0 0 8px rgba(201,161,59,.4), inset 0 0 4px rgba(255,240,210,.3);
+  }
+  .var-row .info {
+    width: 18px; height: 18px;
+    border: 1px solid var(--rule-soft);
+    color: var(--ink-deep);
+    display: grid; place-items: center;
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    cursor: help;
+    margin-top: 4px;
+    background: transparent;
+  }
+  .var-row .info:hover { color: var(--gold); border-color: var(--rule); }
+  .var-row .tag {
+    font-family: 'Cinzel', serif;
+    font-size: 8px;
+    letter-spacing: .18em;
+    color: var(--gold-bright);
+    text-transform: uppercase;
+    border: 1px solid var(--rule-soft);
+    padding: 1px 6px;
+    display: inline-block;
+    margin-top: 6px;
+  }
+  .var-row .tag.beta { color: var(--crimson); border-color: rgba(168,58,37,.4); }
+
+  /* Options panel — flat section, not a floating window. Earlier
+     version used a gold-deep border + 4 corner ornaments + a
+     bg-card background, which made the whole "Sheet Customisation +
+     Authorised Clients" block read as a popup sitting on top of
+     the page. With the page already inside a codex-themed body,
+     repeating that frame here is redundant. We keep the gold top
+     rule and the gold-bordered H3 markers; everything else sits
+     directly on the page bg. */
+  .options-panel {
+    margin-top: 22px;
+    padding: 18px 0 0;
+    position: relative;
+  }
+  /* Single gold-rule separator at the top, gradient-faded to make it
+     feel like an etched divider, not a frame edge. */
+  .options-panel::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: .35;
+  }
+  /* Drop the corner ornaments — they were emphasising the boxy feel. */
+  .options-panel::after,
+  .options-panel .crn3, .options-panel .crn4 { display: none; }
+
+  .options-panel h3 {
+    margin: 0 0 14px;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: .28em;
+    color: var(--gold);
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .options-panel h3::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--rule), transparent);
+  }
+
+  /* Theme + background pickers */
+  .theme-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px dotted var(--rule-soft);
+  }
+  .theme-row:last-child { border-bottom: 0; }
+  .theme-row .lab {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: .22em;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+  }
+  .swatch-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .swatch-row .sw {
+    width: 22px; height: 22px;
+    border: 1px solid rgba(201,161,59,.15);
+    cursor: pointer;
+    transform: rotate(45deg);
+    position: relative;
+    transition: transform .12s;
+  }
+  .swatch-row .sw:hover { transform: rotate(45deg) scale(1.10); }
+  .swatch-row .sw.on {
+    border-color: var(--gold-bright);
+    box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 3px var(--gold), 0 0 10px rgba(201,161,59,.4);
+  }
+
+  .bg-picker {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .bg-tile {
+    aspect-ratio: 3 / 2;
+    border: 1px solid var(--rule-soft);
+    position: relative;
+    cursor: pointer;
+    display: grid;
+    place-items: end start;
+    padding: 6px 8px;
+    overflow: hidden;
+    transition: border-color .12s;
+    background-size: cover;
+    background-position: center;
+  }
+  .bg-tile:hover { border-color: var(--rule); }
+  .bg-tile .lab {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: .2em;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,.7));
+    padding: 14px 6px 4px;
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 1;
+  }
+  .bg-tile.on {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold);
+  }
+  .bg-tile.on .lab { color: var(--gold-bright); }
+
+  /* Authorised clients cards */
+  .clients {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  @media (max-width: 880px) { .clients { grid-template-columns: 1fr; } }
+  .client-card {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--rule-soft);
+    position: relative;
+  }
+  .client-card .ico {
+    width: 36px; height: 36px;
+    border: 1px solid var(--gold-deep);
+    background: var(--bg-3);
+    color: var(--gold);
+    display: grid; place-items: center;
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+  }
+  .client-card .ico img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .client-card .nm {
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: .1em;
+    color: var(--ink);
+  }
+  .client-card .nm small {
+    display: block;
+    margin-top: 2px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    font-style: italic;
+    color: var(--ink-muted);
+    letter-spacing: .02em;
+  }
+  .client-card .revoke {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: .2em;
+    color: var(--ink-deep);
+    text-transform: uppercase;
+    border: 1px solid var(--rule-soft);
+    padding: 4px 9px;
+    cursor: pointer;
+    transition: color .12s, border-color .12s;
+    background: transparent;
+  }
+  .client-card .revoke:hover {
+    color: var(--crimson);
+    border-color: rgba(168,58,37,.4);
+  }
+
+  /* Custom-ops action button inside Options */
+  .options-panel .ops-btn {
+    margin-top: 8px;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 14px;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: linear-gradient(180deg, rgba(201,161,59,.08), var(--bg-2));
+    border: 1px solid var(--gold-deep);
+    cursor: pointer;
+  }
+  .options-panel .ops-btn:hover {
+    color: var(--gold-bright);
+    border-color: var(--gold-bright);
+  }
+  .options-panel .ops-btn .ct {
+    font-size: 9px;
+    color: var(--ink-muted);
+    letter-spacing: .15em;
+  }
+
+  /* Empty-state for the Homebrew tab */
+  .empty-state {
+    padding: 36px 22px;
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--ink-muted);
+    font-size: 14px;
+  }
+  .empty-state a {
+    color: var(--gold);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--gold-deep);
+  }
+  .empty-state a:hover { color: var(--gold-bright); border-bottom-style: solid; }
+
+  /* ============================================================
+     SELECT CONTENT — codex re-skin for the picker modal
+     (mockup-1-select-content.html)
+     ============================================================
+     The picker modal is registered as `selectContent` in
+     @mantine/modals. Its content slot carries the className
+     `wg-resizable-modal-select-content` (see use-resizable-modal.ts),
+     so we scope every override under that root to avoid leaking
+     into other Mantine modals.
+
+     This is a CSS-only re-skin — the JSX (3,861 lines of Mantine
+     widgets) is untouched. The shapes stay the same; the typography,
+     backgrounds, borders, chips, and buttons all swap to codex
+     vocabulary. The result is the picker no longer reads as a
+     Mantine admin panel even though its bones haven't moved. */
+  .wg-resizable-modal-select-content {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--gold-deep) !important;
+    box-shadow: 0 14px 40px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.4) !important;
+    color: var(--ink) !important;
+    font-family: 'Cormorant Garamond', 'Georgia', serif !important;
+    position: relative;
+  }
+  /* Gold corner ornaments — same trick as the codex card pattern. */
+  .wg-resizable-modal-select-content::before,
+  .wg-resizable-modal-select-content::after {
+    content: ''; position: absolute; width: 12px; height: 12px;
+    border: 1.5px solid var(--gold);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .wg-resizable-modal-select-content::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+  .wg-resizable-modal-select-content::after  { top: -1px; right: -1px; border-left: 0; border-bottom: 0; }
+
+  /* Header — gold separator, Cinzel caps */
+  .wg-resizable-modal-select-content .mantine-Modal-header {
+    background: linear-gradient(180deg, var(--bg-2) 0%, transparent 100%) !important;
+    border-bottom: 1px solid var(--rule-soft) !important;
+    padding: 14px 22px 12px !important;
+    position: relative;
+  }
+  .wg-resizable-modal-select-content .mantine-Modal-header::after {
+    content: ''; position: absolute; left: 22px; right: 22px; bottom: -1px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: .35;
+  }
+  .wg-resizable-modal-select-content .mantine-Modal-title,
+  .wg-resizable-modal-select-content .mantine-Modal-title h3,
+  .wg-resizable-modal-select-content .mantine-Modal-title .mantine-Title-root {
+    font-family: 'Cinzel', serif !important;
+    font-size: 17px !important;
+    letter-spacing: .22em !important;
+    color: var(--ink) !important;
+    text-transform: uppercase !important;
+    font-weight: 600 !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Modal-close,
+  .wg-resizable-modal-select-content .mantine-CloseButton-root {
+    color: var(--ink-muted) !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    transition: color .12s, border-color .12s !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Modal-close:hover {
+    color: var(--crimson) !important;
+    border-color: rgba(168,58,37,.4) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Modal-body {
+    background: transparent !important;
+    color: var(--ink) !important;
+    padding: 14px 22px 14px !important;
+  }
+
+  /* Search input + text inputs */
+  .wg-resizable-modal-select-content .mantine-TextInput-input,
+  .wg-resizable-modal-select-content .mantine-NumberInput-input,
+  .wg-resizable-modal-select-content .mantine-Input-input {
+    background: var(--bg-2) !important;
+    border: 1px solid var(--rule-soft) !important;
+    color: var(--ink) !important;
+    font-family: 'Cormorant Garamond', serif !important;
+    font-size: 15px !important;
+  }
+  .wg-resizable-modal-select-content .mantine-TextInput-input::placeholder,
+  .wg-resizable-modal-select-content .mantine-Input-input::placeholder {
+    color: var(--ink-deep) !important;
+    font-style: italic;
+  }
+  .wg-resizable-modal-select-content .mantine-TextInput-input:focus,
+  .wg-resizable-modal-select-content .mantine-Input-input:focus {
+    border-color: var(--gold-deep) !important;
+    outline: 0 !important;
+  }
+  .wg-resizable-modal-select-content .mantine-InputWrapper-label,
+  .wg-resizable-modal-select-content .mantine-Text-root {
+    color: var(--ink-dim) !important;
+  }
+
+  /* Tabs (Class Feats / Archetype / Add Dedication + Ancestry / Versatile Heritage) */
+  .wg-resizable-modal-select-content .mantine-Tabs-list {
+    border-bottom: 1px solid var(--rule) !important;
+    gap: 4px;
+  }
+  .wg-resizable-modal-select-content .mantine-Tabs-tab {
+    color: var(--ink-muted) !important;
+    font-family: 'Cinzel', serif !important;
+    font-size: 11px !important;
+    letter-spacing: .22em !important;
+    text-transform: uppercase !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-bottom: 0 !important;
+    padding: 9px 16px 7px !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Tabs-tab:hover {
+    color: var(--ink-dim) !important;
+    background: rgba(201,161,59,.04) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Tabs-tab[data-active='true'] {
+    color: var(--gold) !important;
+    background:
+      radial-gradient(ellipse 100% 80% at 50% 100%, rgba(201,161,59,.10), transparent 70%),
+      var(--bg-card) !important;
+    border-color: var(--gold-deep) !important;
+  }
+
+  /* Filter chips (Badge variants) — apply codex chip vocabulary */
+  .wg-resizable-modal-select-content .mantine-Badge-root {
+    font-family: 'Cinzel', serif !important;
+    font-size: 10px !important;
+    letter-spacing: .14em !important;
+    text-transform: uppercase !important;
+    border-radius: 0 !important;
+    background: var(--bg-2) !important;
+    color: var(--ink-dim) !important;
+    border: 1px solid var(--rule-soft) !important;
+    padding: 4px 9px !important;
+    height: auto !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Badge-root[data-variant='filled'],
+  .wg-resizable-modal-select-content .mantine-Badge-root[data-variant='light'] {
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 60%, var(--gold-deep) 100%) !important;
+    color: var(--bg) !important;
+    border-color: var(--gold-bright) !important;
+    font-weight: 700 !important;
+  }
+
+  /* Buttons (Cancel / Select / pagination) */
+  .wg-resizable-modal-select-content .mantine-Button-root {
+    font-family: 'Cinzel', serif !important;
+    font-size: 11px !important;
+    letter-spacing: .22em !important;
+    text-transform: uppercase !important;
+    border-radius: 0 !important;
+    background: var(--bg-2) !important;
+    color: var(--ink-dim) !important;
+    border: 1px solid var(--rule-soft) !important;
+    transition: color .12s, border-color .12s, background .12s !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Button-root:hover {
+    color: var(--ink) !important;
+    border-color: var(--rule) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Button-root[data-variant='filled'] {
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 60%, var(--gold-deep) 100%) !important;
+    color: var(--bg) !important;
+    border-color: var(--gold-bright) !important;
+    font-weight: 700 !important;
+    box-shadow: 0 0 12px rgba(201,161,59,.25) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Button-root[data-variant='filled']:hover {
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold-bright) 100%) !important;
+  }
+
+  /* Action icons (info, external link, expand) */
+  .wg-resizable-modal-select-content .mantine-ActionIcon-root {
+    color: var(--ink-muted) !important;
+    background: transparent !important;
+    border: 1px solid var(--rule-soft) !important;
+    border-radius: 0 !important;
+  }
+  .wg-resizable-modal-select-content .mantine-ActionIcon-root:hover {
+    color: var(--gold) !important;
+    border-color: var(--rule) !important;
+    background: rgba(201,161,59,.05) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-ActionIcon-root[data-variant='transparent'] {
+    border-color: transparent !important;
+  }
+
+  /* Avatars (option icons) — square instead of circle, codex frame */
+  .wg-resizable-modal-select-content .mantine-Avatar-root {
+    border-radius: 0 !important;
+    border: 1px solid var(--gold-deep) !important;
+    background: var(--bg-3) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Avatar-placeholder {
+    color: var(--gold) !important;
+    font-family: 'Cinzel', serif !important;
+    font-size: 12px !important;
+    background: var(--bg-3) !important;
+  }
+
+  /* Divider between sections — gold hairline instead of gray */
+  .wg-resizable-modal-select-content .mantine-Divider-root {
+    border-color: var(--rule-soft) !important;
+  }
+
+  /* Pagination — codex chips */
+  .wg-resizable-modal-select-content .mantine-Pagination-control {
+    background: var(--bg-2) !important;
+    color: var(--ink-muted) !important;
+    border: 1px solid var(--rule-soft) !important;
+    border-radius: 0 !important;
+    font-family: 'Cinzel', serif !important;
+    font-size: 11px !important;
+    transition: color .12s, border-color .12s, background .12s !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Pagination-control:hover {
+    color: var(--gold) !important;
+    border-color: var(--rule) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Pagination-control[data-active='true'] {
+    background: linear-gradient(180deg, rgba(201,161,59,.18), var(--bg-2)) !important;
+    color: var(--gold-bright) !important;
+    border-color: var(--gold-deep) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Pagination-dots {
+    color: var(--ink-deep) !important;
+  }
+
+  /* Option rows — the ListBox-style items inside the SelectionOptions list.
+     The legacy markup uses div.option / role='button' with various classes.
+     We can't reliably target the exact row class without inspecting the
+     output, but we can re-skin Group + Stack + Paper layers which is what
+     the rows are built from. */
+  .wg-resizable-modal-select-content .mantine-Paper-root {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--rule-soft) !important;
+    border-radius: 0 !important;
+    color: var(--ink) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Paper-root:hover {
+    border-color: var(--rule) !important;
+  }
+
+  /* Loader */
+  .wg-resizable-modal-select-content .mantine-Loader-root {
+    --loader-color: var(--gold) !important;
+  }
+
+  /* Menus (filter dropdowns) */
+  .wg-resizable-modal-select-content .mantine-Menu-dropdown {
+    background: var(--bg-2) !important;
+    border: 1px solid var(--gold-deep) !important;
+    color: var(--ink) !important;
+    border-radius: 0 !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,.55) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Menu-item {
+    color: var(--ink-dim) !important;
+    font-family: 'Cormorant Garamond', serif !important;
+  }
+  .wg-resizable-modal-select-content .mantine-Menu-item:hover {
+    background: rgba(201,161,59,.08) !important;
+    color: var(--ink) !important;
+  }
+
+  /* Scrollbars inside the modal */
+  .wg-resizable-modal-select-content .mantine-ScrollArea-thumb {
+    background: var(--gold-deep) !important;
+  }
+  .wg-resizable-modal-select-content .mantine-ScrollArea-corner {
+    background: var(--bg-2) !important;
+  }
+
+  /* Titles inside the body (e.g. group headers) */
+  .wg-resizable-modal-select-content .mantine-Title-root {
+    font-family: 'Cinzel', serif !important;
+    color: var(--ink) !important;
+    letter-spacing: .12em !important;
+  }
+
+  /* Kbd hint chips */
+  .wg-resizable-modal-select-content .mantine-Kbd-root {
+    color: var(--ink-deep) !important;
+    border: 1px solid var(--rule-soft) !important;
+    background: var(--bg-2) !important;
+    font-family: 'Cinzel', serif !important;
+    font-size: 10px !important;
+    letter-spacing: .15em !important;
+  }
+
+  /* The Indicator dot used on the "active filter" badge */
+  .wg-resizable-modal-select-content .mantine-Indicator-indicator {
+    background: var(--gold) !important;
+    color: var(--bg) !important;
+  }
+
+  /* Theme icons */
+  .wg-resizable-modal-select-content .mantine-ThemeIcon-root {
+    background: var(--bg-3) !important;
+    color: var(--gold) !important;
+    border: 1px solid var(--gold-deep) !important;
+    border-radius: 0 !important;
   }

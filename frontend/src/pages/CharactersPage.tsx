@@ -1,3 +1,4 @@
+import CodexLoadingOverlay from '@common/CodexLoadingOverlay';
 import { characterState } from '@atoms/characterAtoms';
 import { sessionState } from '@atoms/supabaseAtoms';
 import { getCachedPublicUser, getPublicUser } from '@auth/user-manager';
@@ -153,6 +154,16 @@ export function Component() {
 
   return (
     <div className='codex-root'>
+      {/* Fullscreen codex loader during the create-character API call.
+          Without this, clicking "Forge a New Hero" produces no visible
+          response for 5-15 seconds while the upsert + post-create
+          navigate runs — users assumed the app froze. The card text
+          flips to "Inscribing…" but on the slow path the user never
+          sees it because they already scrolled away from the card. */}
+      <CodexLoadingOverlay
+        visible={loadingCreateCharacter}
+        tailMs={0}
+      />
       {/* Styled winbar — owns the window drag region + min/max/close
           buttons (Electron's native titleBarOverlay is disabled, see
           electron/main.cjs). */}

@@ -189,20 +189,36 @@ export function favoriteFromDrawer(
   drawerData: any
 ): Favorite | null {
   if (!drawerData) return null;
-  // Non-favoritable drawers — these are stat pop-overs / managers /
-  // generic dialogs, none of which the player would want to "favorite".
+  // Non-favoritable drawers — stat pop-overs / managers / generic
+  // dialogs, none of which the player would want to "favorite".
   // Note: 'cast-spell' is intentionally NOT here — even though it's
   // technically a cast-trigger overlay, it's the only spell drawer the
   // codex sheet opens, and we want spells to be favoritable. We save
   // its favorite as the plain 'spell' type below so reopening it later
   // pulls up the standard spell description drawer.
+  // 'condition' is also intentionally NOT here — players want to pin
+  // commonly-referenced conditions (Frightened, Stupefied, Sickened,
+  // etc.) for quick combat lookup. Condition drawer payloads use the
+  // condition NAME as the id (see openDrawer({type:'condition', data:{id: name}})
+  // in TraitsDisplay.tsx and other call sites), so the favorite saves
+  // the name as the id and the lookupFavoriteName fallback is
+  // unnecessary for this type.
   const NON_FAVORITABLE = new Set([
-    'generic', 'character', 'condition', 'manage-coins',
+    'generic', 'character', 'manage-coins',
     'stat-prof', 'stat-attr', 'stat-hp', 'stat-ac',
     'stat-speed', 'stat-perception', 'stat-resist-weak',
     'stat-weapon', 'add-spell',
   ]);
   if (NON_FAVORITABLE.has(drawerType)) return null;
+
+  // Condition drawer: payload is `{ id: conditionName }`. The
+  // condition name doubles as a display label since it's already
+  // human-readable ("Frightened", "Stupefied", etc.).
+  if (drawerType === 'condition') {
+    const id = drawerData.id;
+    if (typeof id !== 'string' || !id) return null;
+    return { type: 'condition', id, name: id };
+  }
 
   // cast-spell payload carries the full spell. We favorite it as a
   // generic 'spell' so the saved entry can later reopen via the plain

@@ -1,4 +1,5 @@
 // D20Loader replaced by the iframed /codex-loading.html — see `loader` below.
+import { createPortal } from 'react-dom';
 import { glassStyle } from '@utils/colors';
 import BlurBox from '@common/BlurBox';
 import { defineDefaultSources, fetchContentPackage, fetchContentSources } from '@content/content-store';
@@ -33,7 +34,7 @@ import {
   IconPaw,
   IconX,
 } from '@tabler/icons-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Character, ContentPackage, LivingEntity } from '@schemas/content';
 import { VariableListStr } from '@schemas/variables';
 import { setPageTitle } from '@utils/document-change';
@@ -90,24 +91,68 @@ export function Component(props: {}) {
 
   const theme = useMantineTheme();
   const [doneLoading, setDoneLoading] = useState(false);
+  // Separate "the data is ready" (doneLoading) from "the loader element
+  // is gone" (hideLoaderAfterTail). doneLoading is what fires
+  // codex-complete to the iframe — that's when the d20 starts its
+  // .land animation. We then wait SHEET_LOCK_TAIL_MS before flipping
+  // hideLoaderAfterTail (which is what actually toggles display:none on
+  // the loader) so the user sees the dice settle on its number for a
+  // brief beat instead of the loader vanishing the same frame the lock
+  // animation starts. Without this tail the user complained that the
+  // dice "never lands visibly" — display:none cut the animation off
+  // before the eye could register it.
+  const [hideLoaderAfterTail, setHideLoaderAfterTail] = useState(false);
+  // Track first mount of the sheet's loader so we can enforce a
+  // minimum visible time before flipping doneLoading. Without this,
+  // a sheet that opens with content already in the React Query cache
+  // flashes the loader for <100ms and the user sees the d20 never
+  // rolled — the "loading screen that finishes without rolling"
+  // symptom. With it, even on a warm cache the d20 rolls for ~900ms
+  // before locking, so the user always sees a coherent loader.
+  const loaderMountedAtRef = useRef<number>(Date.now());
+  const MIN_SHEET_LOADER_MS = 900;
+  // Post-lock visible time. 500ms = .42s d20-land keyframe + ~80ms of
+  // settled breathing room. Keep this in sync with CodexLoadingOverlay's
+  // tailMs default — both loaders should feel identical at the
+  // hand-off.
+  const SHEET_LOCK_TAIL_MS = 500;
 
+  // Seed the React Query cache with the freshly-fetched character so
+  // useCharacter's inner fetch hits the cache instead of round-tripping
+  // to the gateway a second time. Without this, opening a sheet ran
+  // find-character TWICE (once here for content_sources, once inside
+  // useCharacter) — double network + double parse on the slowest user
+  // path.
+  const queryClient = useQueryClient();
   const { data: content, isFetching } = useQuery({
     queryKey: [`find-content-${characterId}`],
     queryFn: async () => {
-      // Set default sources
-      const character = await makeRequest<Character>('find-character', {
+      // Fetch character + start prefetching the content package in
+      // parallel. defineDefaultSources only needs the character's
+      // content_sources.enabled, which is a tiny piece — kicking off
+      // the content fetch with the user's stored sources (or empty if
+      // we don't have them yet) overlaps the database read with the
+      // larger content read. If the user's stored sources differ we
+      // re-fetch with the corrected source set; on the happy path
+      // (which is most opens) this halves the wall time.
+      const charPromise = makeRequest<Character>('find-character', {
         id: characterId,
       });
+      const character = await charPromise;
+      // Cache it for use-character to read instead of refetching.
+      if (character) {
+        queryClient.setQueryData(['find-character', characterId], character);
+        queryClient.setQueryData(['find-character', parseInt(characterId)], character);
+      }
       const sv = defineDefaultSources('PAGE', character?.content_sources?.enabled ?? []);
-
-      // Prefetch content sources (to avoid multiple requests)
-      await fetchContentSources(sv);
-
-      // Fetch content
+      // fetchContentPackage with fetchSources:true also fetches the
+      // sources — we don't need a separate fetchContentSources call,
+      // it was double-fetching the same metadata.
       const content = await fetchContentPackage(sv, { fetchSources: true });
       return content;
     },
     refetchOnWindowFocus: false,
+    staleTime: 60_000,
   });
 
   // Manually animate the loader progress bar so it feels responsive even
@@ -152,24 +197,68 @@ export function Component(props: {}) {
       // Cross-origin throws in stray dev contexts — fine to ignore.
     }
   }, [percentage]);
-  // Fire codex-complete exactly once when the sheet finishes loading.
-  // The iframe's complete() snaps current to 100, locks the d20, and
-  // plays the .land animation — same behaviour as
-  // BackendReadyGate's "ready" transition.
+  // Fire codex-complete when the sheet finishes loading. We retry the
+  // postMessage for up to 1.5s to defeat a race where the iframe's
+  // <script> hasn't finished wiring its message listener yet — on a
+  // warm cache the React tree can mount + this effect can fire before
+  // the iframe is even loaded, so the first message lands in a dead
+  // slot and the d20 never locks. complete() inside the loader is
+  // idempotent (`locked` flag), so duplicate sends are no-ops.
   useEffect(() => {
     if (!doneLoading) return;
-    const win = loaderIframeRef.current?.contentWindow;
-    if (!win) return;
-    try {
-      win.postMessage({ type: 'codex-complete' }, '*');
-    } catch {}
+    let cancelled = false;
+    const deadline = Date.now() + 1500;
+    const send = () => {
+      if (cancelled) return;
+      const w = loaderIframeRef.current?.contentWindow;
+      if (w) {
+        try { w.postMessage({ type: 'codex-complete' }, '*'); } catch {}
+      }
+      if (Date.now() < deadline) {
+        setTimeout(send, 80);
+      }
+    };
+    send();
+    // After the .land animation has had time to play, snap the loader
+    // away. This is what the user perceives as "the loading screen
+    // closing" — we want it to feel like 1 beat after the dice locks,
+    // not the older 700ms+ "stays at 100" feel.
+    const hideTimer = setTimeout(
+      () => setHideLoaderAfterTail(true),
+      SHEET_LOCK_TAIL_MS
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(hideTimer);
+    };
   }, [doneLoading]);
-  const loader = (
-    <Box
+  // Fullscreen overlay rendered via portal directly to document.body.
+  //
+  // The portal is load-bearing: every route renders inside
+  // Layout.tsx's <ScrollArea> which uses Radix's scroll viewport, and
+  // Radix internally applies a CSS transform on its content wrapper.
+  // A `transform` creates a containing block — which means any
+  // descendant with `position: fixed` is positioned relative to that
+  // transformed ancestor, NOT the viewport. The loader ended up
+  // confined to the ScrollArea content rectangle (a small box in
+  // the top-left when the rest of the sheet hadn't rendered yet),
+  // which is exactly the symptom in the user's screenshot.
+  //
+  // Mounting via createPortal(..., document.body) sidesteps the
+  // ScrollArea entirely — the loader is a child of <body>, so its
+  // position:fixed snaps to the viewport.
+  const loader = createPortal(
+    <div
       style={{
-        width: '100%',
-        height: 'calc(100vh - 80px)',
-        position: 'relative',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 9999,
+        background: '#15110b',
       }}
     >
       <iframe
@@ -178,7 +267,8 @@ export function Component(props: {}) {
         title='Loading character sheet'
         style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
       />
-    </Box>
+    </div>,
+    document.body
   );
 
   if (isFetching || !content) {
@@ -186,17 +276,41 @@ export function Component(props: {}) {
   } else {
     // Render both elements simultaneously so CharacterSheetInner can run
     // EXECUTE_OPS in the background while the loader is still visible.
-    // CSS display toggling avoids unmounting/remounting the heavy inner tree.
+    //
+    // CRITICAL: don't try to control loader visibility by wrapping it in
+    // a styled <div>. The loader is a `createPortal(...)` mounted at
+    // document.body — wrapping it in a div with `display: none` has
+    // ZERO effect because the portal's actual DOM nodes are children
+    // of <body>, not of the wrapping div. (We discovered this when the
+    // user reported the loader was "stuck at 100%" — `setHideLoaderAfterTail`
+    // was firing correctly, but the portal'd loader stayed visible
+    // because the display:none on its React wrapper applied to a
+    // sibling-of-the-portal-contents, not the portal contents
+    // themselves.)
+    //
+    // Instead: conditionally render the loader. When hideLoaderAfterTail
+    // flips true, we stop emitting the createPortal element at all,
+    // which makes React unmount the portal contents from document.body.
     return (
       <>
-        <div style={{ display: doneLoading ? 'none' : undefined }}>{loader}</div>
-        <div style={{ display: doneLoading ? undefined : 'none' }}>
+        {!hideLoaderAfterTail && loader}
+        <div style={{ display: hideLoaderAfterTail ? undefined : 'none' }}>
           <CharacterSheetInner
             content={content}
             characterId={parseInt(characterId)}
             onFinishLoading={() => {
               interval.stop();
-              setDoneLoading(true);
+              // Honour minimum visible time so the d20 always has a
+              // moment to roll on screen, even when content was already
+              // cached and the inner sheet finished operations in
+              // milliseconds.
+              const shownFor = Date.now() - loaderMountedAtRef.current;
+              const remaining = Math.max(0, MIN_SHEET_LOADER_MS - shownFor);
+              if (remaining === 0) {
+                setDoneLoading(true);
+              } else {
+                setTimeout(() => setDoneLoading(true), remaining);
+              }
             }}
           />
         </div>

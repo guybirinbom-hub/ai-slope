@@ -46,10 +46,13 @@ export function Component() {
     _setLightMode(lightMode);
   };
 
-  if (isLoading) {
-    return <CodexLoadingOverlay visible />;
-  }
-  if (!entity) {
+  // Always render the overlay; let it manage its own visible→hidden
+  // transition (codex-complete + 500ms tail before unmount). Returning
+  // <CodexLoadingOverlay visible /> from an early branch unmounts the
+  // overlay abruptly when isLoading flips false, cutting off the dice
+  // lock animation. Putting it inline at the top of the JSX with the
+  // controlled `visible` prop lets it run the full lock-and-fade.
+  if (!isLoading && !entity) {
     return (
       <Box p='xl'>
         <Stack>
@@ -61,6 +64,12 @@ export function Component() {
     );
   }
   return (
+    <>
+      {/* CodexLoadingOverlay handles its own lock-and-tail dance — keep
+          it mounted regardless of loading state so the dice gets to
+          land visibly when isLoading flips false. */}
+      <CodexLoadingOverlay visible={isLoading || !entity} />
+      {entity && (
     <MantineProvider
       // Simple copy of main WG theme:
       theme={createTheme({
@@ -114,5 +123,7 @@ export function Component() {
         <DrawerBase />
       </Box>
     </MantineProvider>
+      )}
+    </>
   );
 }

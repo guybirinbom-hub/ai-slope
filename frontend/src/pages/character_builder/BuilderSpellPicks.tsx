@@ -297,10 +297,17 @@ function SpellPickRow(props: {
       return { label: `Cantrips`, rank: 0, rankMin: 0, rankMax: 0 };
     }
     if (props.pick.kind === 'spell') {
+      // Allow any rank ≤ the target slot. A lower-rank spell picked
+      // into a higher slot is stored AT the slot's rank (see `rank`
+      // below) — semantically "heightened to the slot rank", which
+      // matches how PF2e spontaneous repertoire + signature-spell
+      // heightening work, and how prepared casters can prepare a
+      // lower-rank spell into a higher slot. Without this the picker
+      // hid most of the player's actual options at high level.
       return {
         label: `${rankNumber(props.pick.rank)} spells`,
         rank: props.pick.rank,
-        rankMin: props.pick.rank,
+        rankMin: 1,
         rankMax: props.pick.rank,
       };
     }
@@ -313,10 +320,11 @@ function SpellPickRow(props: {
       };
     }
     if (props.pick.kind === 'curriculum-spell') {
+      // Same lower-rank-allowed semantics as the 'spell' case above.
       return {
         label: `${rankNumber(props.pick.rank)} curriculum spells`,
         rank: props.pick.rank,
-        rankMin: props.pick.rank,
+        rankMin: 1,
         rankMax: props.pick.rank,
       };
     }

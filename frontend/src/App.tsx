@@ -98,14 +98,26 @@ export default function App() {
   // the character sheet but leave the search modal, advanced filters,
   // spell drawer descriptions, etc. at their original size.
   //
-  // Initial value comes from the saved customization so the Settings
-  // UI-Size slider and Ctrl+Wheel stay in sync. Clamp to [0.5, 2.0]
-  // to avoid unusable extremes. Step size 0.1 per scroll tick — a
-  // single bump is noticeable but not jarring. localStorage
-  // persistence is intentionally NOT done here; the Settings slider
-  // is the source of truth for "permanent" zoom, and Ctrl+Wheel is a
-  // per-session adjustment.
-  const [zoom, setZoom] = useState<number>(() => getCachedCustomization()?.sheet_theme?.zoom ?? 1);
+  // Persistence:
+  //   - Initial value reads from localStorage ('wg-zoom') first so
+  //     the user's last Ctrl+Wheel level survives an app restart.
+  //     Falls back to the saved customization (Settings UI-Size
+  //     slider) when there's no per-session zoom yet, and finally
+  //     to 1.0.
+  //   - Every change writes back to localStorage. Range is clamped
+  //     to [0.5, 2.0] to avoid unusable extremes.
+  const ZOOM_STORAGE_KEY = 'wg-zoom';
+  const [zoom, setZoom] = useState<number>(() => {
+    try {
+      const stored = parseFloat(localStorage.getItem(ZOOM_STORAGE_KEY) || '');
+      if (Number.isFinite(stored) && stored >= 0.5 && stored <= 2.0) return stored;
+    } catch {}
+    return getCachedCustomization()?.sheet_theme?.zoom ?? 1;
+  });
+  useEffect(() => {
+    // Persist every zoom change so the next app launch picks it up.
+    try { localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom)); } catch {}
+  }, [zoom]);
   useEffect(() => {
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;

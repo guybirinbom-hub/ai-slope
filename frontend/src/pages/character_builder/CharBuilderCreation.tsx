@@ -3,39 +3,22 @@
 import CodexLoadingOverlay from '@common/CodexLoadingOverlay';
 import { characterState } from '@atoms/characterAtoms';
 import { drawerState } from '@atoms/navAtoms';
-import { CharacterInfo } from '@common/CharacterInfo';
 import RichText from '@common/RichText';
 import ResultWrapper from '@common/operations/results/ResultWrapper';
 import { SelectContentButton, selectContent } from '@common/select/SelectContent';
-import { IMPRINT_BG_COLOR, IMPRINT_BG_COLOR_HOVER, IMPRINT_BORDER_COLOR } from '@constants/data';
+import { IMPRINT_BG_COLOR_HOVER, IMPRINT_BORDER_COLOR } from '@constants/data';
 import { fetchContent, fetchContentPackage, fetchContentSources, getDefaultSources } from '@content/content-store';
 import { getIconFromContentType } from '@content/content-utils';
-import classes from '@css/FaqSimple.module.css';
-import { DRAWER_TITLEBAR_FIX } from '@drawers/DrawerBase';
 import { AncestryInitialOverview, convertAncestryOperationsIntoUI } from '@drawers/types/AncestryDrawer';
 import { BackgroundInitialOverview, convertBackgroundOperationsIntoUI } from '@drawers/types/BackgroundDrawer';
 import { ClassInitialOverview, convertClassOperationsIntoUI } from '@drawers/types/ClassDrawer';
-import {
-  Accordion,
-  Badge,
-  Box,
-  Button,
-  Divider,
-  Drawer,
-  Group,
-  ScrollArea,
-  Stack,
-  Text,
-  Title,
-  useMantineTheme,
-} from '@mantine/core';
-import { useElementSize, useHover, useInterval, useMediaQuery, useMergedRef } from '@mantine/hooks';
-import { openContextModal } from '@mantine/modals';
+import { Accordion, Badge, Box, Button, Divider, Drawer, Group, ScrollArea, Stack, Text, useMantineTheme } from '@mantine/core';
+import { useHover, useInterval, useMediaQuery } from '@mantine/hooks';
 import { getChoiceCounts } from '@operations/choice-count-tracker';
 import { OperationResult } from '@schemas/operations';
 import { ObjectWithUUID, convertKeyToBasePrefix, hasOperationSelection } from '@operations/operation-utils';
 import { removeParentSelections } from '@operations/selection-tree';
-import { IconId, IconPuzzle } from '@tabler/icons-react';
+import { IconPuzzle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AbilityBlock,
@@ -47,16 +30,12 @@ import {
   ContentPackage,
   OperationCharacterResultPackage,
 } from '@schemas/content';
-import { ImageOption } from '@schemas/index';
 import { OperationSelect } from '@schemas/operations';
-import { VariableAttr, VariableListStr, VariableProf } from '@schemas/variables';
-import { getAllPortraitImages } from '@utils/portrait-images';
-import { displayResistWeak } from '@utils/resist-weaks';
-import { isCharacterBuilderMobile } from '@utils/screen-sizes';
-import { displayAttributeValue, displayFinalHealthValue, displayFinalProfValue } from '@variables/variable-display';
+import { VariableAttr, VariableProf } from '@schemas/variables';
+import { displayFinalHealthValue, displayFinalProfValue } from '@variables/variable-display';
 import { getAllSkillVariables, getVariable } from '@variables/variable-manager';
-import { compileProficiencyType, variableToLabel } from '@variables/variable-utils';
-import { isEqual, truncate } from 'lodash-es';
+import { compileProficiencyType } from '@variables/variable-utils';
+import { isEqual } from 'lodash-es';
 import { useEffect, useRef, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { SetterOrUpdater } from '@utils/type-fixing';
@@ -69,6 +48,73 @@ import DeepBackgroundForm from './DeepBackgroundForm';
 
 // Determines how often to check for choice counts
 const CHOICE_COUNT_INTERVAL = 1500;
+
+// CodexChoice — replaces the Mantine `<Accordion.Item>` shell used by
+// the per-level sub-sections (ancestry feats, class features, etc.).
+// Visual contract is the `.choice` rule in
+// frontend/src/css/codex-builder.css and the reference design lives in
+// design-mockups/mockup-2-level-options.html.
+//
+// Single-open behaviour is controlled by the parent via `open` +
+// `onToggle` — same model the Mantine Accordion used, just rewritten
+// to drop the Mantine context. `bodyRef` is forwarded onto the
+// expanded panel so `getChoiceCounts()` can DOM-walk for the pending
+// pip count (same trick the legacy items used on Accordion.Panel).
+function CodexChoice(props: {
+  id?: string;
+  open: boolean;
+  onToggle: () => void;
+  glyph: string;
+  name: string;
+  subtitle?: string;
+  pending?: number;
+  state?: 'required' | 'done' | 'warn';
+  stateLabel?: string;
+  children?: React.ReactNode;
+  bodyRef?: React.Ref<HTMLDivElement>;
+  outerRef?: React.Ref<HTMLDivElement>;
+}) {
+  const pending = props.pending ?? 0;
+  return (
+    <div
+      className={`choice${props.open ? ' open' : ''}`}
+      data-wg-name={props.id}
+      ref={props.outerRef}
+    >
+      {props.open && (<><span className='crn3' /><span className='crn4' /></>)}
+      <div
+        className='choice-head'
+        onClick={props.onToggle}
+        role='button'
+        tabIndex={0}
+      >
+        <div className='ico'><span>{props.glyph}</span></div>
+        <div className='nm'>
+          {props.name}
+          {props.subtitle && <small>{props.subtitle}</small>}
+        </div>
+        {pending > 0 ? (
+          <div
+            className='pending-pip'
+            title={`${pending} pending choice${pending === 1 ? '' : 's'}`}
+          >
+            <span>{pending}</span>
+          </div>
+        ) : props.state ? (
+          <div className={`ch-state ${props.state}`}>{props.stateLabel ?? ''}</div>
+        ) : (
+          <div />
+        )}
+        <div className='chev' />
+      </div>
+      {props.open && (
+        <div className='choice-body' ref={props.bodyRef}>
+          {props.children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CharBuilderCreation(props: { characterId: number; pageHeight: number }) {
   const theme = useMantineTheme();
@@ -97,28 +143,30 @@ export default function CharBuilderCreation(props: { characterId: number; pageHe
     return interval.stop;
   }, []);
 
-  const loader = (
-    <Box
-      style={{
-        width: '100%',
-        height: 'calc(100vh - 80px)',
-        position: 'relative',
-      }}
-    >
-      {/* Codex parchment loader replaces the bespoke D20Loader so
-          every transition feels coherent. percentage is still pushed
-          into the iframe via postMessage so the bar reflects the
-          existing 0→100 ramp. */}
-      <CodexLoadingOverlay visible position='absolute' />
-    </Box>
-  );
-
-  if (isFetching || !content) {
-    return loader;
-  } else {
-    return (
-      <>
-        <div style={{ display: doneLoading ? 'none' : undefined }}>{loader}</div>
+  // Loader pattern: keep <CodexLoadingOverlay> ALWAYS rendered so the
+  // component stays mounted across the "fetching → content arrives →
+  // EXECUTE_OPS finishes" transition. Its internal mount state +
+  // `visible` prop manage the lock-and-tail dance:
+  //   • visible=true  → mounted=true, dice rolls
+  //   • visible flips false → CodexLoadingOverlay sends codex-complete
+  //     to its iframe (dice locks on a number), waits tailMs (500 ms),
+  //     then setMounted(false) → portal contents unmount cleanly.
+  //
+  // We toggle visible based on the union of "data still loading" and
+  // "ops still running" so the loader stays up the entire warm-up.
+  // The inner builder sits behind via display:none until doneLoading,
+  // so the dice-locked-on-number is what the user sees, then the
+  // overlay fades and the builder body is already there.
+  //
+  // (Earlier versions tried `<div display:none>{loader}</div>` to hide
+  // the loader after doneLoading. That does NOT work because the
+  // loader's iframe is inside a createPortal(..., document.body) —
+  // hiding the React wrapper has zero effect on the portal contents.)
+  const loaderVisible = isFetching || !content || !doneLoading;
+  return (
+    <>
+      <CodexLoadingOverlay visible={loaderVisible} />
+      {content && (
         <div style={{ display: doneLoading ? undefined : 'none' }}>
           <CharBuilderCreationInner
             characterId={props.characterId}
@@ -130,9 +178,9 @@ export default function CharBuilderCreation(props: { characterId: number; pageHe
             }}
           />
         </div>
-      </>
-    );
-  }
+      )}
+    </>
+  );
 }
 
 export function CharBuilderCreationInner(props: {
@@ -147,7 +195,6 @@ export function CharBuilderCreationInner(props: {
   // ScrollArea scrollbar style.
   const isPhone = useMediaQuery(phoneQuery());
 
-  const [levelItemValue, setLevelItemValue] = useState<string | null>(null);
 
   const { character, setCharacter, results } = useCharacter(props.characterId, {
     type: 'EXECUTE_OPS',
@@ -158,17 +205,10 @@ export function CharBuilderCreationInner(props: {
     },
   });
 
-  const levelItems = Array.from({ length: (character?.level ?? 0) + 1 }, (_, i) => i).map((level) => {
-    return (
-      <LevelSection
-        key={level}
-        level={level}
-        opened={levelItemValue === `${level}`}
-        content={props.content}
-        operationResults={results}
-      />
-    );
-  });
+  // `levelItems` array of <LevelSection> per level lived here. Used by
+  // the pre-codex Accordion that showed every level at once. Replaced
+  // by the single mainLevelItem below (level chip strip swaps which
+  // level renders) and removed since nothing referenced it.
 
   // selectedLevel drives which level's options appear in the main
   // column. Defaults to the character's current level and snaps to it
@@ -370,19 +410,14 @@ export function CharBuilderCreationInner(props: {
             </div>
           </div>
           <ScrollArea h={props.pageHeight - 120} type={isPhone ? 'never' : undefined} scrollbars='y'>
-            <Accordion
-              value={`${selectedLevel}`}
-              defaultValue={`${selectedLevel}`}
-              variant='filled'
-              styles={{
-                label: { paddingTop: 5, paddingBottom: 5 },
-                control: { paddingLeft: 13, paddingRight: 13 },
-                item: { marginTop: 0, marginBottom: 5 },
-                content: { paddingInline: isPhone ? 0 : undefined },
-              }}
-            >
+            {/* Codex level-options column. LevelSection renders either
+                the legacy InitialStatsLevelSection (level 0 — still
+                Mantine-based for now) or a flat list of codex .choice
+                cards (level 1+). See design-mockups/mockup-2-level-options.html
+                for the reference design. */}
+            <div style={{ paddingRight: 4 }}>
               {mainLevelItem}
-            </Accordion>
+            </div>
           </ScrollArea>
         </div>
 
@@ -469,726 +504,15 @@ export function CharBuilderCreationInner(props: {
   );
 }
 
-function CharacterStatSidebar(props: { content: ContentPackage; pageHeight: number }) {
-  const { ref, height } = useElementSize();
-  const [_drawer, openDrawer] = useAtom(drawerState);
-  const [character, setCharacter] = useAtom(characterState);
+// CharacterStatSidebar() + its helper AttributeModPart() lived here.
+// They were the legacy Mantine right-rail (CharacterInfo + ImprintButton
+// + a stack of StatButton tiles) used by the pre-codex builder. The
+// codex layout in CharBuilderCreationInner (Origin / Attributes /
+// Vitals on the left, the .sk-list rail on the right) replaced both,
+// then we removed them entirely once nothing referenced them.
+// StatButton stayed exported because the FocusSpellsList panel still
+// uses it; see its definition below.
 
-  return (
-    <Stack gap={5}>
-      <Box pb={5}>
-        <CharacterInfo
-          ref={ref}
-          character={character}
-          onClickAncestry={() => {
-            selectContent<Ancestry>(
-              'ancestry',
-              (option) => {
-                // Wipe old data
-                const selections = removeParentSelections('ancestry', character?.operation_data?.selections);
-                setCharacter((prev) => {
-                  if (!prev) return prev;
-                  return {
-                    ...prev,
-                    details: {
-                      ...prev.details,
-                      ancestry: option,
-                    },
-                    operation_data: {
-                      ...prev.operation_data,
-                      selections,
-                    },
-                  };
-                });
-              },
-              {
-                selectedId: character?.details?.ancestry?.id,
-              }
-            );
-          }}
-          onClickBackground={() => {
-            selectContent<Background>(
-              'background',
-              (option) => {
-                // Wipe old data
-                const selections = removeParentSelections('background', character?.operation_data?.selections);
-                setCharacter((prev) => {
-                  if (!prev) return prev;
-                  return {
-                    ...prev,
-                    details: {
-                      ...prev.details,
-                      background: option,
-                    },
-                    operation_data: {
-                      ...prev.operation_data,
-                      selections,
-                    },
-                  };
-                });
-              },
-              {
-                selectedId: character?.details?.background?.id,
-              }
-            );
-          }}
-          onClickClass={() => {
-            selectContent<Class>(
-              'class',
-              (option) => {
-                handleClassArchetypeSelection(character, setCharacter, option, '1');
-
-                // Wipe old data
-                let selections = removeParentSelections('class_', character?.operation_data?.selections);
-                if (!character?.variants?.dual_class) {
-                  selections = removeParentSelections('class-feature', selections);
-                }
-                setCharacter((prev) => {
-                  if (!prev) return prev;
-                  return {
-                    ...prev,
-                    details: {
-                      ...prev.details,
-                      class: option,
-                      class_archetype: undefined,
-                    },
-                    operation_data: {
-                      ...prev.operation_data,
-                      selections,
-                    },
-                  };
-                });
-              },
-              {
-                selectedId: character?.details?.class?.id,
-                filterFn: (option) => option.id !== character?.details?.class_2?.id,
-              }
-            );
-          }}
-          onClickClass2={() => {
-            selectContent<Class>(
-              'class',
-              (option) => {
-                handleClassArchetypeSelection(character, setCharacter, option, '2');
-
-                // Wipe old data
-                const selections = removeParentSelections('class-2_', character?.operation_data?.selections);
-                setCharacter((prev) => {
-                  if (!prev) return prev;
-                  return {
-                    ...prev,
-                    details: {
-                      ...prev.details,
-                      class_2: option,
-                      class_archetype_2: undefined,
-                    },
-                    operation_data: {
-                      ...prev.operation_data,
-                      selections,
-                    },
-                  };
-                });
-              },
-              {
-                selectedId: character?.details?.class_2?.id,
-                filterFn: (option) => option.id !== character?.details?.class?.id,
-              }
-            );
-          }}
-          onClickImage={() => {
-            openContextModal({
-              modal: 'selectImage',
-              title: <Title order={3}>Select Portrait</Title>,
-              innerProps: {
-                options: getAllPortraitImages(),
-                onSelect: (option: ImageOption) => {
-                  setCharacter((prev) => {
-                    if (!prev) return prev;
-                    return {
-                      ...prev,
-                      details: {
-                        ...prev.details,
-                        image_url: prev.details?.image_url === option.url ? undefined : option.url,
-                      },
-                    };
-                  });
-                },
-                category: 'portraits',
-              },
-            });
-          }}
-        />
-      </Box>
-      <ScrollArea h={props.pageHeight - height - 20} pr={14} scrollbars='y'>
-        <Stack gap={5}>
-          <Box>
-            <ImprintButton
-              size='lg'
-              fullWidth
-              onClick={() => {
-                openDrawer({ type: 'stat-attr', data: { id: 'CHARACTER' } });
-              }}
-              maw={257} // Max width to prevent overflow
-            >
-              <Group wrap='nowrap'>
-                <AttributeModPart attribute='Str' variableName='ATTRIBUTE_STR' />
-                <AttributeModPart attribute='Dex' variableName='ATTRIBUTE_DEX' />
-                <AttributeModPart attribute='Con' variableName='ATTRIBUTE_CON' />
-                <AttributeModPart attribute='Int' variableName='ATTRIBUTE_INT' />
-                <AttributeModPart attribute='Wis' variableName='ATTRIBUTE_WIS' />
-                <AttributeModPart attribute='Cha' variableName='ATTRIBUTE_CHA' />
-              </Group>
-            </ImprintButton>
-          </Box>
-          <StatButton
-            onClick={() => {
-              openDrawer({ type: 'stat-hp', data: { id: 'CHARACTER' } });
-            }}
-          >
-            <Box>
-              <Text c='gray.0' fz='sm'>
-                Hit Points
-              </Text>
-            </Box>
-            <Box>
-              <Text c='gray.0'>{displayFinalHealthValue('CHARACTER')}</Text>
-            </Box>
-          </StatButton>
-          <StatButton
-            onClick={() => {
-              openDrawer({
-                type: 'stat-prof',
-                data: { id: 'CHARACTER', variableName: 'CLASS_DC', isDC: true },
-              });
-            }}
-          >
-            <Box>
-              <Text c='gray.0' fz='sm'>
-                Class DC
-              </Text>
-            </Box>
-            <Group>
-              <Text c='gray.0'>{displayFinalProfValue('CHARACTER', 'CLASS_DC', true)}</Text>
-              <Badge variant='default'>
-                {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'CLASS_DC')?.value)}
-              </Badge>
-            </Group>
-          </StatButton>
-          <StatButton
-            onClick={() => {
-              openDrawer({
-                type: 'stat-perception',
-                data: { id: 'CHARACTER' },
-              });
-            }}
-          >
-            <Box>
-              <Text c='gray.0' fz='sm'>
-                Perception
-              </Text>
-            </Box>
-            <Group>
-              <Text c='gray.0'>{displayFinalProfValue('CHARACTER', 'PERCEPTION')}</Text>
-              <Badge variant='default'>
-                {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'PERCEPTION')?.value)}
-              </Badge>
-            </Group>
-          </StatButton>
-          <Accordion
-            variant='separated'
-            styles={{
-              label: {
-                paddingTop: 5,
-                paddingBottom: 5,
-              },
-              control: {
-                paddingLeft: 13,
-                paddingRight: 13,
-              },
-              item: {
-                marginTop: 0,
-                marginBottom: 5,
-              },
-            }}
-          >
-            <Accordion.Item className={classes.item} value={'skills'}>
-              <Accordion.Control>
-                <Text c='white' fz='sm'>
-                  Skills
-                </Text>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <Stack gap={5}>
-                  {getAllSkillVariables('CHARACTER')
-                    .filter((skill) => skill.name !== 'SKILL_LORE____')
-                    .map((skill, index) => (
-                      <StatButton
-                        key={index}
-                        onClick={() => {
-                          openDrawer({
-                            type: 'stat-prof',
-                            data: { id: 'CHARACTER', variableName: skill.name },
-                          });
-                        }}
-                      >
-                        <Box>
-                          <Text c='gray.0' fz='sm'>
-                            {truncate(variableToLabel(skill), { length: 15 })}
-                          </Text>
-                        </Box>
-                        <Group wrap='nowrap'>
-                          <Text c='gray.0'>{displayFinalProfValue('CHARACTER', skill.name)}</Text>
-                          <Badge variant='default'>{compileProficiencyType(skill?.value)}</Badge>
-                        </Group>
-                      </StatButton>
-                    ))}
-                </Stack>
-              </Accordion.Panel>
-            </Accordion.Item>
-            <Accordion.Item className={classes.item} value={'saves'}>
-              <Accordion.Control>
-                <Text c='white' fz='sm'>
-                  Saves
-                </Text>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <Stack gap={5}>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'SAVE_FORT' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Fortitude
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Text c='gray.0'>{displayFinalProfValue('CHARACTER', 'SAVE_FORT')}</Text>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SAVE_FORT')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'SAVE_REFLEX' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Reflex
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Text c='gray.0'>{displayFinalProfValue('CHARACTER', 'SAVE_REFLEX')}</Text>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SAVE_REFLEX')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'SAVE_WILL' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Will
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Text c='gray.0'>{displayFinalProfValue('CHARACTER', 'SAVE_WILL')}</Text>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SAVE_WILL')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                </Stack>
-              </Accordion.Panel>
-            </Accordion.Item>
-            <Accordion.Item className={classes.item} value={'attacks'}>
-              <Accordion.Control>
-                <Text c='white' fz='sm'>
-                  Attacks
-                </Text>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <Stack gap={5}>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'SIMPLE_WEAPONS' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Simple Weapons
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SIMPLE_WEAPONS')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'MARTIAL_WEAPONS' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Martial Weapons
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'MARTIAL_WEAPONS')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'ADVANCED_WEAPONS' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Advanced Weapons
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'ADVANCED_WEAPONS')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'UNARMED_ATTACKS' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Unarmed Attacks
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'UNARMED_ATTACKS')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                </Stack>
-              </Accordion.Panel>
-            </Accordion.Item>
-            <Accordion.Item className={classes.item} value={'defenses'}>
-              <Accordion.Control>
-                <Text c='white' fz='sm'>
-                  Defenses
-                </Text>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <Stack gap={5}>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'LIGHT_ARMOR' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Light Armor
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'LIGHT_ARMOR')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'MEDIUM_ARMOR' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Medium Armor
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'MEDIUM_ARMOR')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'HEAVY_ARMOR' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Heavy Armor
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'HEAVY_ARMOR')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'UNARMORED_DEFENSE' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Unarmored Defense
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'UNARMORED_DEFENSE')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                </Stack>
-              </Accordion.Panel>
-            </Accordion.Item>
-            <Accordion.Item className={classes.item} value={'spellcasting'}>
-              <Accordion.Control>
-                <Text c='white' fz='sm'>
-                  Spellcasting
-                </Text>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <Stack gap={5}>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'SPELL_ATTACK' },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Spell Attack
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Text c='gray.0'>{displayFinalProfValue('CHARACTER', 'SPELL_ATTACK')}</Text>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SPELL_ATTACK')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                  <StatButton
-                    onClick={() => {
-                      openDrawer({
-                        type: 'stat-prof',
-                        data: { id: 'CHARACTER', variableName: 'SPELL_DC', isDC: true },
-                      });
-                    }}
-                  >
-                    <Box>
-                      <Text c='gray.0' fz='sm'>
-                        Spell DC
-                      </Text>
-                    </Box>
-                    <Group>
-                      <Text c='gray.0'>{displayFinalProfValue('CHARACTER', 'SPELL_DC', true)}</Text>
-                      <Badge variant='default'>
-                        {compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value)}
-                      </Badge>
-                    </Group>
-                  </StatButton>
-                </Stack>
-              </Accordion.Panel>
-            </Accordion.Item>
-            <Accordion.Item className={classes.item} value={'languages'}>
-              <Accordion.Control>
-                <Text c='white' fz='sm'>
-                  Languages
-                </Text>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <Stack gap={5}>
-                  {(getVariable<VariableListStr>('CHARACTER', 'LANGUAGE_IDS')?.value ?? []).map((languageId, index) => (
-                    <StatButton
-                      key={index}
-                      onClick={() => {
-                        openDrawer({
-                          type: 'language',
-                          data: { id: parseInt(languageId) },
-                        });
-                      }}
-                    >
-                      <Box>
-                        <Text c='gray.0' fz='sm'>
-                          {props.content.languages.find((lang) => lang.id === parseInt(languageId))?.name}
-                        </Text>
-                      </Box>
-                      <Group></Group>
-                    </StatButton>
-                  ))}
-                </Stack>
-              </Accordion.Panel>
-            </Accordion.Item>
-            <Accordion.Item className={classes.item} value={'resist-weaks'}>
-              <Accordion.Control>
-                <Text c='white' fz='sm'>
-                  Resist & Weaks
-                </Text>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <Stack gap={5}>
-                  {(getVariable<VariableListStr>('CHARACTER', 'RESISTANCES')?.value ?? []).map((opt, index) => (
-                    <StatButton
-                      key={index}
-                      onClick={() => {
-                        openDrawer({ type: 'stat-resist-weak', data: { id: 'CHARACTER' } });
-                      }}
-                    >
-                      <Box>
-                        <Text c='gray.0' fz='sm'>
-                          {displayResistWeak('CHARACTER', opt)}
-                        </Text>
-                      </Box>
-                      <Group>
-                        <Badge
-                          variant='default'
-                          styles={{
-                            root: {
-                              textTransform: 'initial',
-                            },
-                          }}
-                        >
-                          Resist.
-                        </Badge>
-                      </Group>
-                    </StatButton>
-                  ))}
-                  {(getVariable<VariableListStr>('CHARACTER', 'WEAKNESSES')?.value ?? []).map((opt, index) => (
-                    <StatButton
-                      key={index}
-                      onClick={() => {
-                        openDrawer({ type: 'stat-resist-weak', data: { id: 'CHARACTER' } });
-                      }}
-                    >
-                      <Box>
-                        <Text c='gray.0' fz='sm'>
-                          {displayResistWeak('CHARACTER', opt)}
-                        </Text>
-                      </Box>
-                      <Group>
-                        <Badge
-                          variant='default'
-                          styles={{
-                            root: {
-                              textTransform: 'initial',
-                            },
-                          }}
-                        >
-                          Weak.
-                        </Badge>
-                      </Group>
-                    </StatButton>
-                  ))}
-                  {(getVariable<VariableListStr>('CHARACTER', 'IMMUNITIES')?.value ?? []).map((opt, index) => (
-                    <StatButton
-                      key={index}
-                      onClick={() => {
-                        openDrawer({ type: 'stat-resist-weak', data: { id: 'CHARACTER' } });
-                      }}
-                    >
-                      <Box>
-                        <Text c='gray.0' fz='sm'>
-                          {displayResistWeak('CHARACTER', opt)}
-                        </Text>
-                      </Box>
-                      <Group>
-                        <Badge
-                          variant='default'
-                          styles={{
-                            root: {
-                              textTransform: 'initial',
-                            },
-                          }}
-                        >
-                          Immun.
-                        </Badge>
-                      </Group>
-                    </StatButton>
-                  ))}
-
-                  {(getVariable<VariableListStr>('CHARACTER', 'RESISTANCES')?.value ?? []).length === 0 &&
-                    (getVariable<VariableListStr>('CHARACTER', 'WEAKNESSES')?.value ?? []).length === 0 &&
-                    (getVariable<VariableListStr>('CHARACTER', 'IMMUNITIES')?.value ?? []).length === 0 && (
-                      <Text fz='sm' c='dimmed' ta='center' fs='italic'>
-                        No records found.
-                      </Text>
-                    )}
-                </Stack>
-              </Accordion.Panel>
-            </Accordion.Item>
-          </Accordion>
-        </Stack>
-      </ScrollArea>
-    </Stack>
-  );
-}
-
-function AttributeModPart(props: { attribute: string; variableName: string }) {
-  return (
-    <Box>
-      <Text c='gray.0' ta='center' fz={11}>
-        {props.attribute}
-      </Text>
-      <Text c='gray.0' ta='center'>
-        {displayAttributeValue('CHARACTER', props.variableName, {
-          c: 'gray.0',
-          ta: 'center',
-        })}
-      </Text>
-    </Box>
-  );
-}
 
 export function StatButton(props: {
   children: React.ReactNode;
@@ -1229,31 +553,8 @@ function LevelSection(props: {
   content: ContentPackage;
   operationResults: OperationCharacterResultPackage | null;
 }) {
-  const theme = useMantineTheme();
   const [subSectionValue, setSubSectionValue] = useState<string | null>(null);
-  const { hovered, ref } = useHover();
-  const [character, setCharacter] = useAtom(characterState);
-  const choiceCountRef = useRef<HTMLDivElement>(null);
-  const mergedRef = useMergedRef(ref, choiceCountRef);
-
-  const [choiceCounts, setChoiceCounts] = useState<{
-    current: number;
-    max: number;
-  }>({
-    current: 0,
-    max: 0,
-  });
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (choiceCountRef.current) {
-        const newChoiceCounts = getChoiceCounts(choiceCountRef.current);
-        if (newChoiceCounts.current !== choiceCounts.current || newChoiceCounts.max !== choiceCounts.max)
-          setChoiceCounts(newChoiceCounts);
-      }
-    }, CHOICE_COUNT_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [props.operationResults]);
+  const [, setCharacter] = useAtom(characterState);
 
   const saveSelectionChange = (path: string, value: string) => {
     setCharacter((prev) => {
@@ -1280,113 +581,71 @@ function LevelSection(props: {
   ) {
     if (props.level === 0) {
       return (
-        <Text fz='sm' mt={10} ta='center' c='gray.2' fs='italic'>
+        <div className='start-hint'>
           Select an ancestry, background, and class to get started.
-        </Text>
+        </div>
       );
     } else {
       return null;
     }
   }
 
+  // ── Level 0 still uses the legacy Mantine InitialStatsLevelSection
+  //    (Ancestry / Background / Class / Books / Items / Custom items).
+  //    Those internal items haven't been migrated to codex yet — they
+  //    live in the same file (search for AncestryAccordionItem etc.).
+  //    We wrap them in a single dummy Mantine `<Accordion>` so the
+  //    `Accordion.Item` children inside have the context they need.
+  if (props.level === 0) {
+    return (
+      <InitialStatsLevelSection
+        content={props.content}
+        operationResults={props.operationResults}
+        onSaveChanges={(path, value) => saveSelectionChange(path, value)}
+      />
+    );
+  }
+
+  // ── Level 1+: flat list of codex .choice cards (ancestry feats,
+  //    class features, etc.) followed by per-level spell picks.
+  //    No Mantine Accordion wrapper; CodexChoice manages its own
+  //    visual state via the parent's subSectionValue.
+  const toggle = (id: string) => setSubSectionValue((prev) => (prev === id ? null : id));
   return (
-    <Accordion.Item
-      data-wg-name={`level-${props.level}`}
-      ref={mergedRef}
-      value={`${props.level}`}
-      style={{
-        backgroundColor: hovered && !props.opened ? IMPRINT_BG_COLOR_HOVER : undefined,
-      }}
-    >
-      <Accordion.Control>
-        <Group wrap='nowrap' justify='space-between' gap={0}>
-          <Text c='gray.2' fw={700} fz='sm'>
-            {props.level === 0 ? (
-              <>
-                Initial Stats{' '}
-                <Text fs='italic' c='dimmed' fz='sm' span>
-                  (Level 1)
-                </Text>
-              </>
-            ) : (
-              `Level ${props.level}`
-            )}
-          </Text>
-          {choiceCounts.max > 0 && (
-            <Badge mr='sm' variant='outline' color='gray.5' size='sm'>
-              <Text
-                fz='sm'
-                c={choiceCounts.current === choiceCounts.max ? 'gray.5' : theme.colors[theme.primaryColor][5]}
-                fw={choiceCounts.current === choiceCounts.max ? undefined : 600}
-                span
-              >
-                {choiceCounts.current}
-              </Text>
-              <Text fz='sm' c='gray.2' span>
-                /{choiceCounts.max}
-              </Text>
-            </Badge>
-          )}
-        </Group>
-      </Accordion.Control>
-      <Accordion.Panel>
-        {props.level === 0 ? (
-          <InitialStatsLevelSection
-            content={props.content}
-            operationResults={props.operationResults}
-            onSaveChanges={(path, value) => {
-              saveSelectionChange(path, value);
-            }}
-          />
-        ) : (
-          <>
-            <Accordion
-              variant='separated'
-              value={subSectionValue}
-              onChange={setSubSectionValue}
-              styles={{
-                label: { paddingTop: 5, paddingBottom: 5 },
-              }}
-            >
-              {props.operationResults?.ancestrySectionResults.map(
-                (r: { baseSource: AbilityBlock; baseResults: OperationResult[] }, index: number) =>
-                  r.baseSource.level === props.level && (
-                    <AncestrySectionAccordionItem
-                      key={index}
-                      id={`ancestry-section-${index}`}
-                      section={r.baseSource}
-                      results={r.baseResults}
-                      onSaveChanges={(path, value) => {
-                        saveSelectionChange(path, value);
-                      }}
-                      opened={subSectionValue === `ancestry-section-${index}`}
-                    />
-                  )
-              )}
-              {props.operationResults?.classFeatureResults.map(
-                (r: { baseSource: AbilityBlock; baseResults: OperationResult[] }, index: number) =>
-                  r.baseSource.level === props.level && (
-                    <ClassFeatureAccordionItem
-                      key={index}
-                      id={`class-feature-${index}`}
-                      feature={r.baseSource}
-                      results={r.baseResults}
-                      onSaveChanges={(path, value) => {
-                        saveSelectionChange(path, value);
-                      }}
-                      opened={subSectionValue === `class-feature-${index}`}
-                    />
-                  )
-              )}
-            </Accordion>
-            {/* Per-level spell picks. Spellcasters get their L1 picks
-                surfaced HERE (in the Level 1 section, next to the
-                Spellcasting class feature), not under Initial Stats. */}
-            <BuilderSpellPicks level={props.level} />
-          </>
-        )}
-      </Accordion.Panel>
-    </Accordion.Item>
+    <div>
+      {props.operationResults?.ancestrySectionResults.map(
+        (r: { baseSource: AbilityBlock; baseResults: OperationResult[] }, index: number) =>
+          r.baseSource.level === props.level && (
+            <AncestrySectionAccordionItem
+              key={`a-${index}`}
+              id={`ancestry-section-${index}`}
+              section={r.baseSource}
+              results={r.baseResults}
+              onSaveChanges={(path, value) => saveSelectionChange(path, value)}
+              opened={subSectionValue === `ancestry-section-${index}`}
+              onToggle={() => toggle(`ancestry-section-${index}`)}
+            />
+          )
+      )}
+      {props.operationResults?.classFeatureResults.map(
+        (r: { baseSource: AbilityBlock; baseResults: OperationResult[] }, index: number) =>
+          r.baseSource.level === props.level && (
+            <ClassFeatureAccordionItem
+              key={`c-${index}`}
+              id={`class-feature-${index}`}
+              feature={r.baseSource}
+              results={r.baseResults}
+              onSaveChanges={(path, value) => saveSelectionChange(path, value)}
+              opened={subSectionValue === `class-feature-${index}`}
+              onToggle={() => toggle(`class-feature-${index}`)}
+            />
+          )
+      )}
+      {/* Per-level spell picks. Spellcasters get their L1 picks
+          surfaced HERE (in the Level 1 section, next to the
+          Spellcasting class feature), not under Initial Stats. */}
+      <BuilderSpellPicks level={props.level} />
+    </div>
   );
 }
 
@@ -1455,9 +714,8 @@ function ClassFeatureAccordionItem(props: {
   results: OperationResult[];
   onSaveChanges: (path: string, value: string) => void;
   opened: boolean;
+  onToggle: () => void;
 }) {
-  const { hovered, ref } = useHover();
-
   const featureChoiceCountRef = useRef<HTMLDivElement>(null);
   const [featureChoiceCounts, setFeatureChoiceCounts] = useState<{
     current: number;
@@ -1477,40 +735,34 @@ function ClassFeatureAccordionItem(props: {
     return () => clearInterval(intervalId);
   }, [props.results]);
 
+  const pending = Math.max(0, featureChoiceCounts.max - featureChoiceCounts.current);
+
   return (
-    <Accordion.Item
-      data-wg-name={props.feature.name}
-      value={props.id}
-      ref={ref}
-      style={{
-        backgroundColor: hovered && !props.opened ? IMPRINT_BG_COLOR_HOVER : undefined,
-      }}
-      mt={3}
+    <CodexChoice
+      id={props.feature.name}
+      open={props.opened}
+      onToggle={props.onToggle}
+      glyph={'✪'}
+      name={props.feature.name}
+      pending={pending}
+      state={pending === 0 && featureChoiceCounts.max > 0 ? 'done' : undefined}
+      stateLabel={'Done'}
+      bodyRef={featureChoiceCountRef}
     >
-      <Accordion.Control>
-        <Group gap={5}>
-          <Box>{props.feature.name}</Box>
-          {featureChoiceCounts.max - featureChoiceCounts.current > 0 && (
-            <Badge variant='filled'>{featureChoiceCounts.max - featureChoiceCounts.current}</Badge>
-          )}
-        </Group>
-      </Accordion.Control>
-      <Accordion.Panel ref={featureChoiceCountRef}>
-        <Stack gap={5}>
-          <RichText ta='justify' store='CHARACTER'>
-            {props.feature.description}
-          </RichText>
-          <DisplayOperationResult
-            source={undefined}
-            level={props.feature.level ?? 0}
-            results={props.results}
-            onChange={(path, value) => {
-              props.onSaveChanges(`${convertKeyToBasePrefix('classFeatureResults', props.feature.id)}_${path}`, value);
-            }}
-          />
-        </Stack>
-      </Accordion.Panel>
-    </Accordion.Item>
+      <Stack gap={5}>
+        <RichText ta='justify' store='CHARACTER'>
+          {props.feature.description}
+        </RichText>
+        <DisplayOperationResult
+          source={undefined}
+          level={props.feature.level ?? 0}
+          results={props.results}
+          onChange={(path, value) => {
+            props.onSaveChanges(`${convertKeyToBasePrefix('classFeatureResults', props.feature.id)}_${path}`, value);
+          }}
+        />
+      </Stack>
+    </CodexChoice>
   );
 }
 
@@ -1520,9 +772,8 @@ function AncestrySectionAccordionItem(props: {
   results: OperationResult[];
   onSaveChanges: (path: string, value: string) => void;
   opened: boolean;
+  onToggle: () => void;
 }) {
-  const { hovered, ref } = useHover();
-
   const featureChoiceCountRef = useRef<HTMLDivElement>(null);
   const [featureChoiceCounts, setFeatureChoiceCounts] = useState<{
     current: number;
@@ -1542,42 +793,37 @@ function AncestrySectionAccordionItem(props: {
     return () => clearInterval(intervalId);
   }, [props.results]);
 
+  const pending = Math.max(0, featureChoiceCounts.max - featureChoiceCounts.current);
+
   return (
-    <Accordion.Item
-      value={props.id}
-      ref={ref}
-      style={{
-        backgroundColor: hovered && !props.opened ? IMPRINT_BG_COLOR_HOVER : undefined,
-      }}
-      mt={3}
+    <CodexChoice
+      id={props.section.name}
+      open={props.opened}
+      onToggle={props.onToggle}
+      glyph={'❦'}
+      name={props.section.name}
+      pending={pending}
+      state={pending === 0 && featureChoiceCounts.max > 0 ? 'done' : undefined}
+      stateLabel={'Done'}
+      bodyRef={featureChoiceCountRef}
     >
-      <Accordion.Control>
-        <Group gap={5}>
-          <Box>{props.section.name}</Box>
-          {featureChoiceCounts.max - featureChoiceCounts.current > 0 && (
-            <Badge variant='filled'>{featureChoiceCounts.max - featureChoiceCounts.current}</Badge>
-          )}
-        </Group>
-      </Accordion.Control>
-      <Accordion.Panel ref={featureChoiceCountRef}>
-        <Stack gap={5}>
-          <RichText ta='justify' store='CHARACTER'>
-            {props.section.description}
-          </RichText>
-          <DisplayOperationResult
-            source={undefined}
-            level={props.section.level ?? 0}
-            results={props.results}
-            onChange={(path, value) => {
-              props.onSaveChanges(
-                `${convertKeyToBasePrefix('ancestrySectionResults', props.section.id)}_${path}`,
-                value
-              );
-            }}
-          />
-        </Stack>
-      </Accordion.Panel>
-    </Accordion.Item>
+      <Stack gap={5}>
+        <RichText ta='justify' store='CHARACTER'>
+          {props.section.description}
+        </RichText>
+        <DisplayOperationResult
+          source={undefined}
+          level={props.section.level ?? 0}
+          results={props.results}
+          onChange={(path, value) => {
+            props.onSaveChanges(
+              `${convertKeyToBasePrefix('ancestrySectionResults', props.section.id)}_${path}`,
+              value
+            );
+          }}
+        />
+      </Stack>
+    </CodexChoice>
   );
 }
 

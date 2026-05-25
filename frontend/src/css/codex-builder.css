@@ -526,3 +526,168 @@
   color: var(--ink-muted); text-transform: uppercase;
   text-align: right; white-space: nowrap;
 }
+
+/* ============================================================
+   CHOICE CARDS — codex replacement for the Mantine Accordion
+   in the center column of CharBuilderCreation.
+   Each .choice is one section the player needs to act on at
+   this level (Ancestry Feat, Class Feature, etc).
+   See design-mockups/mockup-2-level-options.html for the
+   reference design.
+   ============================================================ */
+/* Choice card — flat, page-integrated. Earlier iterations of this
+   rule used a solid border + bg-card + box-shadow on .open, which
+   made each section read as a popup window floating on the page
+   rather than a section of the page. The fix: drop the box chrome
+   entirely. Sections sit on the page background; a hairline rule
+   above each one provides visual separation; the active section
+   gets a subtle gold tint behind it (no border, no shadow, no
+   corner ornaments). The header lozenge + Cinzel name + diamond
+   pip already mark the section identity without box chrome. */
+.codex-builder-page .choice {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--rule-soft);
+  margin-bottom: 0;
+  position: relative;
+  transition: background .15s;
+}
+.codex-builder-page .choice:first-child { border-top: 0; }
+.codex-builder-page .choice:hover { background: rgba(201,161,59,.025); }
+.codex-builder-page .choice.open {
+  background: rgba(201,161,59,.04);
+}
+/* The previous open-state corner ornaments reinforced the boxy
+   "this is a separate window" feel. With the flat layout they're
+   no longer needed, so they're explicitly hidden. */
+.codex-builder-page .choice.open::before,
+.codex-builder-page .choice.open::after,
+.codex-builder-page .choice.open .crn3,
+.codex-builder-page .choice.open .crn4 { display: none; }
+
+.codex-builder-page .choice-head {
+  display: grid;
+  grid-template-columns: 26px 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  /* Header padding is asymmetric — small horizontal padding now that
+     there's no card frame, so the section reads as flush with the
+     page. Vertical padding gives the row a comfortable target height. */
+  padding: 11px 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.codex-builder-page .choice-head .ico {
+  width: 26px; height: 26px;
+  border: 1px solid var(--gold-deep);
+  display: grid; place-items: center;
+  background: var(--bg-2);
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  transform: rotate(45deg);
+}
+.codex-builder-page .choice-head .ico > span { transform: rotate(-45deg); display: inline-block; }
+.codex-builder-page .choice-head .nm {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: .14em;
+  color: var(--ink);
+  text-transform: uppercase;
+}
+.codex-builder-page .choice-head .nm small {
+  display: block;
+  margin-top: 3px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-muted);
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
+.codex-builder-page .ch-state {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-muted);
+  background: var(--bg-2);
+  white-space: nowrap;
+}
+.codex-builder-page .ch-state.required {
+  color: var(--gold);
+  border-color: var(--gold-deep);
+  background: linear-gradient(180deg, rgba(201,161,59,.10), var(--bg-2));
+}
+.codex-builder-page .ch-state.done {
+  color: var(--sage, #5b7148);
+  border-color: rgba(91,113,72,.4);
+}
+.codex-builder-page .ch-state.done::before { content: '✓ '; }
+.codex-builder-page .ch-state.warn {
+  color: var(--crimson);
+  border-color: rgba(168,58,37,.4);
+}
+
+.codex-builder-page .choice-head .chev {
+  width: 8px; height: 8px;
+  border-right: 1.5px solid var(--ink-muted);
+  border-bottom: 1.5px solid var(--ink-muted);
+  transform: rotate(45deg);
+  transition: transform .15s, border-color .15s;
+  margin-right: 4px;
+}
+.codex-builder-page .choice.open .choice-head .chev {
+  transform: rotate(-135deg);
+  border-color: var(--gold);
+  margin-top: 4px;
+}
+
+.codex-builder-page .choice-body {
+  /* No outer card frame anymore, so the dashed top rule is the only
+     thing visually separating header from body. Left-padding lines up
+     the body text with the header's name column (past the 26-px
+     lozenge + 12-px gap). Right and bottom paddings are smaller now
+     that there's no card border eating space. */
+  padding: 10px 8px 14px 46px;
+  border-top: 1px dashed var(--rule-soft);
+  position: relative;
+}
+
+/* Pending-choice badge that appears next to a section name when
+   the player still has selections to make inside. Replaces the
+   Mantine <Badge variant='filled'> used for the same purpose. */
+.codex-builder-page .pending-pip {
+  display: inline-grid;
+  place-items: center;
+  width: 18px; height: 18px;
+  border: 1px solid var(--gold);
+  background:
+    radial-gradient(circle at 50% 50%, var(--gold-bright) 0%, var(--gold) 60%, var(--gold-deep) 100%);
+  color: var(--bg);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  transform: rotate(45deg);
+  margin-left: 6px;
+  flex: 0 0 auto;
+  box-shadow: 0 0 8px rgba(201,161,59,.35);
+}
+.codex-builder-page .pending-pip > span { transform: rotate(-45deg); display: inline-block; }
+
+/* Initial-stats (level 0) marker. Used when the player hasn't
+   chosen an ancestry/background/class yet. */
+.codex-builder-page .start-hint {
+  background: var(--bg-card);
+  border: 1px dashed var(--rule);
+  padding: 18px 20px;
+  text-align: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: var(--ink-muted);
+  font-size: 14px;
+  letter-spacing: .04em;
+}

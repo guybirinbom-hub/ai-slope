@@ -1,61 +1,15 @@
 import { generateNames } from '@ai/fantasygen-dev/name-controller';
-import { GroupLinkSwitch, LinkSwitch, LinksGroup } from '@common/LinksGroup';
-import { GUIDE_BLUE, IMPRINT_BG_COLOR, IMPRINT_BG_COLOR_HOVER, IMPRINT_BORDER_COLOR } from '@constants/data';
-import {
-  Stack,
-  Group,
-  Box,
-  Avatar,
-  Title,
-  Text,
-  TextInput,
-  ActionIcon,
-  rem,
-  Select,
-  Tabs,
-  useMantineTheme,
-  UnstyledButton,
-  PasswordInput,
-  Image,
-  Divider,
-  Paper,
-  ScrollArea,
-  ColorInput,
-  HoverCard,
-  List,
-  Anchor,
-} from '@mantine/core';
-import { getHotkeyHandler, useElementSize, useMediaQuery } from '@mantine/hooks';
+import { GUIDE_BLUE } from '@constants/data';
+import { Stack, Group, Box, Avatar, Title, Text, TextInput, ActionIcon, rem, Select, Tabs, useMantineTheme, UnstyledButton, PasswordInput, Image, Divider, Paper, ScrollArea, HoverCard, List, Anchor } from '@mantine/core';
+import { useElementSize, useMediaQuery } from '@mantine/hooks';
 import { modals, openContextModal } from '@mantine/modals';
 import { showNotification } from '@mantine/notifications';
-import {
-  IconUserCircle,
-  IconRefreshDot,
-  IconBooks,
-  IconAsset,
-  IconVocabulary,
-  IconSettings,
-  IconBook2,
-  IconWorld,
-  IconMap,
-  IconBrandSafari,
-  IconDots,
-  IconServer,
-  IconPlus,
-  IconKey,
-  IconArchive,
-  IconHexagonalPrism,
-  IconFlag,
-  IconX,
-  IconExternalLink,
-  IconArrowRight,
-} from '@tabler/icons-react';
+import { IconUserCircle, IconRefreshDot, IconBooks, IconAsset, IconVocabulary, IconSettings, IconBook2, IconWorld, IconMap, IconBrandSafari, IconDots, IconServer, IconPlus, IconKey, IconArchive, IconHexagonalPrism, IconFlag, IconX, IconExternalLink } from '@tabler/icons-react';
 import { getAllBackgroundImages } from '@utils/background-images';
 import { getAllPortraitImages } from '@utils/portrait-images';
 import useRefresh from '@utils/use-refresh';
 import { useState } from 'react';
 import { useAtom } from 'jotai';
-import FantasyGen_dev from '@assets/images/fantasygen_dev.png';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   defineDefaultSources,
@@ -65,7 +19,6 @@ import {
 } from '@content/content-store';
 import { displayPatronOnly } from '@utils/notifications';
 import { getCachedPublicUser, getPublicUser } from '@auth/user-manager';
-import BlurButton from '@common/BlurButton';
 import OperationsModal from '@modals/OperationsModal';
 import { hasPatreonAccess } from '@utils/patreon';
 import { phoneQuery } from '@utils/mobile-responsive';
@@ -75,10 +28,52 @@ import { userState } from '@atoms/userAtoms';
 import { makeRequest } from '@requests/request-manager';
 import { updateSubscriptions } from '@content/homebrew';
 import { ImageOption } from '@schemas/index';
-import { cloneDeep, isEqual, uniq } from 'lodash-es';
-import BlurBox from '@common/BlurBox';
-import { DisplayIcon } from '@common/IconDisplay';
+import { cloneDeep, isEqual, truncate, uniq } from 'lodash-es';
 import useCharacter from '@utils/use-character';
+
+// Codex-styled toggle row used by the Variants / Options / Homebrew
+// tabs in this page. Replaces the Mantine `<LinkSwitch>` widget. The
+// row is the whole click target; clicking the body or the diamond
+// "pip" both toggle, and the small info icon opens the existing
+// generic info drawer with the variant/option's description.
+function CodexToggleRow(props: {
+  glyph: string;
+  name: string;
+  sub: string;
+  on: boolean | undefined;
+  onToggle: () => void;
+  onInfo?: () => void;
+  tag?: 'beta' | 'homebrew';
+}) {
+  return (
+    <div
+      className={`var-row${props.on ? ' on' : ''}`}
+      onClick={props.onToggle}
+      role='button'
+      tabIndex={0}
+    >
+      <div className='ico'><span>{props.glyph}</span></div>
+      <div className='body'>
+        <div className='nm'>{props.name}</div>
+        <div className='sub'>{props.sub}</div>
+        {props.tag === 'beta' && <span className='tag beta'>Beta</span>}
+        {props.tag === 'homebrew' && <span className='tag beta'>Beta · Homebrew</span>}
+      </div>
+      {props.onInfo ? (
+        <div
+          className='info'
+          onClick={(e) => { e.stopPropagation(); props.onInfo!(); }}
+          title='Open full description'
+          role='button'
+          tabIndex={0}
+        >i</div>
+      ) : (
+        <div />
+      )}
+      <div className='pip' />
+    </div>
+  );
+}
 
 export default function CharBuilderHome(props: { characterId: number; pageHeight: number; onContinue?: () => void }) {
   const theme = useMantineTheme();
@@ -291,768 +286,13 @@ export default function CharBuilderHome(props: { characterId: number; pageHeight
 
   const iconStyle = { width: rem(12), height: rem(12) };
 
-  const getOptionsSection = () => (
-    <Box h='100%'>
-      <Paper
-        shadow='sm'
-        h='100%'
-        style={{
-          backgroundColor: 'rgba(0, 0, 0, 0.13)',
-        }}
-      >
-        <Tabs defaultValue='books' h='100%'>
-          <Tabs.List grow>
-            <Tabs.Tab
-              value='books'
-              leftSection={isPhone ? undefined : <IconBooks style={iconStyle} />}
-              px={isPhone ? 5 : undefined}
-            >
-              <Text fz={isPhone ? 11 : 'sm'}>Books</Text>
-            </Tabs.Tab>
-            <Tabs.Tab
-              value='homebrew'
-              leftSection={isPhone ? undefined : <IconAsset style={iconStyle} />}
-              px={isPhone ? 5 : undefined}
-            >
-              <Text fz={isPhone ? 11 : 'sm'}>Homebrew</Text>
-            </Tabs.Tab>
-            <Tabs.Tab
-              value='variants'
-              leftSection={isPhone ? undefined : <IconVocabulary style={iconStyle} />}
-              px={isPhone ? 5 : undefined}
-            >
-              <Text fz={isPhone ? 11 : 'sm'}>Variant Rules</Text>
-            </Tabs.Tab>
-            <Tabs.Tab
-              value='options'
-              leftSection={isPhone ? undefined : <IconSettings style={iconStyle} />}
-              px={isPhone ? 5 : undefined}
-            >
-              <Text fz={isPhone ? 11 : 'sm'}>Options</Text>
-            </Tabs.Tab>
-          </Tabs.List>
-          <ScrollArea h='90%' scrollbars='y'>
-            <Tabs.Panel value='books'>
-              <Stack gap={0} pt='sm'>
-                <LinksGroup
-                  icon={IconBook2}
-                  label={'Pathfinder Core'}
-                  links={books
-                    .filter((book) => book.group === 'pathfinder-core')
-                    .map((book) => ({
-                      label: book.name,
-                      id: book.id,
-                      url: book.url,
-                      enabled: hasBookEnabled(book.id),
-                    }))}
-                  onLinkChange={(bookId, enabled) => setBooksEnabled([bookId], enabled)}
-                  onEnableAll={() => {
-                    setBooksEnabled(
-                      books.filter((book) => book.group === 'pathfinder-core').map((book) => book.id),
-                      true
-                    );
-                  }}
-                />
-                <LinksGroup
-                  icon={IconServer}
-                  label={'Starfinder Core'}
-                  links={books
-                    .filter((book) => book.group === 'starfinder-core')
-                    .map((book) => ({
-                      label: book.name,
-                      id: book.id,
-                      url: book.url,
-                      enabled: hasBookEnabled(book.id),
-                    }))}
-                  onLinkChange={(bookId, enabled) => setBooksEnabled([bookId], enabled)}
-                  onEnableAll={() => {
-                    setBooksEnabled(
-                      books.filter((book) => book.group === 'starfinder-core').map((book) => book.id),
-                      true
-                    );
-                  }}
-                />
-                <Box py={8}>
-                  <Divider w={220} ml={15} />
-                </Box>
-                <LinksGroup
-                  icon={IconMap}
-                  label={'Adventure Paths'}
-                  links={books
-                    .filter((book) => book.group === 'adventure-path')
-                    .map((book) => ({
-                      label: book.name,
-                      id: book.id,
-                      url: book.url,
-                      enabled: hasBookEnabled(book.id),
-                    }))}
-                  onLinkChange={(bookId, enabled) => setBooksEnabled([bookId], enabled)}
-                  onEnableAll={() => {
-                    setBooksEnabled(
-                      books.filter((book) => book.group === 'adventure-path').map((book) => book.id),
-                      true
-                    );
-                  }}
-                />
-                <LinksGroup
-                  icon={IconBrandSafari}
-                  label={'Standalone Adventures'}
-                  links={books
-                    .filter((book) => book.group === 'standalone-adventure')
-                    .map((book) => ({
-                      label: book.name,
-                      id: book.id,
-                      url: book.url,
-                      enabled: hasBookEnabled(book.id),
-                    }))}
-                  onLinkChange={(bookId, enabled) => setBooksEnabled([bookId], enabled)}
-                  onEnableAll={() => {
-                    setBooksEnabled(
-                      books.filter((book) => book.group === 'standalone-adventure').map((book) => book.id),
-                      true
-                    );
-                  }}
-                />
-                <LinksGroup
-                  icon={IconWorld}
-                  label={'Lost Omens'}
-                  links={books
-                    .filter((book) => book.group === 'lost-omens')
-                    .map((book) => ({
-                      label: book.name,
-                      id: book.id,
-                      url: book.url,
-                      enabled: hasBookEnabled(book.id),
-                    }))}
-                  onLinkChange={(bookId, enabled) => setBooksEnabled([bookId], enabled)}
-                  onEnableAll={() => {
-                    setBooksEnabled(
-                      books.filter((book) => book.group === 'lost-omens').map((book) => book.id),
-                      true
-                    );
-                  }}
-                />
-                <LinksGroup
-                  icon={IconArchive}
-                  label={'Core Backports'}
-                  links={books
-                    .filter((book) => book.group === 'legacy')
-                    .map((book) => ({
-                      label: book.name,
-                      id: book.id,
-                      url: book.url,
-                      enabled: hasBookEnabled(book.id),
-                    }))}
-                  onLinkChange={(bookId, enabled) => setBooksEnabled([bookId], enabled)}
-                  onEnableAll={() => {
-                    setBooksEnabled(
-                      books.filter((book) => book.group === 'legacy').map((book) => book.id),
-                      true
-                    );
-                  }}
-                />
-                <LinksGroup
-                  icon={IconHexagonalPrism}
-                  label={'Playtest'}
-                  links={books
-                    .filter((book) => book.group === 'playtest')
-                    .map((book) => ({
-                      label: book.name,
-                      id: book.id,
-                      url: book.url,
-                      enabled: hasBookEnabled(book.id),
-                    }))}
-                  onLinkChange={(bookId, enabled) => setBooksEnabled([bookId], enabled)}
-                  onEnableAll={() => {
-                    setBooksEnabled(
-                      books.filter((book) => book.group === 'playtest').map((book) => book.id),
-                      true
-                    );
-                  }}
-                />
-                <LinksGroup
-                  icon={IconDots}
-                  label={'Miscellaneous'}
-                  links={books
-                    .filter((book) => book.group === 'misc')
-                    .map((book) => ({
-                      label: book.name,
-                      id: book.id,
-                      url: book.url,
-                      enabled: hasBookEnabled(book.id),
-                    }))}
-                  onLinkChange={(bookId, enabled) => setBooksEnabled([bookId], enabled)}
-                  onEnableAll={() => {
-                    setBooksEnabled(
-                      books.filter((book) => book.group === 'misc').map((book) => book.id),
-                      true
-                    );
-                  }}
-                />
-              </Stack>
-            </Tabs.Panel>
-
-            <Tabs.Panel value='homebrew'>
-              <Stack gap={0} pt='sm'>
-                {homebrewBundles.map((s, index) => (
-                  <GroupLinkSwitch
-                    key={index}
-                    label={s.name}
-                    id={s.id}
-                    url={s.url ?? ''}
-                    enabled={character?.content_sources?.enabled?.includes(s.id)}
-                    onLinkChange={(id, enabled) => setBooksEnabled([id], enabled)}
-                  />
-                ))}
-                {homebrewBundles.length === 0 && (
-                  <Text c='gray.2' fz='sm' ta='center' fs='italic' py={20}>
-                    You haven't created any homebrew bundles yet.{' '}
-                    <Anchor fz='sm' href='/homebrew'>
-                      Go make one!
-                    </Anchor>
-                  </Text>
-                )}
-              </Stack>
-            </Tabs.Panel>
-
-            <Tabs.Panel value='variants'>
-              <Stack gap={0} pt='sm'>
-                <LinkSwitch
-                  label='Ancestry Paragon'
-                  info={`Most characters have some elements that connect them to their ancestry but identify more strongly with their class or unique personality. Sometimes, though, a character is the embodiment of their ancestry to the point that it’s of equal importance to their class. For a game where an ancestral background is a major theme and such characters are the norm, your group might consider using the ancestry paragon variant.`}
-                  url='https://2e.aonprd.com/Rules.aspx?ID=1336'
-                  enabled={character?.variants?.ancestry_paragon}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        variants: {
-                          ...prev.variants,
-                          ancestry_paragon: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Automatic Bonus Progression'
-                  info={`This variant removes the item bonus to rolls and DCs usually provided by magic items (with the exception of armor’s item bonus) and replaces it with a new kind of bonus - potency - to reflect a character’s innate ability. In this variant, magic items, if they exist at all, can provide unique special abilities rather than numerical increases.`}
-                  url='https://2e.aonprd.com/Rules.aspx?ID=2741'
-                  enabled={character?.variants?.automatic_bonus_progression}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        variants: {
-                          ...prev.variants,
-                          automatic_bonus_progression: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Dual Class'
-                  info={`Sometimes, especially when you have a particularly small play group or want to play incredibly versatile characters, you might want to allow dual-class characters that have the full benefits of two different classes.`}
-                  url='https://2e.aonprd.com/Rules.aspx?ID=1328'
-                  enabled={character?.variants?.dual_class}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        details: {
-                          ...prev.details,
-                          class_2: enabled ? prev.details?.class_2 : undefined,
-                        },
-                        variants: {
-                          ...prev.variants,
-                          dual_class: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Free Archetype'
-                  info={`Sometimes the story of your game calls for a group where everyone is a pirate or an apprentice at a magic school. The free archetype variant introduces a shared aspect to every character without taking away any of that character’s existing choices.`}
-                  url='https://2e.aonprd.com/Rules.aspx?ID=2751'
-                  enabled={character?.variants?.free_archetype}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        variants: {
-                          ...prev.variants,
-                          free_archetype: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Gradual Attribute Boosts'
-                  info={`In this variant, a character gains attribute boosts more gradually as they level up, rather than receiving four attribute boosts at 5th, 10th, 15th, and 20th levels. Each character gains one attribute boost when they reach each of 2nd, 3rd, 4th, and 5th levels. These are collectively a single set of attribute boosts, so a character can’t boost the same attribute more than once per set; players can put a dot next to each boosted attribute or otherwise mark it to keep track. PCs also receive an attribute boost at 7th, 8th, 9th, and 10th level (a second set); at 12th, 13th, 14th, and 15th level (a third set); and at 17th, 18th, 19th, and 20th level (the fourth and final set).\n\nThis spreads out the attribute boosts, and using them earlier means a character can increase their most important attribute modifiers at a lower level. This makes characters slightly more powerful on average, but it makes levels 5, 10, 15, and 20 less important since characters usually choose the least important attribute boost of the set at those levels.`}
-                  url='https://2e.aonprd.com/Rules.aspx?ID=1300'
-                  enabled={character?.variants?.gradual_attribute_boosts}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        variants: {
-                          ...prev.variants,
-                          gradual_attribute_boosts: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Proficiency without Level'
-                  info={`This variant removes a character's level from their proficiency bonus, scaling it differently for a style of game that's outside the norm. This is a significant change to the system. The proficiency rank progression in Player Core is designed for heroic fantasy games where heroes rise from humble origins to world-shattering strength. For some games, this narrative arc doesn't fit. Such games are about hedging bets in an uncertain and gritty world, in which even the world's best fighter can't guarantee a win against a large group of moderately skilled brigands.`}
-                  url='https://2e.aonprd.com/Rules.aspx?ID=2762'
-                  enabled={character?.variants?.proficiency_without_level}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        variants: {
-                          ...prev.variants,
-                          proficiency_without_level: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Battlezoo Monster Parts (Light)'
-                  info={`Enables the Battlezoo Bestiary Monster Parts subsystem (Light variant). With this on, currency is partially replaced by monster parts harvested from defeated foes, and each item in your inventory can be flipped into "monster-parts mode" via the Item drawer — its potency, striking, and resilient runes are then derived from the gp of monster parts you've invested in it (Tables 3A/3B). An item can be upgraded with either runes OR monster parts, not both. Imbued Property items from the Battlezoo Bestiary homebrew bundle apply as property runes on monster-parts items. Subscribe to the bundle on the Homebrew page to enable the imbued-property catalog.`}
-                  enabled={character?.variants?.monster_parts}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        variants: {
-                          ...prev.variants,
-                          monster_parts: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Deep Background'
-                  info={`Instead of picking a published background, build your own. You'll choose a name and short description, two attribute boosts (each to a different ability score), training in a Lore skill of your choice, and one skill feat — the character automatically becomes trained in that feat's prerequisite skill.`}
-                  enabled={character?.variants?.deep_background}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        variants: {
-                          ...prev.variants,
-                          deep_background: enabled,
-                        },
-                        // When turning Deep Background ON, clear any
-                        // published background that was previously picked.
-                        // When turning OFF, the custom background data
-                        // stays in details.info.deep_background (harmless)
-                        // but is no longer rendered.
-                        details: enabled
-                          ? { ...prev.details, background: undefined }
-                          : prev.details,
-                      };
-                    });
-                  }}
-                />
-                {/* <LinkSwitch
-                  label='Stamina'
-                  info={`In some fantasy stories, the heroes are able to avoid any serious injury until the situation gets dire, getting by with a graze or a flesh wound and needing nothing more than a quick rest to get back on their feet. If your group wants to tell tales like those, you can use the stamina variant to help make that happen.`}
-                  url='https://2e.aonprd.com/Rules.aspx?ID=1378'
-                  enabled={character?.variants?.stamina}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        variants: {
-                          ...prev.variants,
-                          stamina: enabled,
-                        },
-                      };
-                    });
-                  }}
-                /> */}
-              </Stack>
-            </Tabs.Panel>
-
-            <Tabs.Panel value='options'>
-              <Stack gap={0} pt='sm'>
-                <LinkSwitch
-                  label='Alternate Ancestry Boosts'
-                  info={`The attribute boosts and flaws listed in each ancestry represent general trends or help guide players to create the kinds of characters from that ancestry most likely to pursue the life of an adventurer. However, ancestries aren’t a monolith. You always have the option to replace your ancestry’s listed attribute boosts and attribute flaws entirely and instead select two free attribute boosts when creating your character.`}
-                  enabled={character?.options?.alternate_ancestry_boosts}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        options: {
-                          ...prev.options,
-                          alternate_ancestry_boosts: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Auto Detect Prerequisites'
-                  info={`**[Beta]** Automatically determine if a feat or feature has its prerequisites met in order to be taken. This is a beta feature and may not always work correctly.`}
-                  enabled={character?.options?.auto_detect_prerequisites}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        options: {
-                          ...prev.options,
-                          auto_detect_prerequisites: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                {/* <LinkSwitch
-                      label='Auto Heighten Spells'
-                      info={`**[Beta]** Automatically apply the heightened effects of a spell to its stat block. This is a beta feature and may not always work correctly.`}
-                      enabled={character?.options?.auto_heighten_spells}
-                      onLinkChange={(enabled) => {
-                        setCharacter((prev) => {
-                          if (!prev) return prev;
-                          return {
-                            ...prev,
-                            options: {
-                              ...prev.options,
-                              auto_heighten_spells: enabled,
-                            },
-                          };
-                        });
-                      }}
-                    /> */}
-                {/* <LinkSwitch
-                      label='Class Archetypes'
-                      info={``}
-                      enabled={character?.options?.class_archetypes}
-                      onLinkChange={(enabled) => {
-                        setCharacter((prev) => {
-                          if (!prev) return prev;
-                          return {
-                            ...prev,
-                            options: {
-                              ...prev.options,
-                              class_archetypes: enabled,
-                            },
-                          };
-                        });
-                      }}
-                    /> */}
-                <LinkSwitch
-                  label='Dice Roller'
-                  info={`Roll your dice directly from the character sheet! Integrated with all your character's stats and abilities.`}
-                  enabled={character?.options?.dice_roller}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        options: {
-                          ...prev.options,
-                          dice_roller: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Ignore Bulk Limit'
-                  info={`Disables the negative effects of carrying too much bulk, such as adding the encumbered condition.`}
-                  enabled={character?.options?.ignore_bulk_limit}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        options: {
-                          ...prev.options,
-                          ignore_bulk_limit: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Public Character'
-                  info={`Makes your character public and viewable by anyone with your sheet link: \n\n _https://wanderersguide.app/sheet/${character?.id}_`}
-                  enabled={character?.options?.is_public}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        options: {
-                          ...prev.options,
-                          is_public: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Voluntary Flaw'
-                  info={`Sometimes, it’s fun to play a character with a major flaw regardless of your ancestry. You can elect to take an additional attribute flaw when applying the attribute boosts and attribute flaws from your ancestry.`}
-                  enabled={character?.options?.voluntary_flaws}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        options: {
-                          ...prev.options,
-                          voluntary_flaws: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                <LinkSwitch
-                  label='Custom Operations'
-                  info={`Enables an area to add custom operations to your character. These are executed before most other operations.`}
-                  enabled={character?.options?.custom_operations}
-                  onLinkChange={(enabled) => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        options: {
-                          ...prev.options,
-                          custom_operations: enabled,
-                        },
-                      };
-                    });
-                  }}
-                />
-                {character?.options?.custom_operations && (
-                  <Box pl={15}>
-                    <BlurButton
-                      size='compact-xs'
-                      fw={400}
-                      w={180}
-                      onClick={() => {
-                        setOpenedOperations(true);
-                      }}
-                    >
-                      Open Operations{' '}
-                      {character.custom_operations && character.custom_operations.length > 0
-                        ? `(${character.custom_operations.length})`
-                        : ''}
-                    </BlurButton>
-                    <OperationsModal
-                      title='Custom Operations'
-                      opened={openedOperations}
-                      onClose={() => setOpenedOperations(false)}
-                      operations={cloneDeep(character.custom_operations ?? [])}
-                      onChange={(operations) => {
-                        if (isEqual(character.custom_operations, operations)) return;
-
-                        setCharacter((prev) => {
-                          if (!prev) return prev;
-                          return {
-                            ...prev,
-                            custom_operations: operations,
-                          };
-                        });
-                      }}
-                    />
-                  </Box>
-                )}
-              </Stack>
-            </Tabs.Panel>
-          </ScrollArea>
-        </Tabs>
-      </Paper>
-    </Box>
-  );
-
-  const getSidebarSection = () => (
-    <Box h='100%'>
-      <Paper
-        shadow='sm'
-        p='sm'
-        h='100%'
-        style={{
-          backgroundColor: 'rgba(0, 0, 0, 0.13)',
-        }}
-      >
-        <Stack>
-          <ColorInput
-            radius='xl'
-            size='xs'
-            label={<Text fz='sm'>Color Theme</Text>}
-            placeholder='Character Color Theme'
-            defaultValue={character?.details?.sheet_theme?.color || GUIDE_BLUE}
-            swatches={[
-              '#25262b',
-              '#868e96',
-              '#fa5252',
-              '#e64980',
-              '#be4bdb',
-              '#8d69f5',
-              '#577deb',
-              GUIDE_BLUE,
-              '#15aabf',
-              '#12b886',
-              '#40c057',
-              '#82c91e',
-              '#fab005',
-              '#fd7e14',
-            ]}
-            swatchesPerRow={7}
-            onChange={(color) => {
-              if (!hasPatreonAccess(getCachedPublicUser(), 1)) {
-                displayPatronOnly();
-                return;
-              }
-              setCharacter((prev) => {
-                if (!prev) return prev;
-                return {
-                  ...prev,
-                  details: {
-                    ...prev.details,
-                    sheet_theme: {
-                      ...prev.details?.sheet_theme,
-                      color: color,
-                    },
-                  },
-                };
-              });
-            }}
-            styles={{
-              input: {
-                backgroundColor: IMPRINT_BG_COLOR,
-                borderColor: IMPRINT_BORDER_COLOR,
-              },
-            }}
-          />
-          <Box>
-            <Text fz='sm'>Background Artwork</Text>
-            <UnstyledButton
-              w={'50%'}
-              onClick={() => {
-                openContextModal({
-                  modal: 'selectImage',
-                  title: <Title order={3}>Select Background</Title>,
-                  innerProps: {
-                    options: getAllBackgroundImages(),
-                    onSelect: (option: ImageOption) => {
-                      setCharacter((prev) => {
-                        if (!prev) return prev;
-                        return {
-                          ...prev,
-                          details: {
-                            ...prev.details,
-                            background_image_url: option.url,
-                          },
-                        };
-                      });
-                    },
-                    category: 'backgrounds',
-                  },
-                });
-              }}
-            >
-              <Image
-                radius='md'
-                h='auto'
-                fit='contain'
-                src={character?.details?.background_image_url}
-                fallbackSrc='/backgrounds/placeholder.jpeg'
-              />
-            </UnstyledButton>
-          </Box>
-          {apiClients && apiClients.length > 0 && (
-            <Stack gap={5}>
-              <Divider my={0} />
-              <Text fz='sm'>Authorized Clients</Text>
-              <ScrollArea h={150} scrollbars='y'>
-                <Stack gap={5}>
-                  {apiClients?.map((client, index) => (
-                    <BlurBox key={index} p='sm'>
-                      <Stack gap={5}>
-                        <Group>
-                          <DisplayIcon width={25} strValue={client?.image_url} />
-                          <Text size='md'>{client?.name}</Text>
-                        </Group>
-                        {client?.description && <Text fz='xs'>{client?.description}</Text>}
-                        <Anchor
-                          underline='hover'
-                          onClick={() => {
-                            modals.openConfirmModal({
-                              id: 'remove-client-access',
-                              title: <Title order={4}>{`Revoke Access`}</Title>,
-                              children: (
-                                <Stack>
-                                  <Text>
-                                    Are you sure you want to revoke access for {client?.name} to read and edit this
-                                    character?
-                                  </Text>
-                                </Stack>
-                              ),
-                              labels: { confirm: 'Remove', cancel: 'Cancel' },
-                              onCancel: () => {},
-                              onConfirm: async () => {
-                                setCharacter((prev) => {
-                                  if (!prev) return prev;
-                                  return {
-                                    ...prev,
-                                    details: {
-                                      ...prev.details,
-                                      api_clients: {
-                                        ...prev.details?.api_clients,
-                                        client_access:
-                                          prev.details?.api_clients?.client_access.filter(
-                                            (c) => c.clientId !== client?.id
-                                          ) ?? [],
-                                      },
-                                    },
-                                  };
-                                });
-                                queryClient.invalidateQueries({ queryKey: [`find-content-${character?.id}`] });
-                              },
-                            });
-                          }}
-                          c='gray.5'
-                          ta='center'
-                          size='xs'
-                        >
-                          [ Revoke Access ]
-                        </Anchor>
-                      </Stack>
-                    </BlurBox>
-                  ))}
-                </Stack>
-              </ScrollArea>
-            </Stack>
-          )}
-        </Stack>
-      </Paper>
-    </Box>
-  );
+  // getOptionsSection() + getSidebarSection() lived here. Both were the
+  // legacy Mantine implementations of the Homebrew / Variant Rules /
+  // Options tabs (with their nested Mantine <Tabs> + <Paper> + LinkSwitch
+  // stack, plus the sidebar with raw ColorInput + half-width <Image> +
+  // BlurBox auth-client list). Replaced inline by the codex JSX further
+  // down (see the {activeTab === ...} branches), then removed entirely
+  // once nothing referenced them.
 
   // Campaign Section
   const [campaignKey, setCampaignKey] = useState('');
@@ -1567,15 +807,401 @@ export default function CharBuilderHome(props: { characterId: number; pageHeight
             </>
           )}
 
-          {activeTab !== 'books' && (
-            <div className='tab-body'>
-              {/* Homebrew / Variants / Options panels still use the
-                  legacy Mantine widgets — getOptionsSection picks the
-                  active panel via its own internal <Tabs>. */}
-              {getOptionsSection()}
-              {activeTab === 'options' && getSidebarSection()}
-            </div>
-          )}
+          {activeTab === 'homebrew' && (() => {
+            // Codex Homebrew tab — replaces the Mantine Tabs + Paper +
+            // GroupLinkSwitch list. Each owned bundle is a single
+            // codex toggle row; rows are not split by group (the
+            // legacy Books-style grouping didn't add anything here).
+            return (
+              <>
+                <div className='panel-subhead builder'>
+                  <div className='lhs'>
+                    <b>{homebrewBundles.length}</b> Personal Bundle{homebrewBundles.length === 1 ? '' : 's'}
+                    <em>— your own homebrew content, available to every character you own.</em>
+                  </div>
+                </div>
+
+                {homebrewBundles.length === 0 ? (
+                  <div className='empty-state'>
+                    You haven't created any homebrew bundles yet. <a href='/homebrew'>Go make one →</a>
+                  </div>
+                ) : (
+                  <div className='var-grid'>
+                    {homebrewBundles.map((s) => {
+                      const enabled = character?.content_sources?.enabled?.includes(s.id);
+                      return (
+                        <CodexToggleRow
+                          key={s.id}
+                          glyph={'❀'}
+                          name={s.name}
+                          sub={s.description ? truncate(s.description, { length: 110 }) : 'No description.'}
+                          on={enabled}
+                          onToggle={() => setBooksEnabled([s.id], !enabled)}
+                          onInfo={() => openDrawer({ type: 'content-source', data: { id: s.id, showOperations: true } })}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
+          {activeTab === 'variants' && (() => {
+            // Codex Variants tab — replaces the Mantine LinkSwitch
+            // stack. Each variant is a CodexToggleRow whose
+            // get/set hooks the same character.variants.* fields the
+            // old LinkSwitches did. Special cases:
+            //   - dual_class also clears details.class_2 on disable
+            //   - deep_background also clears details.background on
+            //     enable (so a published BG doesn't shadow the
+            //     custom one) — same as the old code.
+            const setVariant = (key: string, enabled: boolean, extra?: (prev: any) => any) => {
+              setCharacter((prev) => {
+                if (!prev) return prev;
+                const next: any = {
+                  ...prev,
+                  variants: {
+                    ...prev.variants,
+                    [key]: enabled,
+                  },
+                };
+                return extra ? extra(next) : next;
+              });
+            };
+            const variants: Array<{
+              key: string;
+              name: string; sub: string; glyph: string; info: string; url?: string; tag?: 'beta' | 'homebrew';
+              onChange?: (enabled: boolean) => void;
+            }> = [
+              { key: 'ancestry_paragon', name: 'Ancestry Paragon', glyph: '❦',
+                sub: 'Get a bonus ancestry feat at every odd level — for groups where ancestry matters as much as class.',
+                info: `Most characters have some elements that connect them to their ancestry but identify more strongly with their class or unique personality. Sometimes, though, a character is the embodiment of their ancestry to the point that it's of equal importance to their class. For a game where an ancestral background is a major theme and such characters are the norm, your group might consider using the ancestry paragon variant.`,
+                url: 'https://2e.aonprd.com/Rules.aspx?ID=1336' },
+              { key: 'automatic_bonus_progression', name: 'Automatic Bonus Progression', glyph: '⚖',
+                sub: 'Innate potency replaces magic-item bonuses; items become flavour, not numbers.',
+                info: `This variant removes the item bonus to rolls and DCs usually provided by magic items (with the exception of armor's item bonus) and replaces it with a new kind of bonus - potency - to reflect a character's innate ability. In this variant, magic items, if they exist at all, can provide unique special abilities rather than numerical increases.`,
+                url: 'https://2e.aonprd.com/Rules.aspx?ID=2741' },
+              { key: 'dual_class', name: 'Dual Class', glyph: '⚔',
+                sub: 'Take the full benefits of two classes simultaneously — for small parties.',
+                info: `Sometimes, especially when you have a particularly small play group or want to play incredibly versatile characters, you might want to allow dual-class characters that have the full benefits of two different classes.`,
+                url: 'https://2e.aonprd.com/Rules.aspx?ID=1328',
+                onChange: (enabled) => setVariant('dual_class', enabled, (next) => ({
+                  ...next,
+                  details: { ...next.details, class_2: enabled ? next.details?.class_2 : undefined },
+                })) },
+              { key: 'free_archetype', name: 'Free Archetype', glyph: '✦',
+                sub: 'Every character gets a free bonus archetype track — perfect for themed parties.',
+                info: `Sometimes the story of your game calls for a group where everyone is a pirate or an apprentice at a magic school. The free archetype variant introduces a shared aspect to every character without taking away any of that character's existing choices.`,
+                url: 'https://2e.aonprd.com/Rules.aspx?ID=2751' },
+              { key: 'gradual_attribute_boosts', name: 'Gradual Attribute Boosts', glyph: '▴',
+                sub: 'Spread the level-5/10/15/20 boost sets across the four levels leading up to each.',
+                info: `In this variant, a character gains attribute boosts more gradually as they level up, rather than receiving four attribute boosts at 5th, 10th, 15th, and 20th levels. Each character gains one attribute boost when they reach each of 2nd, 3rd, 4th, and 5th levels. These are collectively a single set of attribute boosts, so a character can't boost the same attribute more than once per set.`,
+                url: 'https://2e.aonprd.com/Rules.aspx?ID=1300' },
+              { key: 'proficiency_without_level', name: 'Proficiency without Level', glyph: '≡',
+                sub: 'Removes character level from proficiency — gritty, uncertain, every fight a real risk.',
+                info: `This variant removes a character's level from their proficiency bonus, scaling it differently for a style of game that's outside the norm. The proficiency rank progression in Player Core is designed for heroic fantasy games where heroes rise from humble origins to world-shattering strength. For some games, this narrative arc doesn't fit.`,
+                url: 'https://2e.aonprd.com/Rules.aspx?ID=2762' },
+              { key: 'monster_parts', name: 'Battlezoo Monster Parts (Light)', glyph: '♟', tag: 'homebrew',
+                sub: 'Convert monster trophies into gear potency. Replaces some treasure with crafted upgrades.',
+                info: `Enables the Battlezoo Bestiary Monster Parts subsystem (Light variant). With this on, currency is partially replaced by monster parts harvested from defeated foes, and each item in your inventory can be flipped into "monster-parts mode" via the Item drawer — its potency, striking, and resilient runes are then derived from the gp of monster parts you've invested in it. Subscribe to the bundle on the Homebrew page to enable the imbued-property catalog.` },
+              { key: 'deep_background', name: 'Deep Background', glyph: '✎',
+                sub: 'Build your own background from scratch — name, two boosts, a Lore, and a feat.',
+                info: `Instead of picking a published background, build your own. You'll choose a name and short description, two attribute boosts (each to a different ability score), training in a Lore skill of your choice, and one skill feat — the character automatically becomes trained in that feat's prerequisite skill.`,
+                onChange: (enabled) => setVariant('deep_background', enabled, (next) => ({
+                  ...next,
+                  details: enabled ? { ...next.details, background: undefined } : next.details,
+                })) },
+            ];
+            const activeCount = variants.filter((v) => !!(character?.variants as any)?.[v.key]).length;
+            return (
+              <>
+                <div className='panel-subhead builder'>
+                  <div className='lhs'>
+                    <b>{activeCount}</b> of <b>{variants.length}</b> Variant Rules Active
+                    <em>— optional rule riders that change how the game plays.</em>
+                  </div>
+                </div>
+                <div className='var-grid'>
+                  {variants.map((v) => (
+                    <CodexToggleRow
+                      key={v.key}
+                      glyph={v.glyph}
+                      name={v.name}
+                      sub={v.sub}
+                      tag={v.tag}
+                      on={!!(character?.variants as any)?.[v.key]}
+                      onToggle={() => {
+                        const enabled = !(character?.variants as any)?.[v.key];
+                        if (v.onChange) v.onChange(enabled);
+                        else setVariant(v.key, enabled);
+                      }}
+                      onInfo={() => openDrawer({
+                        type: 'generic',
+                        data: {
+                          title: v.name,
+                          description: v.info.trim() + (v.url ? `\n\n[[Archives of Nethys Rules Page](${v.url})]` : ''),
+                        },
+                      })}
+                    />
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+
+          {activeTab === 'options' && (() => {
+            // Codex Options tab — replaces the Mantine LinkSwitch
+            // stack + the sidebar Paper (ColorInput + Background
+            // Image + Authorized Clients). All in one scrollable
+            // panel now, in the codex visual language.
+            const setOption = (key: string, enabled: boolean) => {
+              setCharacter((prev) => prev ? {
+                ...prev,
+                options: { ...prev.options, [key]: enabled },
+              } : prev);
+            };
+            const optionDefs: Array<{
+              key: string;
+              name: string; sub: string; glyph: string; info: string; tag?: 'beta' | 'homebrew';
+            }> = [
+              { key: 'alternate_ancestry_boosts', name: 'Alternate Ancestry Boosts', glyph: '⛬',
+                sub: 'Skip your ancestry\'s default boosts/flaws — take two free attribute boosts instead.',
+                info: `The attribute boosts and flaws listed in each ancestry represent general trends or help guide players to create the kinds of characters from that ancestry most likely to pursue the life of an adventurer. However, ancestries aren't a monolith. You always have the option to replace your ancestry's listed attribute boosts and attribute flaws entirely and instead select two free attribute boosts when creating your character.` },
+              { key: 'auto_detect_prerequisites', name: 'Auto-Detect Prerequisites', glyph: '⛓', tag: 'beta',
+                sub: 'Highlight feats whose prerequisites your character has met.',
+                info: `Automatically determine if a feat or feature has its prerequisites met in order to be taken. This is a beta feature and may not always work correctly.` },
+              { key: 'dice_roller', name: 'Dice Roller', glyph: '⚇',
+                sub: 'Integrated dice tray on the sheet — roll attacks, saves, and damage in-app.',
+                info: `Roll your dice directly from the character sheet! Integrated with all your character's stats and abilities.` },
+              { key: 'ignore_bulk_limit', name: 'Ignore Bulk Limit', glyph: '⛁',
+                sub: 'Disable encumbrance — useful for narrative games where bulk is fiddly.',
+                info: `Disables the negative effects of carrying too much bulk, such as adding the encumbered condition.` },
+              { key: 'is_public', name: 'Public Character', glyph: '◐',
+                sub: 'Anyone with the link can view this character\'s sheet (read-only).',
+                info: `Makes your character public and viewable by anyone with your sheet link:\n\n_https://wanderersguide.app/sheet/${character?.id}_` },
+              { key: 'voluntary_flaws', name: 'Voluntary Flaw', glyph: '❉',
+                sub: 'Optionally accept an extra ancestry flaw in exchange for narrative flavour.',
+                info: `Sometimes, it's fun to play a character with a major flaw regardless of your ancestry. You can elect to take an additional attribute flaw when applying the attribute boosts and attribute flaws from your ancestry.` },
+              { key: 'custom_operations', name: 'Custom Operations', glyph: '⚙',
+                sub: 'Add custom operations to this character. Executed before most other operations.',
+                info: `Enables an area to add custom operations to your character. These are executed before most other operations.` },
+            ];
+            // Curated codex-friendly palette (no neon Mantine accents).
+            const swatches: Array<{ key: string; gradient: string; hex: string }> = [
+              { key: 'gold', gradient: 'linear-gradient(135deg, #c9a13b, #8a6f25)', hex: '#c9a13b' },
+              { key: 'crimson', gradient: 'linear-gradient(135deg, #a83a25, #6f1f10)', hex: '#a83a25' },
+              { key: 'sage', gradient: 'linear-gradient(135deg, #5b7148, #344128)', hex: '#5b7148' },
+              { key: 'tide', gradient: 'linear-gradient(135deg, #4a6987, #2c4259)', hex: '#4a6987' },
+              { key: 'amethyst', gradient: 'linear-gradient(135deg, #7a4a87, #4a2c59)', hex: '#7a4a87' },
+              { key: 'obsidian', gradient: 'linear-gradient(135deg, #2b2620, #15110b)', hex: '#2b2620' },
+              { key: 'copper', gradient: 'linear-gradient(135deg, #c98c5a, #7a4d2b)', hex: '#c98c5a' },
+              { key: 'sun', gradient: 'linear-gradient(135deg, #e8c557, #b09438)', hex: '#e8c557' },
+              { key: 'ember', gradient: 'linear-gradient(135deg, #c4452a, #863519)', hex: '#c4452a' },
+            ];
+            const currentColor = character?.details?.sheet_theme?.color || GUIDE_BLUE;
+            const setSheetColor = (hex: string) => {
+              if (!hasPatreonAccess(getCachedPublicUser(), 1)) {
+                displayPatronOnly();
+                return;
+              }
+              setCharacter((prev) => prev ? {
+                ...prev,
+                details: {
+                  ...prev.details,
+                  sheet_theme: { ...prev.details?.sheet_theme, color: hex },
+                },
+              } : prev);
+            };
+            const allBgs = getAllBackgroundImages();
+            const featuredBgs = allBgs.slice(0, 4);
+            const currentBg = character?.details?.background_image_url;
+            return (
+              <>
+                <div className='panel-subhead builder'>
+                  <div className='lhs'>
+                    <b>{optionDefs.filter((o) => !!(character?.options as any)?.[o.key]).length}</b> of <b>{optionDefs.length}</b> Options Active
+                    <em>— per-character toggles for visuals + behaviour.</em>
+                  </div>
+                </div>
+                <div className='var-grid'>
+                  {optionDefs.map((o) => (
+                    <CodexToggleRow
+                      key={o.key}
+                      glyph={o.glyph}
+                      name={o.name}
+                      sub={o.sub}
+                      tag={o.tag}
+                      on={!!(character?.options as any)?.[o.key]}
+                      onToggle={() => setOption(o.key, !(character?.options as any)?.[o.key])}
+                      onInfo={() => openDrawer({
+                        type: 'generic',
+                        data: { title: o.name, description: o.info.trim() },
+                      })}
+                    />
+                  ))}
+                </div>
+
+                {character?.options?.custom_operations && (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      type='button'
+                      className='ops-btn'
+                      onClick={() => setOpenedOperations(true)}
+                    >
+                      Open Operations
+                      <span className='ct'>
+                        {character.custom_operations && character.custom_operations.length > 0
+                          ? `(${character.custom_operations.length})`
+                          : ''}
+                      </span>
+                    </button>
+                    <OperationsModal
+                      title='Custom Operations'
+                      opened={openedOperations}
+                      onClose={() => setOpenedOperations(false)}
+                      operations={cloneDeep(character.custom_operations ?? [])}
+                      onChange={(operations) => {
+                        if (isEqual(character.custom_operations, operations)) return;
+                        setCharacter((prev) => prev ? { ...prev, custom_operations: operations } : prev);
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className='options-panel'>
+                  <span className='crn3' /><span className='crn4' />
+                  <h3>Sheet Customisation</h3>
+
+                  <div className='theme-row'>
+                    <div className='lab'>Colour theme</div>
+                    <div className='swatch-row'>
+                      {swatches.map((s) => (
+                        <div
+                          key={s.key}
+                          className={`sw${currentColor === s.hex ? ' on' : ''}`}
+                          style={{ background: s.gradient }}
+                          onClick={() => setSheetColor(s.hex)}
+                          title={s.key}
+                          role='button'
+                          tabIndex={0}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className='theme-row'>
+                    <div className='lab'>Background</div>
+                    <div className='bg-picker'>
+                      {featuredBgs.map((bg: ImageOption) => (
+                        <div
+                          key={bg.url}
+                          className={`bg-tile${currentBg === bg.url ? ' on' : ''}`}
+                          style={{ backgroundImage: `url(${bg.url})` }}
+                          onClick={() => {
+                            setCharacter((prev) => prev ? {
+                              ...prev,
+                              details: { ...prev.details, background_image_url: bg.url },
+                            } : prev);
+                          }}
+                          role='button'
+                          tabIndex={0}
+                        >
+                          <span className='lab'>{bg.name ?? 'Background'}</span>
+                        </div>
+                      ))}
+                      <div
+                        className='bg-tile'
+                        onClick={() => {
+                          openContextModal({
+                            modal: 'selectImage',
+                            title: <Title order={3}>Select Background</Title>,
+                            innerProps: {
+                              options: allBgs,
+                              onSelect: (option: ImageOption) => {
+                                setCharacter((prev) => prev ? {
+                                  ...prev,
+                                  details: { ...prev.details, background_image_url: option.url },
+                                } : prev);
+                              },
+                              category: 'backgrounds',
+                            },
+                          });
+                        }}
+                        role='button'
+                        tabIndex={0}
+                      >
+                        <span className='lab' style={{ color: 'var(--gold)' }}>Browse all →</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {apiClients && apiClients.length > 0 && (
+                    <>
+                      <h3 style={{ marginTop: 22 }}>
+                        Authorised Clients
+                        <span style={{ color: 'var(--ink-muted)', fontSize: 10, fontWeight: 400, marginLeft: 8, letterSpacing: '.04em', textTransform: 'none' }}>
+                          — APIs that can read or edit this character
+                        </span>
+                      </h3>
+                      <div className='clients'>
+                        {apiClients.map((client, index) => (
+                          <div className='client-card' key={index}>
+                            <div className='ico'>
+                              {client?.image_url ? <img src={client.image_url} alt='' /> : '◈'}
+                            </div>
+                            <div>
+                              <div className='nm'>
+                                {client?.name ?? 'Unknown client'}
+                                {client?.description && <small>{client.description}</small>}
+                              </div>
+                            </div>
+                            <button
+                              type='button'
+                              className='revoke'
+                              onClick={() => {
+                                modals.openConfirmModal({
+                                  id: 'remove-client-access',
+                                  title: <Title order={4}>Revoke Access</Title>,
+                                  children: (
+                                    <Stack>
+                                      <Text>
+                                        Are you sure you want to revoke access for {client?.name} to read and edit this character?
+                                      </Text>
+                                    </Stack>
+                                  ),
+                                  labels: { confirm: 'Remove', cancel: 'Cancel' },
+                                  onCancel: () => {},
+                                  onConfirm: async () => {
+                                    setCharacter((prev) => prev ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        api_clients: {
+                                          ...prev.details?.api_clients,
+                                          client_access:
+                                            prev.details?.api_clients?.client_access.filter(
+                                              (c) => c.clientId !== client?.id
+                                            ) ?? [],
+                                        },
+                                      },
+                                    } : prev);
+                                    queryClient.invalidateQueries({ queryKey: [`find-content-${character?.id}`] });
+                                  },
+                                });
+                              }}
+                            >
+                              Revoke
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
+            );
+          })()}
 
         </div>
 

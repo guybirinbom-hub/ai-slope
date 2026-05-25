@@ -29,10 +29,12 @@
  *  - Conditions: entity.details.conditions
  */
 
-import { LivingEntity, Character, ContentPackage } from '@schemas/content';
+import { LivingEntity, Character, ContentPackage, InventoryItem, AbilityBlock } from '@schemas/content';
+import { isItemShield } from '@items/inv-utils';
+import { handleUpdateItem, handleDeleteItem, handleMoveItem } from '@items/inv-handlers';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import { useState, useEffect } from 'react';
-import { getVariable } from '@variables/variable-manager';
+import { getVariable, setVariable } from '@variables/variable-manager';
 import {
   VariableAttr,
   VariableListStr,
@@ -43,8 +45,19 @@ import {
   getFinalAcValue,
   getFinalHealthValue,
   getFinalProfValue,
+  getProfValueParts,
+  getVariableBreakdown,
 } from '@variables/variable-helpers';
-import { compileProficiencyType } from '@variables/variable-utils';
+import { getAcParts } from '@items/armor-handler';
+import { compileProficiencyType, labelToVariable } from '@variables/variable-utils';
+import {
+  CustomMode,
+  getAllCustomModes,
+  getModeToggleKey,
+} from '@modes/custom-modes';
+import { cloneDeep } from 'lodash-es';
+import { makeRequest } from '@requests/request-manager';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAtom } from 'jotai';
 import { drawerState } from '@atoms/navAtoms';
 import { confirmHealth, handleRest } from './entity-handler';
@@ -55,7 +68,17 @@ import CompanionsPanel from './panels/CompanionsPanel';
 // render directly into the codex .body grid as two sibling .col divs.
 // Keeping the panels/ files on disk for now; they ship 0 KB into the
 // bundle once nothing imports them.
-import { CodexSpellsPanel, CodexInventoryPanel, CodexFeatsPanel, CodexActivitiesPanel } from './CodexPanels';
+import {
+  CodexSpellsPanel,
+  CodexInventoryPanel,
+  CodexFeatsPanel,
+  CodexActivitiesPanel,
+  ActionGlyph,
+  ActionStatCell,
+  actionCostToGlyph,
+} from './CodexPanels';
+import { getCachedContent } from '@content/content-store';
+import type { Spell } from '@schemas/content';
 import { CodexNotesPanel } from './CodexNotesPanel';
 import { CodexDetailsPanel } from './CodexDetailsPanel';
 import ConditionsModesModal, { HARMFUL_CONDITIONS, ConditionDescription } from './ConditionsModesModal';
@@ -116,6 +139,51 @@ function sign(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
+// Gold `*` indicator that appears next to a stat value whenever the
+// stat has conditional bonuses applied (e.g., "+1 vs fear effects",
+// "+2 when prone", "Bestow Curse" etc.). The same indicator appears
+// in the info drawer via displayFinalProfValue / displayFinalAcValue;
+// without this marker on the sheet the player has no clue a stat has
+// conditional modifiers until they click in. We compute the flag
+// directly from the live variable store on every render so it picks
+// up mode toggles, condition changes, and equipment swaps immediately.
+function CondMark({
+  hasConditionals,
+}: {
+  hasConditionals: boolean | undefined;
+}) {
+  if (!hasConditionals) return null;
+  return (
+    <span
+      style={{
+        color: 'var(--gold)',
+        marginLeft: 2,
+        fontWeight: 700,
+        fontFamily: 'Cinzel, serif',
+      }}
+      title='This stat has conditional bonuses — open the info page for details.'
+    >
+      *
+    </span>
+  );
+}
+
+// Convenience wrappers for the three flavors of "has conditional"
+// check (proficiency, AC, generic variable breakdown). All read from
+// the live variable store so they re-evaluate on every render.
+function ProfCondMark({ varName }: { varName: string }) {
+  const has = !!getProfValueParts('CHARACTER', varName)?.hasConditionals;
+  return <CondMark hasConditionals={has} />;
+}
+function AcCondMark() {
+  const has = !!getAcParts('CHARACTER').hasConditionals;
+  return <CondMark hasConditionals={has} />;
+}
+function VarCondMark({ varName }: { varName: string }) {
+  const has = getVariableBreakdown('CHARACTER', varName).conditionals.length > 0;
+  return <CondMark hasConditionals={has} />;
+}
+
 // XP thresholds per level in PF2e are 1000 per level. We just use that
 // flat cap; the underlying engine reconciles when level changes anyway.
 const XP_PER_LEVEL = 1000;
@@ -137,6 +205,12 @@ export default function CodexSheet(props: {
   const navigate = useNavigate();
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [activeTab, setActiveTab] = useState<CodexTab>('main');
+  // Used to invalidate the find-character React Query cache after we
+  // make an out-of-band save (mode deactivation, etc.). Without this
+  // invalidation, the cache stays "fresh" for staleTime=60s and the
+  // next /sheet/<id> mount reads STALE data from cache instead of the
+  // updated character — even though the DB row was already updated.
+  const queryClient = useQueryClient();
 
   // Global section collapse with smooth height animation. Strategy:
   //   1. To OPEN: set max-height to scrollHeight (animates from 0 → N),
@@ -235,6 +309,12 @@ export default function CodexSheet(props: {
   const spellAtkStr = isNaN(spellAtkBase)
     ? spellAtkRaw
     : `${spellAtkBase >= 0 ? '+' : ''}${spellAtkBase}/${spellAtkBase - 5 >= 0 ? '+' : ''}${spellAtkBase - 5}/${spellAtkBase - 10 >= 0 ? '+' : ''}${spellAtkBase - 10}`;
+  // Compact spell-attack string for narrow vital cells: drops the
+  // redundant +/- signs so "+18/+13/+8" becomes "18 / 13 / 8". Used in
+  // 3-col / 4-col vital layouts where the full string overflows.
+  const spellAtkCompactStr = isNaN(spellAtkBase)
+    ? spellAtkRaw
+    : `${spellAtkBase}/${spellAtkBase - 5}/${spellAtkBase - 10}`;
   const perceptionStr = getFinalProfValue('CHARACTER', 'PERCEPTION');
   const speed = getVariable<VariableNum>('CHARACTER', 'SPEED')?.value ?? 25;
   // Show the spell tiles only when the character actually has
@@ -242,6 +322,93 @@ export default function CodexSheet(props: {
   const hasSpellcasting =
     !!getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value &&
     compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value) !== 'U';
+
+  // ============================================================
+  // Equipped shields → vital tiles
+  // ============================================================
+  // Each equipped shield gets its own vital tile that displays
+  // current HP / max HP, hardness, and the shield's AC bonus. The
+  // tile is clickable and opens the existing inv-item drawer which
+  // already has full HP tracking + the shield's description / runes
+  // / etc. Per-shield HP lives on item.meta_data.hp (the canonical
+  // storage that InvItemDrawer reads/writes).
+  const equippedShields = (character?.inventory?.items ?? []).filter(
+    (i) => i.is_equipped && isItemShield(i.item)
+  ) as InventoryItem[];
+  const getMetaNumber = (raw: unknown): number => {
+    if (typeof raw === 'number') return raw;
+    if (typeof raw === 'string') {
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  };
+  const getShieldHpMax = (inv: InventoryItem): number =>
+    getMetaNumber(inv.item.meta_data?.hp_max);
+  const getShieldHardness = (inv: InventoryItem): number =>
+    getMetaNumber(inv.item.meta_data?.hardness);
+  const getShieldAcBonus = (inv: InventoryItem): number =>
+    inv.item.meta_data?.ac_bonus ?? 0;
+  // Current HP for a shield. InvItemDrawer writes to item.meta_data.hp;
+  // an item with hp === 0 in its meta_data could legitimately mean "0 HP
+  // right now" (shield broken) OR "never been damaged" (no field set yet
+  // because the data import doesn't initialise it). We treat hp_max as
+  // the starting value when meta_data.hp is null/undefined, so a freshly
+  // equipped shield reads at full HP instead of zero.
+  const getShieldHp = (inv: InventoryItem): number => {
+    const hp = inv.item.meta_data?.hp;
+    if (typeof hp === 'number') return Math.max(0, hp);
+    if (typeof hp === 'string') {
+      const n = parseInt(hp, 10);
+      if (Number.isFinite(n)) return Math.max(0, n);
+    }
+    return getShieldHpMax(inv);
+  };
+  // Open the full shield description / HP tracker drawer. Uses the
+  // same handlers the inventory panel uses so updates flow back into
+  // character.inventory.items correctly (the legacy direct
+  // setCharacter path silently lost the favorite star, delete, and
+  // move-to flows).
+  const setEntity = setCharacter as unknown as SetterOrUpdater<LivingEntity | null>;
+  const openShieldDrawer = (invItem: InventoryItem) => {
+    openDrawer({
+      type: 'inv-item',
+      data: {
+        storeID: 'CHARACTER',
+        invItem,
+        onItemUpdate: (next: InventoryItem) => handleUpdateItem(setEntity, next),
+        onItemDelete: (next: InventoryItem) => handleDeleteItem(setEntity, next),
+        onItemMove: (item: InventoryItem, container: InventoryItem | null) =>
+          handleMoveItem(setEntity, item, container),
+      },
+      extra: { addToHistory: true },
+    });
+  };
+
+  // Count of non-HP vital tiles → drives the grid sizing. Anything
+  // past 4 cubes needs a 3-col layout (smaller cells) so we never
+  // grow past 2 rows of cubes under the HP card. The HP card itself
+  // always spans 2 columns and sits on its own row.
+  //
+  // Tiles rendered below:
+  //   - Class DC OR Class/Spell DC (always = 1)
+  //   - Spell DC (= 1 when caster + not merged)
+  //   - Armor (always = 1)
+  //   - Spell Atk (= 1 when caster)
+  //   - One per equipped shield
+  const vitalCubeCount =
+    1 + // Class DC (or merged Class/Spell DC)
+    (hasSpellcasting && !dcMerged ? 1 : 0) + // separate Spell DC
+    1 + // Armor
+    (hasSpellcasting ? 1 : 0) + // Spell Atk
+    equippedShields.length;
+  // Hand-tuned column rule:
+  //   ≤4 cubes:  2 cols (default)
+  //   5-6 cubes: 3 cols
+  //   ≥7 cubes:  4 cols
+  const vitalsCols = vitalCubeCount <= 4 ? 2 : vitalCubeCount <= 6 ? 3 : 4;
+  const vitalsClass =
+    vitalsCols === 4 ? 'vitals vitals-c4' : vitalsCols === 3 ? 'vitals vitals-c3' : 'vitals';
 
   // Hero points (PF2e CRB caps at 3 — display as 3 diamond pips).
   const heroPoints = Math.max(
@@ -251,6 +418,61 @@ export default function CodexSheet(props: {
 
   // Conditions list from the character entity.
   const conditions = character?.details?.conditions ?? [];
+
+  // Active modes — show them in the conditions row as chips so the
+  // player has one place to glance at every currently-applied effect
+  // (Rage, Mutate, an active Stance, plus all conditions).
+  //
+  // ACTIVE_MODES is a variable populated by ConditionsModesModal when
+  // the user toggles a mode. Stored as a string list of keys —
+  // `labelToVariable(name)` for built-in modes (ability blocks with
+  // type='mode') and `getModeToggleKey(mode)` for user-created custom
+  // modes. We reverse-resolve each key to its display name so we can
+  // render a friendly chip.
+  const activeModeKeys: string[] =
+    (getVariable<VariableListStr>('CHARACTER', 'ACTIVE_MODES')?.value as
+      | string[]
+      | undefined) ?? [];
+  const builtinModesAll: AbilityBlock[] = content?.abilityBlocks
+    ? content.abilityBlocks.filter((b) => b.type === 'mode')
+    : [];
+  const customModesAll = getAllCustomModes(
+    (character?.meta_data as { custom_modes?: CustomMode[] } | undefined)
+      ?.custom_modes ?? []
+  );
+  const activeModes: { key: string; name: string; description: string }[] = activeModeKeys
+    .map((key) => {
+      const builtin = builtinModesAll.find(
+        (b) => labelToVariable(b.name) === key
+      );
+      if (builtin) {
+        return {
+          key,
+          name: builtin.name,
+          description: builtin.description || '',
+        };
+      }
+      const custom = customModesAll.find(
+        (m: CustomMode) => getModeToggleKey(m) === key
+      );
+      if (custom) {
+        // Custom modes don't have a description field in the schema,
+        // but they have effects — render a brief summary so the
+        // click-for-info popover still has something useful to show.
+        const effectsList = (custom.effects ?? [])
+          .map((e) => `${e.variable ?? ''} ${e.value ?? ''} (${e.type ?? 'untyped'})`)
+          .filter((s) => s.trim())
+          .join('\n');
+        return {
+          key,
+          name: custom.name,
+          description: effectsList || 'Custom mode (no effects defined)',
+        };
+      }
+      // Fallback for orphan keys (mode was deleted from content) —
+      // show the raw key in a readable-ish form rather than dropping.
+      return { key, name: key.replace(/_/g, ' '), description: '' };
+    });
 
   // Languages — variable is LANGUAGE_NAMES (a string list). The
   // entries are already proper names ("Common", "Elven", "Sylvan"…)
@@ -360,6 +582,55 @@ export default function CodexSheet(props: {
           }
         : c
     );
+  };
+
+  // Toggle an active mode off (used by the X on a mode chip rendered
+  // in the conditions row). Three steps:
+  //   1. setVariable('ACTIVE_MODES', next) — updates the variable
+  //      store immediately so the next render sees the chip gone.
+  //   2. setCharacter(...) — mirrors to character.meta_data.active_modes
+  //      in React state so the autosave's debounced effect picks it up.
+  //   3. makeRequest('update-character', ...) — flushes the change
+  //      DIRECTLY to the DB without waiting for the 250 ms debounce.
+  //      Why: the X click is followed almost immediately by tab
+  //      switches or page navigation, and the previous version lost
+  //      the update because the autosave's useDidUpdate effect never
+  //      fired before the component unmounted (debounced timer is
+  //      cancelled on unmount). Firing the save right here guarantees
+  //      persistence regardless of how quickly the user navigates.
+  const deactivateMode = (key: string) => {
+    if (!character) return;
+    const current =
+      (getVariable<VariableListStr>('CHARACTER', 'ACTIVE_MODES')?.value as
+        | string[]
+        | undefined) ?? [];
+    const next = current.filter((k) => k !== key);
+    setVariable('CHARACTER', 'ACTIVE_MODES', next, 'Selected');
+    const updatedCharacter = {
+      ...character,
+      meta_data: { ...character.meta_data, active_modes: cloneDeep(next) },
+    };
+    setCharacter(updatedCharacter);
+    // CRITICAL: also seed the React Query cache with the new value.
+    // useCharacter's mount-time fetch reads from
+    // queryClient.getQueryData(['find-character', id]) BEFORE doing a
+    // network round-trip — and the cache's staleTime is 60s, so a
+    // mode toggled off then re-visited within that window would come
+    // back as still-active because the cache returned the pre-toggle
+    // version and overwrote the atom on re-mount. Seeding both the
+    // numeric and the string-keyed variants matches the lookup logic
+    // in useCharacter (it checks both).
+    queryClient.setQueryData(['find-character', character.id], updatedCharacter);
+    queryClient.setQueryData(['find-character', String(character.id)], updatedCharacter);
+    // Fire-and-forget direct save so deactivation survives an
+    // immediate navigation. We only send the field we changed —
+    // update-character treats missing fields as untouched on the
+    // server side. Failure is swallowed (the next regular autosave
+    // will retry on its own debounce tick if anything else changes).
+    makeRequest('update-character', {
+      id: character.id,
+      meta_data: { ...character.meta_data, active_modes: cloneDeep(next) },
+    }).catch(() => {});
   };
 
   // Bump a condition's numeric value up or down. Conditions without a
@@ -551,7 +822,7 @@ export default function CodexSheet(props: {
                 <span className='label'>Vitals</span>
               </div>
               <div className='sec-body'>
-                <div className='vitals'>
+                <div className={vitalsClass}>
                   <div
                     className='vital hp span2'
                     style={{ cursor: 'pointer' }}
@@ -602,7 +873,10 @@ export default function CodexSheet(props: {
                       }
                     >
                       <div className='label'>Class/Spell DC</div>
-                      <div className='num'>{classDcStr}</div>
+                      <div className='num'>
+                        {classDcStr}
+                        <ProfCondMark varName='CLASS_DC' />
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -618,7 +892,10 @@ export default function CodexSheet(props: {
                         }
                       >
                         <div className='label'>Class DC</div>
-                        <div className='num'>{classDcStr}</div>
+                        <div className='num'>
+                          {classDcStr}
+                          <ProfCondMark varName='CLASS_DC' />
+                        </div>
                       </div>
                       {hasSpellcasting && (
                         <div
@@ -633,7 +910,10 @@ export default function CodexSheet(props: {
                           }
                         >
                           <div className='label'>Spell DC</div>
-                          <div className='num'>{spellDcStr}</div>
+                          <div className='num'>
+                            {spellDcStr}
+                            <ProfCondMark varName='SPELL_DC' />
+                          </div>
                         </div>
                       )}
                     </>
@@ -644,7 +924,10 @@ export default function CodexSheet(props: {
                     onClick={() => openDrawer({ type: 'stat-ac', data: { id: 'CHARACTER' }, extra: { addToHistory: true } })}
                   >
                     <div className='label'>Armor</div>
-                    <div className='num'>{ac}</div>
+                    <div className='num'>
+                      {ac}
+                      <AcCondMark />
+                    </div>
                   </div>
                   {hasSpellcasting && (
                     <div
@@ -660,20 +943,85 @@ export default function CodexSheet(props: {
                       }
                     >
                       <div className='label'>Spell Atk</div>
-                      {/* 3-value iterative MAP display. Smaller font so
-                          three signed numbers fit in the tile. */}
+                      {/* 3-value iterative MAP display. Font scales
+                          with the vitals grid density: 14px at 2-col,
+                          shrinks at 3-col/4-col, AND switches to a
+                          compact "+/" -dropped format ("18/13/8") so
+                          the string actually fits the ~56px cell at
+                          dense layouts instead of overflowing past the
+                          right edge. */}
                       <div
                         className='num'
                         style={{
-                          fontSize: 14,
-                          letterSpacing: '.02em',
+                          fontSize: vitalsCols === 4 ? 10 : vitalsCols === 3 ? 12 : 14,
+                          letterSpacing: '0',
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {spellAtkStr}
+                        {vitalsCols >= 3 ? spellAtkCompactStr : spellAtkStr}
+                        <ProfCondMark varName='SPELL_ATTACK' />
                       </div>
                     </div>
                   )}
+                  {/* Shield-block tiles — one per equipped shield. Each
+                      tile reads its current HP from
+                      character.meta_data.shield_hp keyed by inv item id,
+                      defaulting to the shield's max HP if no entry
+                      exists yet. The tile shows:
+                        - HP / max HP (main number)
+                        - hardness as a small subscript on the HP line
+                        - AC bonus as a chip on the bottom-right
+                      Click → opens an inline +/- popover so the player
+                      can record damage from Shield Block. The whole
+                      tile is keyboard-focusable so the popover can be
+                      driven via Enter/Space too. */}
+                  {equippedShields.map((sh) => {
+                    const hpMax = getShieldHpMax(sh);
+                    const hp = Math.min(getShieldHp(sh), hpMax || getShieldHp(sh));
+                    const hardness = getShieldHardness(sh);
+                    const acBonus = getShieldAcBonus(sh);
+                    const broken = hpMax > 0 && hp <= hpMax / 2;
+                    return (
+                      <div
+                        key={`shield-${sh.id}`}
+                        className={`vital shield${broken ? ' broken' : ''}`}
+                        style={{ cursor: 'pointer' }}
+                        title={`Shield: ${sh.item.name} — HP ${hp}/${hpMax}, hardness ${hardness}, +${acBonus} AC · click to open description + HP tracker`}
+                        onClick={() => openShieldDrawer(sh)}
+                      >
+                        <div className='label'>
+                          Shield{equippedShields.length > 1 ? ` ${equippedShields.indexOf(sh) + 1}` : ''}
+                        </div>
+                        <div
+                          className='num'
+                          style={{
+                            fontSize: vitalsCols === 4 ? 13 : vitalsCols === 3 ? 15 : 22,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {hp}
+                          <small> / {hpMax || '?'}</small>
+                        </div>
+                        {/* Hardness + AC bonus on one line so it stays
+                            inside the narrow 3-col/4-col cells. */}
+                        <div
+                          style={{
+                            fontFamily: "'Cinzel', serif",
+                            fontSize: vitalsCols >= 3 ? 7 : 8,
+                            letterSpacing: vitalsCols >= 3 ? '.08em' : '.18em',
+                            color: 'var(--ink-muted)',
+                            textTransform: 'uppercase',
+                            marginTop: 2,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          H{hardness} <span style={{ color: 'var(--gold)' }}>·</span> +{acBonus}AC
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </section>
@@ -693,6 +1041,7 @@ export default function CodexSheet(props: {
                         <div className='k'>Speed</div>
                         <div className='v'>
                           {speed} <small>ft</small>
+                          <VarCondMark varName='SPEED' />
                         </div>
                       </div>
                       <div>
@@ -805,26 +1154,69 @@ export default function CodexSheet(props: {
                         >
                           <span className='lbl'>{s.label}</span>
                           <span className='prof'>{profDisplay}</span>
-                          <span className='val'>{value}</span>
+                          <span className='val'>
+                            {value}
+                            <ProfCondMark varName={s.var} />
+                          </span>
                         </div>
                       );
                     })}
                   </div>
                 </section>
 
-                {/* Conditions */}
+                {/* Conditions (also displays active modes as chips
+                    — Rage / Mutate / Stances / custom toggles all
+                    share the same row as conditions so the player
+                    has one place to see every currently-applied
+                    effect. Modes get a `.mode` class for a distinct
+                    border tone vs. conditions.) */}
                 <section className='sec'>
                   <div className='sec-title compact'>
                     <span className='lozenge'>✤</span>
                     <span className='label'>Conditions</span>
-                    {conditions.length > 0 && (
+                    {(conditions.length > 0 || activeModes.length > 0) && (
                       <span className='sub'>
-                        <b>{conditions.length}</b> active
+                        <b>{conditions.length + activeModes.length}</b> active
                       </span>
                     )}
                   </div>
                   <div className='sec-body'>
                     <div className='cond-row'>
+                      {/* Active mode chips first — they're typically
+                          things the player intentionally turned on,
+                          so they belong before the (passively
+                          applied) conditions. */}
+                      {activeModes.map((m) => (
+                        <span
+                          key={`mode-${m.key}`}
+                          className='cond mode'
+                          title='Click for description, ✕ to deactivate'
+                          style={{ cursor: 'pointer' }}
+                          onClick={(e) => {
+                            // Same UX as condition chips — click the
+                            // chip body (not the ✕) to open the small
+                            // description popover. Without this the
+                            // user has no way to see what a mode
+                            // actually does from the sheet.
+                            e.stopPropagation();
+                            setShowCondDesc({
+                              name: m.name,
+                              description: m.description,
+                            });
+                          }}
+                        >
+                          {m.name}
+                          <span
+                            className='x'
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deactivateMode(m.key);
+                            }}
+                          >
+                            ✕
+                          </span>
+                        </span>
+                      ))}
                       {conditions.map((cond) => {
                         const hasValue = cond.value != null && cond.value > 0;
                         const harmful = HARMFUL_CONDITIONS.has(cond.name);
@@ -995,7 +1387,10 @@ export default function CodexSheet(props: {
                               <span className={`pf ${profLetter}`}>{profLetter}</span>
                               <span className='nm'>{s.name}</span>
                               <span className='leader'></span>
-                              <span className='v'>{value}</span>
+                              <span className='v'>
+                                {value}
+                                <ProfCondMark varName={s.var} />
+                              </span>
                             </div>
                           );
                         })}
@@ -1023,7 +1418,10 @@ export default function CodexSheet(props: {
                                 Lore <em>· {lore.topic}</em>
                               </span>
                               <span className='leader'></span>
-                              <span className='v'>{value}</span>
+                              <span className='v'>
+                                {value}
+                                <ProfCondMark varName={lore.var} />
+                              </span>
                             </div>
                           );
                         })}
@@ -1340,41 +1738,98 @@ function CodexFavorites(props: {
       </div>
       <div className='sec-body'>
         <div className='act-grid'>
-          {favs.map((fav) => (
-            <div
-              key={`${fav.type}-${fav.id}`}
-              className='act'
-              style={{ cursor: 'pointer' }}
-              onClick={() => {
-                if (fav.type === 'inv-item') {
-                  // Resolve inv-item id back to the live InventoryItem.
-                  // Walk containers too so an item inside a backpack
-                  // still opens correctly.
-                  const flat: import('@schemas/content').InventoryItem[] = [];
-                  for (const i of character?.inventory?.items ?? []) {
-                    flat.push(i);
-                    flat.push(...(i.container_contents ?? []));
+          {favs.map((fav) => {
+            // For action / spell favorites, look up the underlying
+            // content row so we can render the same cost-glyph + stat
+            // (MAP ladder, movement distance, skill bonus, spell
+            // range) that the activity / spell panels show. For
+            // other types (feat, item, ancestry, condition, etc.)
+            // fall back to the type label since those don't have a
+            // single useful numeric stat that fits in the card.
+            //
+            // Cache lookup is cheap (already warmed at sheet open)
+            // and returns the live row, so updates to mode bonuses
+            // / encumbrance / etc. flow through identically.
+            let glyph: ReturnType<typeof actionCostToGlyph> = null;
+            let statContent: React.ReactNode = null;
+            let statClass = ' dim';
+            if (fav.type === 'action' || fav.type === 'class-feature' || fav.type === 'feat') {
+              const ab = (getCachedContent<AbilityBlock>('ability-block') ?? []).find(
+                (a) => a.id === Number(fav.id)
+              );
+              if (ab) {
+                glyph = actionCostToGlyph(ab.actions ?? null);
+                const stat = ActionStatCell({ action: ab, character });
+                if (stat) {
+                  statContent = stat;
+                  statClass = '';
+                }
+              }
+            } else if (fav.type === 'spell') {
+              const sp = (getCachedContent<Spell>('spell') ?? []).find(
+                (s) => s.id === Number(fav.id)
+              );
+              if (sp) {
+                glyph = actionCostToGlyph(sp.cast ?? null);
+                // Spells show their range (or area if no range —
+                // common for emanations / bursts). Defense (Reflex /
+                // Will / Fort save) hints small underneath.
+                const range = sp.range || sp.area;
+                if (range) {
+                  statContent = (
+                    <span className='move'>
+                      {range}
+                      {sp.defense && <small> {sp.defense}</small>}
+                    </span>
+                  );
+                  statClass = '';
+                }
+              }
+            }
+            // Fall-through stat for types that don't carry a numeric
+            // stat (item, condition, ancestry, etc.) — keep the type
+            // label dim so the row still has a visual right-rail
+            // value the way the activity-panel cards do.
+            if (!statContent) {
+              statContent = labelizeFavType(fav.type);
+            }
+            return (
+              <div
+                key={`${fav.type}-${fav.id}`}
+                className='act'
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  if (fav.type === 'inv-item') {
+                    // Resolve inv-item id back to the live InventoryItem.
+                    // Walk containers too so an item inside a backpack
+                    // still opens correctly.
+                    const flat: import('@schemas/content').InventoryItem[] = [];
+                    for (const i of character?.inventory?.items ?? []) {
+                      flat.push(i);
+                      flat.push(...(i.container_contents ?? []));
+                    }
+                    const invItem = flat.find((i) => String(i.id) === String(fav.id));
+                    if (!invItem) return;
+                    openDrawer({
+                      type: 'inv-item',
+                      data: { invItem, storeID: 'CHARACTER' },
+                      extra: { addToHistory: true },
+                    });
+                    return;
                   }
-                  const invItem = flat.find((i) => String(i.id) === String(fav.id));
-                  if (!invItem) return;
                   openDrawer({
-                    type: 'inv-item',
-                    data: { invItem, storeID: 'CHARACTER' },
+                    type: fav.type as 'spell' | 'feat' | 'action' | 'item' | 'class-feature' | 'condition',
+                    data: { id: fav.id },
                     extra: { addToHistory: true },
                   });
-                  return;
-                }
-                openDrawer({
-                  type: fav.type as 'spell' | 'feat' | 'action' | 'item' | 'class-feature',
-                  data: { id: fav.id },
-                  extra: { addToHistory: true },
-                });
-              }}
-            >
-              <div className='nm'>{fav.name}</div>
-              <div className='stat dim'>{labelizeFavType(fav.type)}</div>
-            </div>
-          ))}
+                }}
+              >
+                <div className='cost'>{glyph ? <ActionGlyph cost={glyph} /> : null}</div>
+                <div className='nm'>{fav.name}</div>
+                <div className={`stat${statClass}`}>{statContent}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -1399,6 +1854,11 @@ function labelizeFavType(type: string): string {
     case 'sense': return 'Sense';
     case 'heritage': return 'Heritage';
     case 'physical-feature': return 'Feature';
+    case 'condition': return 'Condition';
+    case 'trait': return 'Trait';
+    case 'archetype': return 'Archetype';
+    case 'versatile-heritage': return 'Heritage';
+    case 'class-archetype': return 'Class Archetype';
     default: return type;
   }
 }

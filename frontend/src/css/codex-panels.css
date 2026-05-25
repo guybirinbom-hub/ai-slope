@@ -465,7 +465,27 @@
 .it.equipped { border-left: 2px solid var(--gold); }
 .it.held { border-left: 2px solid var(--sage); }
 .it.worn { border-left: 2px solid var(--ink-deep); }
-.it.consumable { border-left: 2px solid var(--crimson); }
+/* Consumables (potions, scrolls, oils, talismans, ammunition, alchemical
+   items, etc.) get a sage rail + sage-tinted icon so they jump out of a
+   gold-default inventory list. Players scan for "what can I burn this
+   turn" and the colour makes that scan instant. Mirrors the proposal in
+   design-mockups/mockup-4-item-icons.html. The icon for an item still
+   comes from the priority resolver (a Wand of Healing keeps the wand
+   shape), but the row colour flips because the item still consumes a
+   charge — both facts about it are true. */
+.it.consumable {
+  border-left: 2px solid var(--sage-bright, #82a06b);
+  background:
+    radial-gradient(ellipse 28% 100% at 0% 50%, rgba(91,113,72,.10), transparent 70%),
+    var(--bg-card);
+}
+.it.consumable .icon { color: var(--sage-bright, #82a06b); }
+.it.consumable:hover {
+  border-color: rgba(91,113,72,.5);
+  background:
+    radial-gradient(ellipse 35% 100% at 0% 50%, rgba(91,113,72,.16), transparent 70%),
+    var(--bg-card);
+}
 .it .icon { width: 28px; height: 28px; display: grid; place-items: center; color: var(--gold); }
 .it .icon svg { width: 20px; height: 20px; }
 .it .nm {

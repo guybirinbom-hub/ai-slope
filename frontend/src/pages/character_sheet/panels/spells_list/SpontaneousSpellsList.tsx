@@ -1,6 +1,7 @@
 import BlurButton from '@common/BlurButton';
 import { collectEntitySpellcasting } from '@content/collect-content';
-import { Accordion, Badge, Box, Divider, Group, Paper, Stack, Text } from '@mantine/core';
+import { Accordion, Badge, Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core';
+import { modals } from '@mantine/modals';
 import { getSpellStats } from '@spells/spell-handler';
 import {
   CastingSource,
@@ -97,12 +98,13 @@ export default function SpontaneousSpellsList(props: {
     );
   };
 
-  // Toggle the signature flag on the repertoire entry for `spell`. If
-  // we're switching ON, also clear any other signature entry that lives
-  // at the same rank under the same source — the rule is one signature
-  // per spell rank per source, and silently swapping is friendlier than
-  // erroring out.
-  const toggleSignature = (spell: Spell) => {
+  // Apply the signature toggle directly — no confirmation. Only
+  // called from the wrapped toggleSignature below; do NOT wire to
+  // the right-click menu directly (the user explicitly asked for a
+  // confirm step before signature spells toggle, since the right-
+  // click menu sits right next to the spell row and is easy to
+  // fat-finger).
+  const applySignatureToggle = (spell: Spell) => {
     setEntity((c) => {
       if (!c) return c;
       const sourceName = props.source!.name;
@@ -133,6 +135,59 @@ export default function SpontaneousSpellsList(props: {
           list: newList,
         },
       };
+    });
+  };
+
+  // Confirmed signature toggle. Opens a confirm modal that names the
+  // spell + explains the consequence (clears any other signature at
+  // the same rank). Both ON and OFF directions ask, so an accidental
+  // right-click can't strip a signature either.
+  const toggleSignature = (spell: Spell) => {
+    const sourceName = props.source!.name;
+    const list = props.entity?.spells?.list ?? [];
+    const entry = list.find((e) => e.spell_id === spell.id && e.source === sourceName);
+    if (!entry) return;
+    const turningOn = !entry.signature;
+    const otherAtSameRank = turningOn
+      ? list.find(
+          (e) =>
+            e.source === sourceName &&
+            e.rank === entry.rank &&
+            e.signature &&
+            e.spell_id !== spell.id
+        )
+      : undefined;
+    const otherName = otherAtSameRank
+      ? props.allSpells.find((s) => s.id === otherAtSameRank.spell_id)?.name ?? null
+      : null;
+    modals.openConfirmModal({
+      title: (
+        <Title order={4}>
+          {turningOn ? 'Make Signature Spell?' : 'Remove Signature Status?'}
+        </Title>
+      ),
+      children: turningOn ? (
+        <Stack gap={6}>
+          <Text size='sm'>
+            Mark <b>{spell.name}</b> as your signature spell at rank {entry.rank}? Signature spells automatically
+            heighten to any rank-{entry.rank}-or-higher slot you cast them from.
+          </Text>
+          {otherName && (
+            <Text size='xs' c='dimmed'>
+              This will replace your current rank-{entry.rank} signature spell, <b>{otherName}</b>.
+            </Text>
+          )}
+        </Stack>
+      ) : (
+        <Text size='sm'>
+          Remove <b>{spell.name}</b> as your signature spell? It will no longer auto-heighten in higher slots.
+        </Text>
+      ),
+      labels: {
+        confirm: turningOn ? 'Make signature' : 'Remove signature',
+        cancel: 'Cancel',
+      },
+      onConfirm: () => applySignatureToggle(spell),
     });
   };
 

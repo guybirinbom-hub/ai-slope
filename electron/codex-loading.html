@@ -173,7 +173,15 @@
     transition: transform .12s ease;
   }
   .seal-core .crest-d20.rolling { animation: d20-roll 1.4s linear infinite; }
+  /* Number is hidden ONLY while .rolling is on. The moment .rolling
+     is removed (complete() removes it before adding .land), the
+     number snaps to opacity 1 — explicit !important so neither the
+     .land scale keyframe nor any future animation class accidentally
+     inherits the rolling state's opacity:0. Before this !important
+     guard, on a fast-cache load the user occasionally saw the dice
+     land without ever revealing the rolled number. */
   .seal-core .crest-d20.rolling .num { opacity: 0; }
+  .seal-core .crest-d20:not(.rolling) .num { opacity: 1 !important; }
   .seal-core .crest-d20.settled { animation: d20-settle 3s ease-in-out infinite; }
   .seal-core .crest-d20.land { animation: d20-land .42s cubic-bezier(.22,1.4,.36,1) 1; }
   .seal-core .crest-d20 svg { width: 100%; height: 100%; display: block; }

@@ -5,7 +5,7 @@
 
 import EmbeddedPostgres from 'embedded-postgres';
 import { spawn, execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, mkdirSync, createReadStream, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, createReadStream, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -58,6 +58,250 @@ function waitForPgPort(port, timeoutMs) {
 // too aggressively slows the actual recovery. We start at 200ms but
 // back off hard once we see the first 57P03 — recovery on a populated
 // data dir routinely runs 60-90s on Windows.
+// Spawn postgres.exe directly + wait for the port to open. Bypasses
+// pgEmbedded.start() which on this Windows build silently rejects with
+// `undefined` and never actually launches postgres. Also pre-cleans
+// any stale postmaster.pid in the data dir so a previous run's
+// orphan-lock doesn't block our new postgres.
+async function runPostgresDirect(dataDir, port) {
+  // Pre-spawn cleanup. We spawn postgres with `detached: true` (see
+  // comment near the spawn() call below) because without it PG's
+  // postmaster.pid file is never written, which causes PG's periodic
+  // lock-file check to self-shutdown the cluster ~60s after start.
+  // The price of `detached: true` is that postgres SURVIVES if the
+  // Electron parent dies abnormally (force-quit, Task Manager End
+  // Task, OS reboot mid-session). Next launch then sees the old pg
+  // still holding the data dir lock and bails with "lock file
+  // postmaster.pid already exists".
+  //
+  // So before spawning OUR postgres we aggressively clean:
+  //   1. Read postmaster.pid (if it exists) for its claimed pid.
+  //   2. Force-kill that PID + its descendants via taskkill — this is
+  //      safe because the Electron single-instance-lock (see
+  //      main.cjs) guarantees there's no other WG running, so any
+  //      postgres still holding this data dir's lock IS by definition
+  //      a previous-crashed-WG orphan.
+  //   3. Also blanket-kill any postgres.exe / postgrest.exe in the
+  //      user's session (we don't need surgical PID matching — anyone
+  //      else's postgres should be running as a Windows service in
+  //      session 0, which we don't touch).
+  //   4. Delete postmaster.pid + postmaster.opts so the new pg sees
+  //      a virgin lock state.
+  const pidFile = path.join(dataDir, 'postmaster.pid');
+  const optsFile = path.join(dataDir, 'postmaster.opts');
+  // Step 1+2: targeted kill from pid file
+  if (existsSync(pidFile)) {
+    try {
+      const raw = readFileSync(pidFile, 'utf8').split(/\r?\n/, 1)[0];
+      const pid = Math.abs(parseInt(raw, 10));
+      if (Number.isFinite(pid) && pid > 0) {
+        try {
+          execFileSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
+            stdio: 'ignore', timeout: 3000, windowsHide: true,
+          });
+          console.log('[pg] killed leftover postmaster pid=' + pid + ' from previous run');
+        } catch { /* already dead or different owner */ }
+      }
+    } catch {}
+  }
+  // Step 3: blanket kill any remaining user-session postgres/postgrest.
+  // taskkill exits non-zero with "no process matches" — harmless.
+  for (const image of ['postgres.exe', 'postgrest.exe']) {
+    try {
+      execFileSync('taskkill', ['/F', '/IM', image], {
+        stdio: 'ignore', timeout: 3000, windowsHide: true,
+      });
+    } catch {}
+  }
+  // Step 4: remove lock files unconditionally. If a real postgres is
+  // running on this data dir it's dead by now (step 2+3 killed it);
+  // its lock file is by definition stale.
+  for (const f of [pidFile, optsFile]) {
+    try { if (existsSync(f)) unlinkSync(f); } catch {}
+  }
+
+  const postgresBin = path.join(config.pgBinDir, 'postgres.exe');
+  console.log('[pg] spawning postgres directly:', postgresBin, '-D', dataDir, '-p', port);
+  // Performance flags — without these, the FIRST postgres boot on
+  // Windows spends 60-120s doing an initial fsync of every file initdb
+  // wrote, because Windows treats the data dir as untrusted (antivirus
+  // scans each WAL/heap file as postgres opens it). We disable fsync
+  // + synchronous_commit for our embedded use case. Trade-off: a power
+  // cut would lose the last few seconds of writes — acceptable for a
+  // single-user desktop app that auto-saves on graceful close.
+  //
+  // Spawn config mirrors what `embedded-postgres` (the library we
+  // bypass) does on Windows: default pipe stdio so we can listen for
+  // stderr log lines, no `windowsHide`, no `cwd`. Previous variant
+  // used `stdio: ['ignore', outFd, errFd]` + `windowsHide: true` +
+  // `cwd: pgBinDir`. With THAT combination, postgres opened its
+  // listening ports + accepted queries — but never created its own
+  // postmaster.pid file. PG's periodic lock-file check then triggered
+  // an "immediate shutdown because data directory lock file is
+  // invalid" about 45 seconds after start, killing the cluster mid-
+  // session and stranding the user with a "loading…" screen on any
+  // followup query. Default pipe stdio fixes it; the cost is we have
+  // to consume the pipe to avoid backpressure → we tee stderr lines
+  // to the log file in JS and ignore stdout.
+  const logDir = path.join(dataDir, 'wg-log');
+  try { mkdirSync(logDir, { recursive: true }); } catch {}
+  const stderrLogPath = path.join(logDir, 'postgres-stderr.log');
+  const fsMod = await import('node:fs');
+  const stderrLogStream = fsMod.createWriteStream(stderrLogPath, { flags: 'a' });
+  // Spawn postgres with no special options (windowsHide so any
+  // incidental console doesn't pop up — `detached: true` would force
+  // a visible console per worker on Windows, which is unusable).
+  //
+  // CRITICAL Windows-Electron quirk: when postgres.exe is spawned from
+  // Node's child_process inside an Electron app, IT NEVER WRITES its
+  // own `postmaster.pid` file. PG starts, listens, answers queries —
+  // but its periodic "is my lock file valid?" check then fires
+  // "performing immediate shutdown because data directory lock file is
+  // invalid" about 60 seconds after start, killing the cluster mid-
+  // session. The user sees their character-creation request hang
+  // forever because postgres died under it.
+  //
+  // The same postgres.exe with the same flags written from BASH writes
+  // postmaster.pid correctly. We've ruled out: cwd, windowsHide, stdio
+  // pipe vs ignore vs inherit, env vars, args. The only spawn option
+  // that makes PG write the pid is `detached: true` — which on Windows
+  // means a new console per process and is unusable for our purposes.
+  //
+  // Workaround: spawn normally + WRITE the postmaster.pid file
+  // ourselves after the postmaster is up. PG's periodic lock-file
+  // check just reads line 1 and verifies it's the postmaster's PID —
+  // it doesn't care who created the file. We get the PID from
+  // `proc.pid`, fill in the other lines per the PG-18 format, and
+  // call it done.
+  const proc = spawn(
+    postgresBin,
+    [
+      '-D', dataDir,
+      '-p', String(port),
+      '-c', 'fsync=off',
+      '-c', 'synchronous_commit=off',
+      '-c', 'full_page_writes=off',
+    ],
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }
+  );
+  // Pipe stderr to the log file so we still have the diagnostic stream
+  // for the user-visible error overlay (readStderrTail below). We
+  // intentionally don't pipe stdout — it's chatty and we don't need it.
+  if (proc.stderr) proc.stderr.pipe(stderrLogStream);
+  if (proc.stdout) proc.stdout.resume(); // drain to /dev/null
+
+  // Stash everything we need to write the lock file later. The actual
+  // write happens after we confirm port-up so that we're writing the
+  // file for a postmaster that's genuinely running.
+  const postmasterPid = proc.pid;
+  const writePostmasterPidFile = () => {
+    try {
+      // PG-18 postmaster.pid format (8 lines):
+      //   1: postmaster PID
+      //   2: data directory absolute path (forward slashes on Windows)
+      //   3: postmaster start time, unix epoch seconds
+      //   4: port
+      //   5: socket directory (empty on Windows — PG uses TCP only)
+      //   6: first listen_addresses value (or "*")
+      //   7: shared memory key (0 on Windows — uses named segments)
+      //   8: status flags char block (PG checks length not content)
+      const startEpoch = Math.floor(Date.now() / 1000);
+      const lines = [
+        String(postmasterPid),
+        dataDir.replace(/\\/g, '/'),
+        String(startEpoch),
+        String(port),
+        '',          // socket dir — none on Windows
+        'localhost', // listen address
+        '   0   0',  // shared mem key + ID (Windows uses 0)
+        'ready',     // status
+      ];
+      writeFileSync(pidFile, lines.join('\n') + '\n');
+      console.log('[pg] wrote postmaster.pid with pid=' + postmasterPid + ' (Node-spawned pg does not write it itself on Windows)');
+    } catch (err) {
+      console.error('[pg] failed to write postmaster.pid:', err && err.message);
+    }
+  };
+  // Track postmaster so the codebase's existing stop() path can kill it.
+  pgPostmasterProc = proc;
+  let exited = false;
+  proc.on('exit', (code) => {
+    exited = true;
+    if (code !== 0 && !stopping) {
+      console.error('[pg] postmaster exited unexpectedly code=' + code);
+    }
+  });
+  proc.on('error', (err) => {
+    exited = true;
+    console.error('[pg] postmaster spawn error:', err && err.message);
+  });
+
+  // Read tail of the stderr log file. Used in error messages so the user
+  // sees the actual postgres failure reason, not a generic timeout.
+  const readStderrTail = () => {
+    try {
+      const f = path.join(logDir, 'postgres-stderr.log');
+      if (!existsSync(f)) return '';
+      const buf = readFileSync(f, 'utf8');
+      return buf.slice(-4000);
+    } catch { return ''; }
+  };
+
+  // Race port-up vs early-exit. If postgres dies during startup (port in
+  // use, corrupt data dir), throw a useful message instead of waiting
+  // 60s for a port that will never open.
+  const tStart = Date.now();
+  while (Date.now() - tStart < 60_000) {
+    if (exited) {
+      throw new Error(`postgres exited during startup. stderr: ${readStderrTail() || '(none)'}`);
+    }
+    const open = await new Promise((resolve) => {
+      const s = net.createConnection({ host: '127.0.0.1', port }, () => {
+        s.end();
+        resolve(true);
+      });
+      s.on('error', () => resolve(false));
+      s.setTimeout(500, () => { s.destroy(); resolve(false); });
+    });
+    if (open) {
+      console.log('[pg] port', port, 'open after', Date.now() - tStart, 'ms');
+      // Write the postmaster.pid file ourselves now that we've
+      // confirmed pg is up. See the spawn() block above for why this
+      // is necessary (Node-spawned pg on Windows doesn't write it).
+      writePostmasterPidFile();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  try { proc.kill('SIGKILL'); } catch {}
+  throw new Error(`postgres port ${port} never opened in 60s. stderr: ${readStderrTail() || '(none)'}`);
+}
+
+// Poll the data dir for files initdb writes at the END of its run, so
+// we can proceed even when initdb.exe finished its work but its child
+// 'exit' event never fires (Windows stdio bug in embedded-postgres'
+// spawn options). Returns as soon as PG_VERSION + postgresql.conf +
+// pg_hba.conf are all present — the cluster is bootable at that point.
+async function waitForInitdbDone(dataDir, timeoutMs) {
+  const sentinels = ['PG_VERSION', 'postgresql.conf', 'pg_hba.conf'];
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const ok = sentinels.every((n) => existsSync(path.join(dataDir, n)));
+    if (ok) {
+      // 250ms cushion so initdb has time to flush its final writes
+      // before postgres.exe tries to read the config.
+      await new Promise((r) => setTimeout(r, 250));
+      console.log('[pg] initdb sentinel files present — proceeding');
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  throw new Error(`initdb didn't produce sentinel files within ${timeoutMs}ms`);
+}
+
 async function waitForPgReady(timeoutMs) {
   const { Client } = pg;
   const deadline = Date.now() + timeoutMs;
@@ -338,6 +582,7 @@ async function runFirstBootMigrations(client) {
 }
 
 let pgEmbedded, postgrestProc, gatewayServer, gatewayPool, stopping = false;
+let pgPostmasterProc = null;
 // True only after pgEmbedded.start() has resolved (cluster is fully up).
 // Used in stop() so we don't waste 4s waiting for pg_ctl stop on a cluster
 // that's still mid-init — if we hard-kill that, postgres leaves behind a
@@ -981,23 +1226,32 @@ export async function start() {
   if (isFirstBoot) {
     console.log('[pg] first boot, initialising data dir at', config.pgDataDir);
     const t0 = Date.now();
-    await pgEmbedded.initialise();
+    // Race pgEmbedded.initialise() against a sentinel-file poll.
+    // On Windows the library spawns initdb.exe and waits for its
+    // child-process 'exit' event — but that event NEVER FIRES on
+    // Windows after initdb finishes (it's a stdio inheritance bug
+    // in the library's spawn options). initdb writes the data dir
+    // fully in 2-4 seconds then sits as a zombie, and the parent
+    // promise stays pending forever. Boot deadlocks at first start.
+    //
+    // The poll watches for the files initdb writes near the end of
+    // its run. Once PG_VERSION + postgresql.conf + pg_hba.conf are
+    // all present, the cluster is safe to start regardless of what
+    // the zombie initdb process is doing.
+    await Promise.race([
+      pgEmbedded.initialise(),
+      waitForInitdbDone(config.pgDataDir, 90_000),
+    ]);
     console.log('[pg] initdb took', Date.now() - t0, 'ms');
   }
   console.log('[pg] starting on port', config.pgPort);
   const tStart = Date.now();
-  // Race pgEmbedded.start() against a direct port probe. On Windows
-  // we've seen pgEmbedded.start() hang forever even when pg itself
-  // came up and is listening on the port — embedded-postgres's
-  // pg_ctl-based readiness detection can stick. The port probe gives
-  // us a parallel signal that pg is actually accepting connections,
-  // and we proceed as soon as either path reports success. Both
-  // promises stay alive (no abort) so any straggling errors still
-  // surface from pgEmbedded.
-  await Promise.race([
-    pgEmbedded.start(),
-    waitForPgPort(config.pgPort, 60_000),
-  ]);
+  // Spawn postgres.exe directly, bypassing pgEmbedded.start(). The
+  // library's start() does NOT work on this Windows build of node —
+  // it never actually spawns the postgres binary and silently rejects
+  // with `undefined`. We use the same binary path the library would
+  // use and wait for the TCP port to open.
+  await runPostgresDirect(config.pgDataDir, config.pgPort);
   pgStarted = true;
   console.log('[pg] start took', Date.now() - tStart, 'ms');
 
@@ -1012,15 +1266,44 @@ export async function start() {
 
   // Bootstrap runs every start (idempotent: DO/IF NOT EXISTS, CREATE OR
   // REPLACE, GRANT). Schema + data load run only on first boot.
-  const client = pgEmbedded.getPgClient();
+  //
+  // Build the pg client ourselves rather than going through
+  // pgEmbedded.getPgClient(): when start() above rejects (which it
+  // routinely does on Windows even though pg is actually fine), the
+  // library's internal state is missing and getPgClient throws with
+  // no useful message.
+  const client = new pg.Client({
+    host: '127.0.0.1',
+    port: config.pgPort,
+    user: config.pgUser,
+    password: config.pgPassword,
+    database: 'postgres',
+  });
   await client.connect();
   try {
     console.log('[bootstrap] roles + auth stubs (always)...');
     await client.query(ROLE_BOOTSTRAP_SQL);
-    if (isFirstBoot) {
+    // CRITICAL: do NOT use `isFirstBoot` (PG_VERSION presence) as a proxy
+    // for "schema is loaded". initdb writes PG_VERSION BEFORE our schema
+    // bootstrap runs — so if a previous launch was killed mid-bootstrap
+    // (force-quit, OS reboot, taskmgr End Task, crash), PG_VERSION ends
+    // up present without the schema. Next launch then wrongly skips
+    // bootstrap and the app boots against an empty database — the user
+    // sees "relation does not exist" for every query and the Characters
+    // page is permanently broken.
+    //
+    // Source of truth: check whether public.public_user actually exists
+    // in pg_catalog. Cheap (single index lookup), accurate (matches what
+    // queries will actually find), and recovers from interrupted boots.
+    const probe = await client.query(
+      "SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'public_user' AND c.relkind = 'r' LIMIT 1"
+    );
+    const schemaLoaded = probe.rowCount > 0;
+    if (!schemaLoaded) {
+      console.log('[migrate] schema not present, running first-boot migrations…');
       await runFirstBootMigrations(client);
     } else {
-      console.log('[pg] data already loaded, skipping schema/data import');
+      console.log('[pg] schema already loaded (public.public_user exists), skipping import');
     }
   } finally {
     await client.end();

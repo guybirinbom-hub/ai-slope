@@ -833,46 +833,72 @@ export default function SelectContentModal({
           )}
         </Group>
 
-        {/* Filter panel + results live TOGETHER when open. Previously
-            they were mutually exclusive, which meant the user couldn't
-            see the list shrink as they toggled chips — so they
-            reasonably concluded "the filters don't filter". Now the
-            panel takes the top ~38vh (scrolls internally) and the
-            results fill below, so every chip click visibly narrows the
-            list. */}
-        {filtersOpen && !isCustomSelectMode && (
+        {/* Filter panel and result list are now MUTUALLY EXCLUSIVE
+            — when filters open, they fill the whole modal body and
+            the result list is hidden; when filters close, the
+            result list comes back. This matches the AddItemsModal
+            UX and the user's explicit preference: "filters take
+            the entire popup; closing filters shows the results."
+            Reset / Done buttons sit at the bottom of the filter
+            panel so the player has both a one-click way to clear
+            and a clear way back to results without having to find
+            the toolbar Filters button again. */}
+        {filtersOpen && !isCustomSelectMode ? (
           <Box
             p='sm'
             style={{
               backgroundColor: IMPRINT_BG_COLOR,
               border: `1px solid ${IMPRINT_BORDER_COLOR}`,
               borderRadius: theme.radius.md,
-              // Capped height so the list stays visible below. The
-              // inner Stack (with the :has(> .codex-filter-block)
-              // rule in codex-bridge.css) flex-fills this Box and
-              // scrolls internally when filters overflow.
-              flex: '0 0 auto',
-              maxHeight: '38vh',
+              flex: 1,
               minHeight: 0,
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
             }}
           >
-            <SelectContentFilters
-              type={innerProps.type}
-              abilityBlockType={innerProps.options?.abilityBlockType}
-              featType={featType}
-              state={filterState}
-              onChange={setFilterState}
-              maxLevel={optionMaxLevel}
-              maxRank={optionMaxRank}
-              spellDomain={spellFilterDomain}
-              allowedTraitIds={allowedTraitIds}
-            />
+            <Box style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <SelectContentFilters
+                type={innerProps.type}
+                abilityBlockType={innerProps.options?.abilityBlockType}
+                featType={featType}
+                state={filterState}
+                onChange={setFilterState}
+                maxLevel={optionMaxLevel}
+                maxRank={optionMaxRank}
+                spellDomain={spellFilterDomain}
+                allowedTraitIds={allowedTraitIds}
+              />
+            </Box>
+            <Group
+              justify='space-between'
+              wrap='nowrap'
+              gap={8}
+              pt='sm'
+              mt='sm'
+              style={{ borderTop: `1px solid ${IMPRINT_BORDER_COLOR}`, flex: '0 0 auto' }}
+            >
+              <Button
+                size='sm'
+                variant='default'
+                onClick={() => setFilterState({ ...DEFAULT_FILTER_STATE })}
+                disabled={filterCount === 0}
+              >
+                Reset filters{filterCount > 0 ? ` (${filterCount})` : ''}
+              </Button>
+              <Button
+                size='sm'
+                variant='filled'
+                color={theme.primaryColor}
+                onClick={() => setFiltersOpen(false)}
+              >
+                Done — show results
+              </Button>
+            </Group>
           </Box>
+        ) : (
+          selectionOptions
         )}
-        {selectionOptions}
       </Stack>
     );
   };

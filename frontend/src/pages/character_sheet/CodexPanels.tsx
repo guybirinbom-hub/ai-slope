@@ -19,17 +19,18 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { collectEntitySpellcasting, collectEntityAbilityBlocks } from '@content/collect-content';
 import { getVariable } from '@variables/variable-manager';
-import { VariableProf, VariableListStr, VariableNum } from '@schemas/variables';
+import { VariableListStr, VariableNum } from '@schemas/variables';
 import { labelToVariable } from '@variables/variable-utils';
 import { findActions } from '@utils/actions';
 import { getFillableSpellHolder } from '@items/inv-utils';
 // @items alias maps to process/items in tsconfig; explicit re-import
 // path makes this unambiguous in the rare case the alias isn't set.
-import { getFinalProfValue } from '@variables/variable-helpers';
+import { getFinalProfValue, getProfValueParts } from '@variables/variable-helpers';
 import { rankNumber } from '@utils/numbers';
 import {
   getInvBulk,
   getBulkLimit,
+  getContainerContentsBulk,
   labelizeBulk,
   isItemContainer,
   isItemEquippable,
@@ -42,17 +43,18 @@ import { priceToString } from '@items/currency-handler';
 import { isCantrip, isNormalSpell } from '@spells/spell-utils';
 import { selectContent } from '@common/select/SelectContent';
 import { isItemWeapon } from '@items/inv-utils';
+import { ItemIcon, isConsumableItem } from '@items/item-icons';
 import { cloneDeep } from 'lodash-es';
 import ManageSpellsModal from '@modals/ManageSpellsModal';
 import { openContextModal } from '@mantine/modals';
-import { Title } from '@mantine/core';
+import { Title, Text, Stack } from '@mantine/core';
 import { Item } from '@schemas/content';
 import { handleAddItem, handleDeleteItem, handleMoveItem, handleUpdateItem } from '@items/inv-handlers';
 import { modals } from '@mantine/modals';
 import { getWeaponStats } from '@items/weapon-handler';
 import { isAbilityBlockVisible } from '@content/content-hidden';
 import { hasTraitType } from '@utils/traits';
-import { getContentFast } from '@content/content-store';
+import { getContentFast, getCachedContent } from '@content/content-store';
 import type { Trait } from '@schemas/content';
 import { AbilityBlock } from '@schemas/content';
 import { sign } from '@utils/numbers';
@@ -62,6 +64,146 @@ import { sign } from '@utils/numbers';
 // Renders as <ActionGlyph cost="1" /> → 1-action / 2-action / 3-action /
 // reaction (ar) / free (af). Matches the .ai class from codex.css.
 // -----------------------------------------------------------------------
+
+// Gold `*` indicator that appears next to a stat value whenever the
+// stat has conditional bonuses applied (e.g., "+1 vs fear effects").
+// Mirrors the marker shown in the info drawer via
+// displayFinalProfValue. Reads from the live variable store on every
+// render so it picks up mode toggles, condition changes, etc.
+function ProfCondMark({ varName }: { varName: string }) {
+  const has = !!getProfValueParts('CHARACTER', varName)?.hasConditionals;
+  if (!has) return null;
+  return (
+    <span
+      style={{
+        color: 'var(--gold)',
+        marginLeft: 2,
+        fontWeight: 700,
+        fontFamily: 'Cinzel, serif',
+      }}
+      title='This stat has conditional bonuses — open the info page for details.'
+    >
+      *
+    </span>
+  );
+}
+
+// Render the same ".stat" inner content the activity panel produces
+// for an action card — MAP ladder for Attack-trait actions, movement
+// distances for Stride/Step/Crawl/Leap/Sudden Charge/Fly/Climb/etc.,
+// multi-success for High/Long Jump, and the character's skill bonus
+// for skill actions. Exported so the codex Favorites section in
+// CodexSheet can render the same stat on starred-action cards
+// instead of the bare type label it used before.
+//
+// `character` is optional and used to derive the best Strike MAP
+// ladder for Attack-trait actions from equipped weapons. Without it,
+// we fall back to the +0/-5/-10 ladder (which is what an unequipped
+// character would see anyway).
+export function ActionStatCell(props: {
+  action: AbilityBlock;
+  character: Character | null;
+}): React.ReactNode {
+  const { action, character } = props;
+  const nameKey = action.name.toLowerCase().trim();
+
+  // Speeds — read from the live variable store, identical to the
+  // activity panel so the same Stride card produces the same number
+  // in both places.
+  const speed = getVariable<VariableNum>('CHARACTER', 'SPEED')?.value ?? 25;
+  const flySpeed = getVariable<VariableNum>('CHARACTER', 'SPEED_FLY')?.value ?? 0;
+  const climbSpeed = getVariable<VariableNum>('CHARACTER', 'SPEED_CLIMB')?.value ?? 0;
+  const burrowSpeed = getVariable<VariableNum>('CHARACTER', 'SPEED_BURROW')?.value ?? 0;
+  const swimSpeed = getVariable<VariableNum>('CHARACTER', 'SPEED_SWIM')?.value ?? 0;
+
+  // Attack-trait detection: look up the 'attack' trait id from the
+  // cached content store. The hardcoded TraitType enum in @utils/traits
+  // doesn't include 'attack', so we name-scan against the cache.
+  const traits = getCachedContent<{ id: number; name?: string }>('trait');
+  const attackTraitId =
+    (traits?.find((t) => t?.name?.toLowerCase() === 'attack')?.id) ?? null;
+  const isAttack =
+    attackTraitId != null && (action.traits ?? []).includes(attackTraitId);
+
+  // Best Strike MAP ladder from the character's equipped weapons.
+  // Same logic as the activity panel uses: max of every equipped
+  // weapon's [0] (no-MAP) attack bonus.
+  let bestMap: [number, number, number] = [0, -5, -10];
+  if (isAttack && character?.inventory) {
+    const equipped = (character.inventory.items ?? []).filter(
+      (i) => i.is_equipped && isItemWeapon(i.item)
+    );
+    for (const inv of equipped) {
+      const stats = getWeaponStats('CHARACTER', inv.item);
+      const arr = (stats.attack_bonus?.total as number[] | undefined) ?? [];
+      const a0 = arr[0] ?? 0;
+      const a1 = arr[1] ?? a0 - 5;
+      const a2 = arr[2] ?? a0 - 10;
+      if (a0 > bestMap[0]) bestMap = [a0, a1, a2];
+    }
+  }
+
+  const SINGLE_MOVE: Record<string, string> = {
+    stride: `${speed} ft`,
+    step: '5 ft',
+    crawl: '5 ft',
+    leap: speed >= 30 ? '10 ft' : '5 ft',
+    'sudden charge': `${speed * 2} ft`,
+    fly: flySpeed > 0 ? `${flySpeed} ft` : '—',
+    climb: climbSpeed > 0 ? `${climbSpeed} ft` : '5 ft',
+    burrow: burrowSpeed > 0 ? `${burrowSpeed} ft` : '—',
+    swim: swimSpeed > 0 ? `${swimSpeed} ft` : '—',
+  };
+  const MULTI_MOVE: Record<string, { s: string; cs: string }> = {
+    'high jump': { s: '3 ft', cs: '5 ft' },
+    'long jump': { s: `${Math.max(0, speed - 5)} ft`, cs: `${speed} ft` },
+  };
+
+  if (isAttack) {
+    return (
+      <span className='map'>
+        {sign(bestMap[0])}<i>/</i>{sign(bestMap[1])}<i>/</i>{sign(bestMap[2])}
+      </span>
+    );
+  }
+  if (nameKey in MULTI_MOVE) {
+    const m = MULTI_MOVE[nameKey];
+    return (
+      <span className='move'>
+        {m.s}<i>/</i>{m.cs}
+      </span>
+    );
+  }
+  if (nameKey in SINGLE_MOVE && SINGLE_MOVE[nameKey] !== '—') {
+    return <span className='move'>{SINGLE_MOVE[nameKey]}</span>;
+  }
+  if (action.meta_data?.skill) {
+    const skillsRaw = Array.isArray(action.meta_data.skill)
+      ? action.meta_data.skill
+      : [action.meta_data.skill];
+    const skillNames = skillsRaw.map((s) => String(s));
+    let best: { name: string; varName: string; n: number; str: string } | null = null;
+    for (const sk of skillNames) {
+      if (!sk) continue;
+      const lv = labelToVariable(sk);
+      if (lv === 'LORE') continue;
+      const varName = `SKILL_${lv}`;
+      const str = getFinalProfValue('CHARACTER', varName);
+      const n = parseInt(str.replace(/[^\-0-9]/g, ''), 10) || 0;
+      if (best === null || n > best.n) best = { name: sk, varName, n, str };
+    }
+    if (best) {
+      return (
+        <span className='skill'>
+          {best.str}
+          <ProfCondMark varName={best.varName} />
+          <small> {best.name}</small>
+        </span>
+      );
+    }
+  }
+  return null;
+}
 
 export function ActionGlyph(props: { cost: 1 | 2 | 3 | 'r' | 'f' | string }) {
   // Use the bundled Pathfinder2eActions.ttf font (loaded via index.css
@@ -113,7 +255,10 @@ export function ActionGlyph(props: { cost: 1 | 2 | 3 | 'r' | 'f' | string }) {
 }
 
 // Map a textual action cost from data to a glyph identifier.
-function actionCostToGlyph(
+// Exported so the codex Favorites section in CodexSheet can render
+// the same cost glyphs on starred-action cards that the activity
+// panel uses on the regular cards.
+export function actionCostToGlyph(
   cost: string | null | undefined
 ): 1 | 2 | 3 | 'r' | 'f' | null {
   if (!cost) return null;
@@ -205,12 +350,12 @@ export function CodexSpellsPanel(props: {
     );
   };
 
-  // Toggle the signature flag on a spell in a spontaneous repertoire.
-  // PF2e rule: one signature spell per spell rank per source. When
-  // turning a spell into a signature we clear any other entry with the
-  // same (source, rank) flag — silently swapping is friendlier than
-  // erroring out. Mirrors the legacy SpontaneousSpellsList logic.
-  const toggleSignature = (spellId: number, sourceName: string) => {
+  // Apply the signature toggle directly — no confirmation, no
+  // questions. Called from the confirmation handler below; do NOT
+  // call this directly from a right-click menu item, since the user
+  // has explicitly asked for a confirm step before signature spells
+  // toggle on/off (it's too easy to fat-finger on a small spell row).
+  const applySignatureToggle = (spellId: number, sourceName: string) => {
     props.setCharacter((c) => {
       if (!c) return c;
       const list = c.spells?.list ?? [];
@@ -236,6 +381,59 @@ export function CodexSpellsPanel(props: {
           list: newList,
         },
       };
+    });
+  };
+
+  // Confirmed signature toggle. Opens a Mantine confirm modal that
+  // names the spell + explains the consequence (clearing any other
+  // signature at the same rank). User has to click Confirm before
+  // the toggle applies. Both ON and OFF directions are confirmed so
+  // accidental right-clicks can't strip a signature either.
+  const toggleSignature = (spell: Spell, sourceName: string) => {
+    const list = props.character?.spells?.list ?? [];
+    const entry = list.find((e) => e.spell_id === spell.id && e.source === sourceName);
+    if (!entry) return;
+    const turningOn = !entry.signature;
+    const otherAtSameRank = turningOn
+      ? list.find(
+          (e) =>
+            e.source === sourceName &&
+            e.rank === entry.rank &&
+            e.signature &&
+            e.spell_id !== spell.id
+        )
+      : undefined;
+    const otherName = otherAtSameRank
+      ? props.content.spells?.find((s) => s.id === otherAtSameRank.spell_id)?.name ?? null
+      : null;
+    modals.openConfirmModal({
+      title: (
+        <Title order={4}>
+          {turningOn ? 'Make Signature Spell?' : 'Remove Signature Status?'}
+        </Title>
+      ),
+      children: turningOn ? (
+        <Stack gap={6}>
+          <Text size='sm'>
+            Mark <b>{spell.name}</b> as your signature spell at rank {entry.rank}? Signature spells automatically
+            heighten to any rank-{entry.rank}-or-higher slot you cast them from.
+          </Text>
+          {otherName && (
+            <Text size='xs' c='dimmed'>
+              This will replace your current rank-{entry.rank} signature spell, <b>{otherName}</b>.
+            </Text>
+          )}
+        </Stack>
+      ) : (
+        <Text size='sm'>
+          Remove <b>{spell.name}</b> as your signature spell? It will no longer auto-heighten in higher slots.
+        </Text>
+      ),
+      labels: {
+        confirm: turningOn ? 'Make signature' : 'Remove signature',
+        cancel: 'Cancel',
+      },
+      onConfirm: () => applySignatureToggle(spell.id, sourceName),
     });
   };
 
@@ -507,13 +705,29 @@ export function CodexSpellsPanel(props: {
               {spellAttack && (
                 <>
                   <span className='t-sep'>·</span>
-                  <span>Atk <b>{spellAttack}</b></span>
+                  <span>
+                    Atk{' '}
+                    <b>
+                      {spellAttack}
+                      <ProfCondMark
+                        varName={`SPELL_ATTACK_${source.name!.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`}
+                      />
+                    </b>
+                  </span>
                 </>
               )}
               {spellDc && (
                 <>
                   <span className='t-sep'>·</span>
-                  <span>DC <b>{spellDc}</b></span>
+                  <span>
+                    DC{' '}
+                    <b>
+                      {spellDc}
+                      <ProfCondMark
+                        varName={`SPELL_DC_${source.name!.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`}
+                      />
+                    </b>
+                  </span>
                 </>
               )}
             </div>
@@ -528,7 +742,11 @@ export function CodexSpellsPanel(props: {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <span className='filter on'>Known</span>
+              {/* The "Known" filter chip used to live here; it was a
+                  no-op cosmetic indicator (the spells list below is
+                  ALREADY filtered to known spells for spontaneous
+                  casters / spellbook for prepared) so the chip never
+                  toggled anything. Removed per request. */}
               <span
                 className='add'
                 onClick={() => {
@@ -718,8 +936,15 @@ export function CodexSpellsPanel(props: {
                                 emptySlotLabel={emptyLabel}
                                 isSignature={cell.signature}
                                 onToggleSignature={
+                                  // Confirmation modal lives inside
+                                  // toggleSignature now — see the helper
+                                  // above. The right-click menu just
+                                  // hands the full Spell object over;
+                                  // the helper looks up the current
+                                  // signature state + any conflicting
+                                  // entry at the same rank, then asks.
                                   canSig && cell.spell
-                                    ? () => toggleSignature(cell.spell!.id, source.name)
+                                    ? () => toggleSignature(cell.spell!, source.name)
                                     : undefined
                                 }
                                 onCast={
@@ -1111,9 +1336,15 @@ export function CodexInventoryPanel(props: {
 
   // Classify an item — drives the left-border color. We don't have
   // a clean worn/held/consumable enum on items in this fork; equipped
-  // is the only flag we can be sure about, so the rest get the
-  // default (no left border).
+  // is the only flag we can be sure about — but we also fork to
+  // 'consumable' (sage rail) for items carrying the Consumable trait
+  // or sitting in the Consumables group. Consumable beats nothing
+  // here because the .it.equipped + .it.consumable combination is
+  // rare (most consumables aren't equipped) and even when both
+  // apply, the consumable signal is the more useful "you'll lose
+  // this if you trigger it" warning.
   const classify = (i: InventoryItem): string => {
+    if (isConsumableItem(i.item)) return 'consumable';
     if (i.is_equipped) return 'equipped';
     return '';
   };
@@ -1568,14 +1799,58 @@ export function CodexInventoryPanel(props: {
             <span className='sub'>
               <b>{children.length}</b>
               {(() => {
-                // Show capacity in the subtitle so the player knows
-                // how much room they have left. `bulk.capacity` is the
-                // total bulk the container holds; `bulk.ignored` is
-                // how much of that doesn't count toward the carrier's
-                // bulk limit (the "ignored" magic-bag effect). Surface
-                // capacity since that's the meaningful cap.
-                const cap = container.item.meta_data?.bulk?.capacity;
-                return cap ? <> · cap {labelizeBulk(String(cap), true)}</> : null;
+                // Bulk capacity display. PF2e containers carry two
+                // related numbers in meta_data.bulk:
+                //   - capacity: how much bulk physically fits inside
+                //   - ignored:  how much of that bulk doesn't count
+                //               toward the carrier's encumbered limit
+                // For a plain backpack: capacity=4, ignored=2 (the
+                // first 2 bulk are "free" toward your character bulk,
+                // the rest add to your character bulk normally).
+                // For magical/extradimensional containers like
+                // Spacious Pouch / Bag of Holding: capacity=ignored
+                // (everything inside the cap is free). When the
+                // contents exceed the cap, the overfill is shown in
+                // crimson so the player can see it at a glance.
+                const capRaw = container.item.meta_data?.bulk?.capacity;
+                const ignored = Number(container.item.meta_data?.bulk?.ignored ?? 0);
+                const cap = Number(capRaw ?? 0);
+                if (!cap) return null;
+                const used = getContainerContentsBulk(container);
+                const isMagical = ignored >= cap;
+                const over = used > cap;
+                return (
+                  <>
+                    {' · '}
+                    <span
+                      style={{
+                        color: over ? 'var(--crimson)' : undefined,
+                        fontWeight: over ? 700 : undefined,
+                      }}
+                      title={
+                        isMagical
+                          ? `Contents do not count toward your character bulk (up to ${cap} bulk).`
+                          : `First ${ignored} bulk of contents is ignored from your character bulk. Beyond that adds to your bulk normally.`
+                      }
+                    >
+                      <b>{labelizeBulk(used, true)}</b> / {labelizeBulk(String(cap), true)} bulk
+                    </span>
+                    {isMagical && (
+                      <span
+                        style={{
+                          color: 'var(--gold-bright)',
+                          marginLeft: 6,
+                          fontFamily: 'Cinzel, serif',
+                          fontSize: 9,
+                          letterSpacing: '.18em',
+                        }}
+                        title='Magical / extradimensional: contents do not count toward your character bulk.'
+                      >
+                        ✦
+                      </span>
+                    )}
+                  </>
+                );
               })()}
             </span>
           </div>
@@ -1672,9 +1947,6 @@ function InvRow(props: {
     : null;
   const price = numericPrice ? priceToString(numericPrice) : null;
   const bulk = labelizeBulk(item.item?.bulk ?? undefined, false);
-  // First letter of the item name as a placeholder glyph (the codex
-  // mockup uses real item-type SVGs; we don't have those mapped).
-  const glyph = (item.item?.name ?? '?').trim().charAt(0).toUpperCase();
   // Eligibility for the action buttons. Equipped items can't be
   // dragged — the user has to Unequip first — so we also disable
   // drag at the row level here (parent passes `draggable` but we
@@ -1701,15 +1973,8 @@ function InvRow(props: {
       onDragEnd={() => props.onDragEnd?.()}
       title={dragLocked ? 'Unequip this item before moving it.' : undefined}
     >
-      <div
-        className='icon'
-        style={{
-          fontFamily: "'Cinzel', serif",
-          fontWeight: 700,
-          fontSize: 16,
-        }}
-      >
-        {glyph}
+      <div className='icon'>
+        <ItemIcon item={item.item} />
       </div>
       <div className='nm'>
         {item.item?.name ?? '(unknown)'}
@@ -2079,7 +2344,20 @@ export function CodexActivitiesPanel(props: {
   // their iterative attacks without doing the subtraction in their
   // head. getWeaponStats already picks the best of STR/DEX for the
   // weapon (finesse rules, ranged uses DEX, etc.).
-  const strikes = useMemo(() => {
+  // NOTE: deliberately NOT useMemo'd. `getWeaponStats` reads from
+  // the LIVE variable store (mode bonuses, condition penalties,
+  // equipment effects, level changes — all the things ops feed
+  // into the variable store). A `useMemo([character?.inventory?.items])`
+  // would only invalidate when the inventory array reference changes;
+  // when the user toggles a mode that grants +1 attack, inventory
+  // doesn't change, so the memo would return stale attack bonuses on
+  // the displayed strike cards while the description popovers (which
+  // recompute from the store on click) show the correct values. Same
+  // pattern bit AC, spell-attack, etc. — those were fine because they
+  // call getFinalAcValue / getFinalProfValue directly without a memo.
+  // The map below is cheap (≤6 equipped weapons typically) so running
+  // it every render is fine.
+  const strikes = (() => {
     const equipped =
       character?.inventory?.items?.filter(
         (i) => i.is_equipped && isItemWeapon(i.item)
@@ -2101,7 +2379,7 @@ export function CodexActivitiesPanel(props: {
         name: i.item.name,
       };
     });
-  }, [character?.inventory?.items]);
+  })();
 
   // Best attack iteratives across all equipped weapons — used to
   // annotate generic Attack-trait action cards (Reactive Strike,
@@ -2479,7 +2757,7 @@ export function CodexActivitiesPanel(props: {
               ? action.meta_data.skill
               : [action.meta_data.skill];
             const skillNames = skillsRaw.map((s) => String(s));
-            let best: { name: string; n: number; str: string } | null = null;
+            let best: { name: string; varName: string; n: number; str: string } | null = null;
             for (const sk of skillNames) {
               if (!sk) continue;
               const lv = labelToVariable(sk);
@@ -2487,15 +2765,17 @@ export function CodexActivitiesPanel(props: {
               // sub-skill, getFinalProfValue returns +0 which is
               // misleading.
               if (lv === 'LORE') continue;
-              const str = getFinalProfValue('CHARACTER', `SKILL_${lv}`);
+              const varName = `SKILL_${lv}`;
+              const str = getFinalProfValue('CHARACTER', varName);
               const n = parseInt(str.replace(/[^\-0-9]/g, ''), 10) || 0;
-              if (best === null || n > best.n) best = { name: sk, n, str };
+              if (best === null || n > best.n) best = { name: sk, varName, n, str };
             }
             if (best) {
               statClass = '';
               statContent = (
                 <span className='skill'>
                   {best.str}
+                  <ProfCondMark varName={best.varName} />
                   <small> {best.name}</small>
                 </span>
               );

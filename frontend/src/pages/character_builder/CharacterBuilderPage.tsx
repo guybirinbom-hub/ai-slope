@@ -51,21 +51,34 @@ export function Component() {
   const pageHeight = 550;
 
   const globalCharacter = useAtomValue(characterState);
-  const { data, isLoading } = useQuery({
+  // If the user came from /sheet/<id>, the characterState atom is
+  // already populated with this character — no need to refetch +
+  // show a second loader. We compute "already have it" before the
+  // useQuery so we can suppress the loader entirely on the warm
+  // hand-off (the most common path: Sheet → Edit in Builder).
+  const hasGlobal =
+    !!globalCharacter && globalCharacter.id === parseInt(characterId);
+  const { data, isLoading: queryLoading } = useQuery({
     queryKey: [`get-character-init-builder-${characterId}`, { characterId }],
     queryFn: async () => {
       return await makeRequest<Character>('find-character', {
         id: parseInt(characterId),
       });
     },
+    // Skip the fetch when characterState already has the character —
+    // saves a redundant API call and stops React Query from flipping
+    // isLoading=true on the warm path.
+    enabled: !hasGlobal,
   });
   const character = useMemo(() => {
-    if (globalCharacter && globalCharacter.id === parseInt(characterId)) {
-      return globalCharacter;
-    } else {
-      return data ?? null;
-    }
-  }, [data, globalCharacter]);
+    if (hasGlobal) return globalCharacter;
+    return data ?? null;
+  }, [data, globalCharacter, hasGlobal]);
+  // Only "loading" when we don't have the character from either
+  // source. queryLoading is always false when the query is disabled
+  // (which is the warm-path case), so this naturally collapses to
+  // "no loader" on Sheet → Builder navigation.
+  const isLoading = !character && (queryLoading || !hasGlobal);
 
   // Codex shell: the .topbar with Home / Build / Sheet nav-step buttons
   // replaces the old Mantine <Stepper>. We pick a root class based on
@@ -260,7 +273,16 @@ export function Component() {
             <Text ta='center' c='dimmed' fs='italic'>Redirecting to sheet…</Text>
           </Center>
         )}
-        {isLoading && <CodexLoadingOverlay visible={isLoading} zIndex={1000} />}
+        {/* Outer page-shell loader, only visible while the character
+            data is being fetched. tailMs=0 because CharBuilderCreation
+            (rendered below) has its OWN CodexLoadingOverlay that
+            handles the dice-lock animation when EXECUTE_OPS finishes.
+            With a non-zero tail here, the outer loader's lock+tail
+            would overlap with the inner loader's rolling dice — two
+            stacked loaders showing different dice states. tailMs=0
+            unmounts instantly when isLoading flips false, handing off
+            cleanly to the inner overlay. */}
+        <CodexLoadingOverlay visible={isLoading} zIndex={1000} tailMs={0} />
       </div>
     </div>
   );

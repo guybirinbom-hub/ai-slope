@@ -133,7 +133,11 @@ function createMainWindow() {
     minWidth: 900,
     minHeight: 600,
     title: "Wanderer's Guide (local)",
-    backgroundColor: '#1a1b1e',
+    // Codex splash + BackendReadyGate both use #15110b. Keep the
+    // window backdrop on the same colour so the loadURL navigation
+    // from splash → React doesn't flash a different tone in the gap
+    // between documents unloading.
+    backgroundColor: '#15110b',
     autoHideMenuBar: true,
     show: false,
     // Frameless window. Codex design renders its own gold-styled
@@ -155,14 +159,20 @@ function createMainWindow() {
   // Start with the codex loading file so the user sees the window
   // immediately even before the backend is up.
   mainWindow.loadFile(LOADING_FILE);
-  // Open maximized. The BrowserWindow constructor's `width`/`height`
-  // give us a sensible restore-size when the user clicks the
-  // "restore" button (codex middle window control) — we just want
-  // the initial layout to fill the screen. We call `.maximize()`
-  // before `.show()` so the window doesn't flash at the restore size
-  // before snapping to fullscreen.
+  // Open fullscreen. Per request — the user wants the app to fill the
+  // entire display (no taskbar visible) on launch, not just maximize
+  // inside the available work area. setFullScreen(true) hides the OS
+  // taskbar; the codex's custom min/max/close buttons in the .winbar
+  // still drive the window through the wg-window-* IPC, including the
+  // middle "restore" button which un-fullscreens via the existing
+  // wg-window-toggle-maximize handler (we update that below to also
+  // exit fullscreen when active).
+  //
+  // BrowserWindow.width / .height still define the restore-size so
+  // un-fullscreening lands at a sane window size, not the last frame
+  // the user happened to have.
   mainWindow.once('ready-to-show', () => {
-    mainWindow.maximize();
+    mainWindow.setFullScreen(true);
     mainWindow.show();
   });
 
@@ -228,11 +238,20 @@ async function startBackend() {
   });
 
   // Trigger the d20 land + 100% jump on the splash, then swap to
-  // APP_URL. We give the lock animation ~700ms to play before
-  // navigating (.42s land keyframe + tail buffer so the user has
-  // time to actually SEE the final number) — without this buffer
-  // loadURL rips out the document mid-animation and the moment we
-  // designed for never lands.
+  // APP_URL. Give the lock animation just enough time to be visibly
+  // registered (200ms — about half the .42s land keyframe; the rest
+  // of the animation gets cut off by the navigation, but by then the
+  // user has clearly seen the rolled number snap onto a stable face).
+  //
+  // Was 700ms — the user complained the loader "stays at 100" too
+  // long after the roll. Combined with the React-level
+  // BackendReadyGate that ALSO shows a fresh dice for another
+  // 900+500ms on the warm path, the original 700ms here ballooned
+  // the total post-first-roll wait to ~2.1s. BackendReadyGate now
+  // skips its iframe on the warm path (renders a plain black screen
+  // for up to 500ms, only mounts the second dice if the backend is
+  // genuinely slow), so the perceived loader closes within ~1s of
+  // the splash dice locking.
   completeLoader(mainWindow);
   setTimeout(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -240,7 +259,7 @@ async function startBackend() {
         console.error('[main] loadURL failed:', err);
       });
     }
-  }, 700);
+  }, 200);
 }
 
 app.whenReady().then(async () => {
@@ -373,6 +392,15 @@ ipcMain.handle('wg-window-minimize', () => {
 ipcMain.handle('wg-window-toggle-maximize', () => {
   const w = BrowserWindow.getFocusedWindow() || mainWindow;
   if (!w) return;
+  // Three-state toggle: fullscreen → maximized → restore. The app
+  // launches in fullscreen now (mainWindow.setFullScreen(true)) so
+  // the codex restore button needs to exit fullscreen first — if we
+  // just called unmaximize() on a fullscreen window it'd no-op and
+  // the user would be stuck at full screen with no taskbar.
+  if (w.isFullScreen()) {
+    w.setFullScreen(false);
+    return;
+  }
   if (w.isMaximized()) w.unmaximize();
   else w.maximize();
 });
@@ -383,8 +411,11 @@ ipcMain.handle('wg-window-close', () => {
 });
 
 ipcMain.handle('wg-window-is-maximized', () => {
+  // Treat fullscreen as "maximized" for icon purposes — the restore
+  // button shows the same chrome whether the window is fullscreen or
+  // OS-maximized, and clicking it exits whichever mode is active.
   const w = BrowserWindow.getFocusedWindow() || mainWindow;
-  return !!(w && w.isMaximized());
+  return !!(w && (w.isMaximized() || w.isFullScreen()));
 });
 
 // During shutdown the pg client / postgrest pipes can emit errors when their

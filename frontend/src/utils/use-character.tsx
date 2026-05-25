@@ -15,7 +15,7 @@ import { hideNotification, showNotification } from '@mantine/notifications';
 import { executeOperations } from '@operations/operations.main';
 import { confirmHealth } from '@pages/character_sheet/entity-handler';
 import { makeRequest } from '@requests/request-manager';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Character, ContentPackage, OperationCharacterResultPackage } from '@schemas/content';
 import { saveCalculatedStats } from '@variables/calculated-stats';
 import { setVariable } from '@variables/variable-manager';
@@ -69,6 +69,7 @@ export default function useCharacter(
   results: OperationCharacterResultPackage | null;
 } {
   const [character, setCharacter] = useAtom(characterState);
+  const queryClient = useQueryClient();
   useAutoSave(character, characterId);
 
   const handleFetchedCharacter = (resultCharacter: Character | null | undefined) => {
@@ -122,8 +123,16 @@ export default function useCharacter(
         localStorage.removeItem(key);
       }
 
-      // Now fetch the character from the database to ensure we have the latest version
-      const dbCharacter = await makeRequest<Character>('find-character', { id: characterId });
+      // Check React Query's cache first — CharacterSheetPage seeds
+      // the character into the cache as part of its content fetch, so
+      // on the typical "open sheet" path we skip a redundant network
+      // round-trip and bind the cached value directly. Falls back to
+      // a fresh fetch if the cache is empty (other entry points like
+      // direct URL load, or post-import where the cache wasn't seeded).
+      const cached =
+        queryClient.getQueryData<Character>(['find-character', characterId]) ??
+        queryClient.getQueryData<Character>(['find-character', String(characterId)]);
+      const dbCharacter = cached ?? (await makeRequest<Character>('find-character', { id: characterId }));
       handleFetchedCharacter(dbCharacter);
     })();
   }, []);
@@ -346,6 +355,18 @@ export default function useCharacter(
       hideNotification(AUTOSAVE_ERROR_ID);
       if (c) {
         console.log('> Fetched updated character: #', getUpdateHash(character), 'vs.', getUpdateHash(c));
+        // CRITICAL: seed the React Query cache with the just-saved
+        // character. The mount-time fetch in this hook reads from
+        // `queryClient.getQueryData(['find-character', id])` BEFORE a
+        // network call — and the cache has staleTime: 60_000 in the
+        // CharacterSheetPage useQuery, so without this update the
+        // user's class change (or any autosaved field) wouldn't show
+        // when they revisit the sheet within 60s; the stale cached
+        // version would clobber the freshly-saved atom. Seeding both
+        // the numeric and string-keyed entries matches the lookup
+        // logic that checks both.
+        queryClient.setQueryData(['find-character', characterId], c);
+        queryClient.setQueryData(['find-character', String(characterId)], c);
       }
     },
     onError: () => {
