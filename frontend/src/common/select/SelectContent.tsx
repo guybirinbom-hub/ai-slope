@@ -675,6 +675,25 @@ export default function SelectContentModal({
     return newFilterFn;
   };
 
+  // Same as getMergedFilterFn but additionally AND-ed with an extra
+  // per-tab predicate. Used by tabs that bolt on their own static
+  // criteria — archetype-feat (only feats sharing an archetype trait
+  // with the character), add-dedication (only DEDICATION-trait feats),
+  // ancestry-heritage / versatile-heritage (split by whether the
+  // heritage is on the character's versatile list), universal-ancestry-feat
+  // (name whitelist) — without dropping the toolbar filter state. Before
+  // this existed each of those tabs passed a bare custom filter and
+  // the user's chip / slider / "must-meet" choices were silently
+  // ignored. See history.
+  const mergeWithStateFilter = (custom: (option: Record<string, any>) => boolean) => {
+    const merged = getMergedFilterFn();
+    return (option: Record<string, any>) => {
+      if (!custom(option)) return false;
+      if (!merged(option)) return false;
+      return true;
+    };
+  };
+
   const filterCount = activeFilterCount(filterState, innerProps.type, innerProps.options?.abilityBlockType);
 
   const typeName = toLabel(innerProps.options?.abilityBlockType || innerProps.type);
@@ -1163,12 +1182,12 @@ export default function SelectContentModal({
                           }
                         : undefined
                     }
-                    filterFn={(option) =>
+                    filterFn={mergeWithStateFilter((option) =>
                       intersection(
                         getAllArchetypeTraitVariables('CHARACTER').map((v) => v.value) ?? [],
                         option.traits ?? []
                       ).length > 0 && option.level <= classFeatSourceLevel
-                    }
+                    )}
                     includeOptions={innerProps.options?.includeOptions}
                     showButton={innerProps.options?.showButton}
                     limitSelectedOptions={true}
@@ -1199,9 +1218,9 @@ export default function SelectContentModal({
                           }
                         : undefined
                     }
-                    filterFn={(option) =>
+                    filterFn={mergeWithStateFilter((option) =>
                       hasTraitType('DEDICATION', option.traits) && option.level <= classFeatSourceLevel
-                    }
+                    )}
                     includeOptions={innerProps.options?.includeOptions}
                     showButton={innerProps.options?.showButton}
                     limitSelectedOptions={true}
@@ -1237,9 +1256,9 @@ export default function SelectContentModal({
                           }
                         : undefined
                     }
-                    filterFn={(option) =>
-                      getMergedFilterFn() && !versHeritageData?.versHeritages.find((v) => v.heritage_id === option.id)
-                    }
+                    filterFn={mergeWithStateFilter(
+                      (option) => !versHeritageData?.versHeritages.find((v) => v.heritage_id === option.id)
+                    )}
                     includeOptions={innerProps.options?.includeOptions}
                     showButton={innerProps.options?.showButton}
                     limitSelectedOptions={true}
@@ -1270,7 +1289,9 @@ export default function SelectContentModal({
                           }
                         : undefined
                     }
-                    filterFn={(option) => !!versHeritageData?.versHeritages.find((v) => v.heritage_id === option.id)}
+                    filterFn={mergeWithStateFilter(
+                      (option) => !!versHeritageData?.versHeritages.find((v) => v.heritage_id === option.id)
+                    )}
                     includeOptions={innerProps.options?.includeOptions}
                     showButton={innerProps.options?.showButton}
                     limitSelectedOptions={true}
@@ -1339,7 +1360,7 @@ export default function SelectContentModal({
                           }
                         : undefined
                     }
-                    filterFn={(option) => {
+                    filterFn={mergeWithStateFilter((option) => {
                       // Name whitelist — see UNIVERSAL_ANCESTRY_FEAT_NAMES above.
                       if (!UNIVERSAL_ANCESTRY_FEAT_NAMES.has(((option.name || '') as string).toLowerCase())) {
                         return false;
@@ -1350,7 +1371,7 @@ export default function SelectContentModal({
                       const lvl = option.level;
                       if (lvl !== undefined && lvl !== null && lvl > ancestryFeatSourceLevel) return false;
                       return true;
-                    }}
+                    })}
                     includeOptions={innerProps.options?.includeOptions}
                     showButton={innerProps.options?.showButton}
                     limitSelectedOptions={true}
