@@ -1065,11 +1065,49 @@ export default function CodexSheet(props: {
                                 key={s.raw}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openDrawer({
-                                    type: 'sense',
-                                    data: { name: s.display, id: undefined },
-                                    extra: { addToHistory: true },
-                                  });
+                                  // Resolve the sense's variable-name
+                                  // ("LOW_LIGHT_VISION", "DARKVISION",
+                                  // "GREATER_DARKVISION", "TREMORSENSE",
+                                  // "ECHOLOCATION", "SCENT",
+                                  // "LIFESENSE", "TRUESIGHT", …) to the
+                                  // matching ability-block row from the
+                                  // content cache. Without this the
+                                  // ActionDrawerContent fetcher
+                                  // (`enabled: !!id`) never fires and
+                                  // the drawer spins forever. Match by
+                                  // labelToVariable(block.name) === raw
+                                  // so name punctuation / case /
+                                  // whitespace differences don't trip
+                                  // the lookup.
+                                  const all = (getCachedContent<AbilityBlock>('ability-block') ?? [])
+                                    .filter((b) => b.type === 'sense');
+                                  const hit = all.find(
+                                    (b) => labelToVariable(b.name) === s.raw
+                                  );
+                                  if (hit) {
+                                    openDrawer({
+                                      type: 'sense',
+                                      data: { id: hit.id },
+                                      extra: { addToHistory: true },
+                                    });
+                                  } else {
+                                    // Fall through to the generic
+                                    // drawer when there's no content
+                                    // row (homebrew senses, removed
+                                    // bundles, etc.). At least the
+                                    // player sees a real frame with
+                                    // the formatted name instead of an
+                                    // infinite loader.
+                                    openDrawer({
+                                      type: 'generic',
+                                      data: {
+                                        title: s.display,
+                                        description:
+                                          'No description registered for this sense in the current content pack.',
+                                      },
+                                      extra: { addToHistory: true },
+                                    });
+                                  }
                                 }}
                                 style={{
                                   cursor: 'pointer',
