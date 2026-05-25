@@ -1,514 +1,533 @@
 import { characterState } from '@atoms/characterAtoms';
-import { creatureDrawerState, drawerState } from '@atoms/navAtoms';
 import { fetchContentAll, fetchContentPackage, getDefaultSources } from '@content/content-store';
 import {
-  Stack,
-  Title,
-  Text,
+  Accordion,
+  ActionIcon,
   Box,
   Group,
-  Select,
-  TextInput,
+  Loader,
+  Popover,
   ScrollArea,
-  ActionIcon,
-  useMantineTheme,
+  Select,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
 } from '@mantine/core';
-import { getHotkeyHandler, useHover, useMediaQuery } from '@mantine/hooks';
+import { useDebouncedValue, useDidUpdate, useMediaQuery } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { Creature, Trait } from '@schemas/content';
-import { StoreID } from '@schemas/variables';
-import { findCreatureTraits } from '@utils/creature';
+import { findCreatureTraits, determineCompanionType } from '@utils/creature';
 import { phoneQuery } from '@utils/mobile-responsive';
-import { evaluate } from 'mathjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 import { confirmHealth } from '../entity-handler';
 import { DisplayIcon } from '@common/IconDisplay';
-import { sign } from '@utils/numbers';
-import { ConditionPills, selectCondition } from '../sections/ConditionSection';
-import { setterOrUpdaterToValue } from '@utils/type-fixing';
-import { IconPlus, IconX } from '@tabler/icons-react';
+import { IconChevronDown, IconPlus, IconTrash } from '@tabler/icons-react';
 import { cloneDeep } from 'lodash-es';
 import { executeOperations } from '@operations/operations.main';
+import { addExtraItems, checkBulkLimit } from '@items/inv-handlers';
+import { applyEquipmentPenalties } from '@items/inv-utils';
 import { applyConditions } from '@conditions/condition-handler';
-import { getFinalAcValue, getFinalHealthValue, getFinalProfValue } from '@variables/variable-helpers';
-import { getBestArmor } from '@items/inv-utils';
 import { modals } from '@mantine/modals';
 import { selectContent } from '@common/select/SelectContent';
-import { hasTraitType } from '@utils/traits';
 import { getEntityLevel } from '@utils/entity-utils';
 import { IMPRINT_BG_COLOR, IMPRINT_BG_COLOR_HOVER, IMPRINT_BORDER_COLOR } from '@constants/data';
+import { convertToSetEntity } from '@utils/type-fixing';
+import { getFinalHealthValue } from '@variables/variable-helpers';
+
+import HealthSection from '../sections/HealthSection';
+import ArmorSection from '../sections/ArmorSection';
+import AttributeSection from '../sections/AttributeSection';
+import { AltSpeedSection } from '../sections/SpeedSection';
+import CreatureAbilitiesPanel from './CreatureAbilitiesPanel';
+import SkillsActionsPanel from './SkillsActionsPanel';
+import InventoryPanel from './InventoryPanel';
+import SpellsPanel from './SpellsPanel';
+import NotesPanel from './NotesPanel';
+import CreatureDetailsPanel from './CreatureDetailsPanel';
+
+// ─── Companion panel ─────────────────────────────────────────────────
+// One full sheet per companion, switched via gold pill switcher at the
+// top. Each section of the sheet is independently collapsible (multi-
+// open accordion). Zero-companion case shows only the Add picker; 1+
+// case shows pills + Add + the selected companion's full sheet.
 
 export default function CompanionsPanel(props: { panelHeight: number; panelWidth: number }) {
-  const theme = useMantineTheme();
   const [character, setCharacter] = useAtom(characterState);
-
-  // Calculated data for the companions
   const companions = character?.companions?.list ?? [];
-  const { data: computedData } = useQuery({
-    queryKey: [
-      `computed-companions`,
-      {
-        companions: companions,
-      },
-    ],
-    queryFn: async () => {
-      if (companions.length === 0) return [];
-      return await computeCompanions(companions);
-    },
-    enabled: companions.length > 0,
-  });
 
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // If the selected companion gets removed (or the list shrinks), snap
+  // selection back into range so we don't try to render undefined.
+  useEffect(() => {
+    if (selectedIndex >= companions.length) {
+      setSelectedIndex(Math.max(0, companions.length - 1));
+    }
+  }, [companions.length, selectedIndex]);
+
+  // ── Zero-companion empty state ─────────────────────────────────────
   if (companions.length === 0) {
     return (
-      <ScrollArea
-        p={8}
-        style={{
-          height: props.panelHeight - 50,
-        }}
-      >
-        <Stack mt={20} gap={10}>
+      <ScrollArea p={8} style={{ height: props.panelHeight - 50 }}>
+        <Stack mt={40} gap={14} align='center' justify='center'>
           <Text ta='center' c='gray.2' fs='italic' fz='sm'>
             No companions found, want to add one?
           </Text>
-          <Group justify='center'>
-            <AddCompanionSection />
-          </Group>
+          <AddCompanionSection />
         </Stack>
       </ScrollArea>
     );
   }
 
+  const selected = companions[selectedIndex] ?? companions[0];
+
+  const updateSelected = (next: Creature) => {
+    setCharacter((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        companions: {
+          ...(prev.companions ?? {}),
+          list: (prev.companions?.list ?? []).map((c, i) => (i === selectedIndex ? next : c)),
+        },
+      };
+    });
+  };
+
+  const removeSelected = () => {
+    modals.openConfirmModal({
+      id: 'remove-companion',
+      title: <Title order={4}>Delete Companion</Title>,
+      children: (
+        <Text size='sm'>
+          Are you sure you want to delete "{selected.name}"? This action cannot be undone.
+        </Text>
+      ),
+      labels: { confirm: 'Confirm', cancel: 'Cancel' },
+      onCancel: () => {},
+      onConfirm: () => {
+        setCharacter((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            companions: {
+              ...(prev.companions ?? {}),
+              list: (prev.companions?.list ?? []).filter((_, i) => i !== selectedIndex),
+            },
+          };
+        });
+        setSelectedIndex(0);
+      },
+    });
+  };
+
   return (
-    <Stack h={props.panelHeight} gap={12}>
-      <ScrollArea
-        p={8}
+    <Stack h={props.panelHeight} gap={0}>
+      {/* Switcher row */}
+      <Group
+        wrap='nowrap'
+        gap={8}
+        px={8}
+        py={6}
         style={{
-          height: props.panelHeight,
+          borderBottom: `1px solid ${IMPRINT_BORDER_COLOR}`,
+          background: 'linear-gradient(180deg, rgba(201,161,59,.04) 0%, transparent 100%)',
         }}
       >
-        <Stack gap={12} mih={props.panelHeight - 75}>
-          {companions.map((c, index) => (
-            <CompanionCard
-              key={index}
-              storeId={`COMPANION_${index}`}
-              panelWidth={props.panelWidth}
-              companion={c}
-              computed={computedData?.find((d) => d._id === `COMPANION_${index}`)}
-              updateCreature={(input) => {
-                let entity = cloneDeep(input);
+        <ScrollArea scrollbars='x' style={{ flex: 1, minWidth: 0 }}>
+          <Group gap={6} wrap='nowrap'>
+            {companions.map((c, i) => (
+              <CompanionPill
+                key={i}
+                companion={c}
+                active={i === selectedIndex}
+                onClick={() => setSelectedIndex(i)}
+              />
+            ))}
+          </Group>
+        </ScrollArea>
+        <AddCompanionButton />
+      </Group>
 
-                // If health changes, confirm and update entity with new changes
-                if (entity.hp_current !== c.hp_current) {
-                  const computed = computedData?.find((d) => d._id === `COMPANION_${index}`);
-                  if (computed) {
-                    const result = confirmHealth(`${entity.hp_current}`, computed.maxHp, c);
-
-                    if (result) {
-                      entity.hp_current = result.entity.hp_current;
-                      entity.details = {
-                        ...entity.details,
-                        conditions: result.entity.details?.conditions ?? [],
-                      };
-                      entity.meta_data = {
-                        ...entity.meta_data,
-                        reset_hp: false,
-                      };
-                    }
-                  }
-                }
-
-                setCharacter((prev) => {
-                  if (!prev) return prev;
-                  return {
-                    ...prev,
-                    companions: {
-                      ...(prev.companions ?? {}),
-                      list: [...(prev.companions?.list ?? [])].map((comp, i) => (i === index ? entity : comp)),
-                    },
-                  };
-                });
-              }}
-              onRemove={() => {
-                modals.openConfirmModal({
-                  id: 'remove-option',
-                  title: <Title order={4}>Delete Companion</Title>,
-                  children: (
-                    <Text size='sm'>Are you sure you want to delete "{c.name}"? This action cannot be undone.</Text>
-                  ),
-                  labels: { confirm: 'Confirm', cancel: 'Cancel' },
-                  onCancel: () => {},
-                  onConfirm: () => {
-                    setCharacter((prev) => {
-                      if (!prev) return prev;
-                      return {
-                        ...prev,
-                        companions: {
-                          ...(prev.companions ?? {}),
-                          list: [...(prev.companions?.list ?? [])].filter((_, i) => i !== index),
-                        },
-                      };
-                    });
-                  },
-                });
-              }}
-            />
-          ))}
-        </Stack>
-        <Group justify='center'>
-          <AddCompanionSection />
-        </Group>
-      </ScrollArea>
+      {/* Selected companion sheet */}
+      <Box style={{ flex: 1, minHeight: 0 }}>
+        <ScrollArea h={props.panelHeight - 52} p={10}>
+          <CompanionSheet
+            key={`companion-sheet-${selectedIndex}-${selected.id}`}
+            companion={selected}
+            storeId={`COMPANION_${selectedIndex}`}
+            panelWidth={props.panelWidth}
+            panelHeight={props.panelHeight}
+            updateCompanion={updateSelected}
+            onRemove={removeSelected}
+          />
+        </ScrollArea>
+      </Box>
     </Stack>
   );
 }
 
-function CompanionCard(props: {
-  storeId: StoreID;
-  companion: Creature;
-  panelWidth: number;
-  computed?: {
-    id: number;
-    type: 'character' | 'creature';
-    ac: number;
-    fort: number;
-    reflex: number;
-    will: number;
-    maxHp: number;
-  };
-  updateCreature: (creature: Creature) => void;
-  onRemove: () => void;
-}) {
-  const isPhone = useMediaQuery(phoneQuery());
-  const { hovered, ref } = useHover();
-
-  const [creatureDrawer, openCreatureDrawer] = useAtom(creatureDrawerState);
-
-  // Health
-
-  const [health, setHealth] = useState<string | undefined>();
-  const healthRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (props.companion) {
-      const currentHealth =
-        props.companion.hp_current === undefined ? (props.computed?.maxHp ?? 0) : props.companion.hp_current;
-      setHealth(`${currentHealth}` === 'null' ? `${props.computed?.maxHp ?? ''}` : `${currentHealth}`);
-    }
-  }, [props.companion, props.computed]);
-
-  const handleUpdateCreature = (c: Creature) => {
-    props.updateCreature(c);
-
-    // If the drawer is open, do janky refresh
-    if (creatureDrawer) {
-      handleOpenDrawer(c);
-    }
-  };
-
-  const handleOpenDrawer = (c: Creature) => {
-    openCreatureDrawer(null);
-    setTimeout(() => {
-      openCreatureDrawer({
-        data: {
-          STORE_ID: props.storeId,
-          creature: c,
-          updateCreature: props.updateCreature,
-        },
-      });
-    }, 1);
-  };
-
-  const handleHealthSubmit = () => {
-    const inputHealth = health ?? '0';
-    let result = -1;
-    try {
-      result = evaluate(inputHealth);
-    } catch (e) {
-      result = parseInt(inputHealth);
-    }
-    if (isNaN(result)) result = 0;
-    result = Math.floor(result);
-    if (result < 0) result = 0;
-    if (props.computed && result > props.computed.maxHp) result = props.computed.maxHp;
-
-    handleUpdateCreature({
-      ...props.companion,
-      hp_current: result,
-    });
-
-    setHealth(`${result}` === 'null' ? `${props.computed?.maxHp ?? ''}` : `${result}`);
-    healthRef.current?.blur();
-  };
-
-  const traits = findCreatureTraits(props.companion);
-  // Use player saves and AC instead
-  const boundSaves = hasTraitType('PET', traits) || hasTraitType('FAMILIAR', traits);
-
+// ─── Pill in the switcher row ────────────────────────────────────────
+function CompanionPill(props: { companion: Creature; active: boolean; onClick: () => void }) {
   return (
-    <Group
-      wrap='nowrap'
-      gap={10}
-      style={{
-        position: 'relative',
+    <Box
+      onClick={props.onClick}
+      style={() => ({
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '4px 12px 4px 4px',
+        borderRadius: 999,
+        background: props.active ? 'rgba(201,161,59,.10)' : IMPRINT_BG_COLOR,
+        border: `1px solid ${props.active ? 'var(--gold-deep, #8a6f25)' : IMPRINT_BORDER_COLOR}`,
+        boxShadow: props.active ? '0 0 0 1px var(--gold-deep, #8a6f25)' : 'none',
+        color: props.active ? 'var(--ink, #ede4ce)' : 'var(--ink-dim, #c3b69a)',
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        transition: 'all .15s',
+      })}
+      onMouseEnter={(e) => {
+        if (!props.active) {
+          (e.currentTarget as HTMLDivElement).style.background = IMPRINT_BG_COLOR_HOVER;
+        }
       }}
-      align='stretch'
+      onMouseLeave={(e) => {
+        if (!props.active) {
+          (e.currentTarget as HTMLDivElement).style.background = IMPRINT_BG_COLOR;
+        }
+      }}
     >
-      <Group
-        ref={ref}
-        wrap='nowrap'
-        w={`min(60dvw, 320px)`}
-        p={5}
-        style={(t) => ({
-          backgroundColor: hovered ? IMPRINT_BG_COLOR_HOVER : IMPRINT_BG_COLOR,
-          borderRadius: t.radius.md,
-          cursor: 'pointer',
-          position: 'relative',
-        })}
-        onClick={() => {
-          handleOpenDrawer(props.companion);
-        }}
-      >
-        <Group
-          gap={2}
-          style={{
-            position: 'absolute',
-            top: 6,
-            right: 10,
-          }}
-        >
-          <Text size={'10px'} fw={400} c='dimmed' fs='italic'>
-            Lvl. {getEntityLevel(props.companion)}
-          </Text>
-        </Group>
-
-        <Box w={40}>
-          <DisplayIcon
-            strValue={props.companion.details?.image_url ?? 'icon|||avatar|||#373A40'}
-            width={40}
-            iconStyles={{
-              objectFit: 'contain',
-              height: 40,
-            }}
-          />
-        </Box>
-
-        <Box pr={5} style={{ flex: 1 }}>
-          <Group gap={1}>
-            <Text size='md' fw={550} span>
-              {props.companion.name}
-            </Text>
-          </Group>
-
-          {props.computed && !boundSaves && (
-            <Group gap={5} wrap='nowrap'>
-              <Text fz='xs' c='gray.6'>
-                {props.computed.ac} AC
-              </Text>
-              <Text fz='xs' c='gray.7'>
-                |
-              </Text>
-              <Text fz='xs' c='gray.6'>
-                Fort. {sign(props.computed.fort)},
-              </Text>
-              <Text fz='xs' c='gray.6'>
-                Ref. {sign(props.computed.reflex)},
-              </Text>
-              <Text fz='xs' c='gray.6'>
-                Will {sign(props.computed.will)}
-              </Text>
-            </Group>
-          )}
-        </Box>
-      </Group>
-      {!isPhone && (
-        <TextInput
-          ref={healthRef}
-          variant='filled'
-          styles={(t) => ({
-            wrapper: {
-              height: '100%',
-            },
-            input: {
-              backgroundColor: IMPRINT_BG_COLOR,
-              borderRadius: t.radius.md,
-              height: '100%',
-            },
-          })}
-          size='md'
-          w={120}
-          placeholder='HP'
-          autoComplete='nope'
-          value={health}
-          onChange={(e) => {
-            setHealth(e.target.value);
-          }}
-          onFocus={(e) => {
-            const length = e.target.value.length;
-            // Move cursor to end
-            requestAnimationFrame(() => {
-              e.target.setSelectionRange(length, length);
-            });
-          }}
-          onBlur={handleHealthSubmit}
-          onKeyDown={getHotkeyHandler([
-            ['mod+Enter', handleHealthSubmit],
-            ['Enter', handleHealthSubmit],
-          ])}
-          rightSection={
-            <Group>
-              <Text>/</Text>
-              <Text>{props.computed?.maxHp}</Text>
-            </Group>
-          }
-          rightSectionWidth={60}
+      <Box w={26} h={26} style={{ flex: '0 0 26px' }}>
+        <DisplayIcon
+          strValue={props.companion.details?.image_url ?? 'icon|||avatar|||#373A40'}
+          width={26}
+          iconStyles={{ objectFit: 'contain', height: 26 }}
         />
-      )}
-      {!isPhone && (
-        <ScrollArea
-          h={50}
-          scrollbars='y'
-          style={{
-            position: 'relative',
-          }}
-          px={25}
-        >
-          <ConditionPills
-            id={props.storeId}
-            entity={props.companion}
-            setEntity={(call) => {
-              const result = setterOrUpdaterToValue(call, props.companion);
-
-              handleUpdateCreature({
-                ...props.companion,
-                details: {
-                  ...props.companion.details,
-                  conditions: result?.details?.conditions ?? [],
-                },
-              });
-            }}
-            groupProps={{
-              w: props.panelWidth - 500,
-            }}
-          />
-          <ActionIcon
-            variant='subtle'
-            aria-label='Add Condition'
-            size='xs'
-            radius='xl'
-            color='dark.0'
-            onClick={() => {
-              selectCondition(props.companion.details?.conditions ?? [], (condition) => {
-                if (!props.companion) return;
-                handleUpdateCreature({
-                  ...props.companion,
-                  details: {
-                    ...props.companion.details,
-                    conditions: [...(props.companion.details?.conditions ?? []), condition],
-                  },
-                });
-              });
-            }}
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: 10,
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            <IconPlus size='1rem' stroke={1.5} />
-          </ActionIcon>
-        </ScrollArea>
-      )}
-
-      <ActionIcon
-        size='sm'
-        variant='light'
-        radius={100}
-        color='gray'
-        aria-label='Remove Companion'
-        onClick={props.onRemove}
-        style={{
-          position: 'absolute',
-          top: '50%',
-          right: 0,
-          transform: 'translate(-50%, -50%)',
-        }}
-      >
-        <IconX size='1.5rem' stroke={2} />
-      </ActionIcon>
-    </Group>
+      </Box>
+      <Text fz='sm' fw={500} span>
+        {props.companion.name}
+      </Text>
+      <Text fz='xs' c='dimmed' span>
+        Lv {getEntityLevel(props.companion)}
+      </Text>
+    </Box>
   );
 }
 
-async function computeCompanions(companions: Creature[]) {
-  const content = await fetchContentPackage(getDefaultSources('PAGE'), { fetchSources: false, fetchCreatures: false });
+// ─── Add Companion button — uses a Popover to host the existing
+// AddCompanionSection picker, so the same Type→Creature flow keeps
+// working without duplicating logic.
+function AddCompanionButton() {
+  const [opened, setOpened] = useState(false);
+  return (
+    <Popover
+      opened={opened}
+      onChange={setOpened}
+      position='bottom-end'
+      withArrow
+      shadow='md'
+      zIndex={400}
+    >
+      <Popover.Target>
+        <Box
+          onClick={() => setOpened((o) => !o)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 14px',
+            borderRadius: 999,
+            background: 'transparent',
+            border: `1px solid var(--gold-deep, #8a6f25)`,
+            color: 'var(--gold-bright, #e8c557)',
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLDivElement).style.background = 'rgba(201,161,59,.08)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+          }}
+        >
+          <IconPlus size='1rem' stroke={2} />
+          <span>Add Companion</span>
+        </Box>
+      </Popover.Target>
+      <Popover.Dropdown p={8}>
+        <AddCompanionSection onAdded={() => setOpened(false)} />
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
 
-  async function computeCompanion(
-    companion: Creature,
-    index: number
-  ): Promise<{
-    _id: string;
-    id: number;
-    type: 'character' | 'creature';
-    ac: number;
-    fort: number;
-    reflex: number;
-    will: number;
-    maxHp: number;
-  }> {
-    const creature = cloneDeep(companion);
+// ─── Companion full sheet — header + collapsible sections ────────────
+function CompanionSheet(props: {
+  companion: Creature;
+  storeId: string;
+  panelWidth: number;
+  panelHeight: number;
+  updateCompanion: (creature: Creature) => void;
+  onRemove: () => void;
+}) {
+  const STORE_ID = props.storeId;
 
-    // Variable store ID
-    const STORE_ID = `COMPANION_${index}`;
+  // Local working copy. Switching companions remounts via the parent's
+  // `key`, so we don't need to keep prev/next in sync inside this
+  // component — initial mount handles the swap.
+  const [creature, setCreature] = useState<Creature | null>(() => cloneDeep(props.companion));
+  const [loading, setLoading] = useState(true);
+  const [openSections, setOpenSections] = useState<string[]>([
+    'health',
+    'defenses',
+    'attributes',
+    'senses-speed',
+  ]);
 
-    await executeOperations({
+  // Push debounced local-creature changes back upstream so the
+  // companion list in `character.companions.list` stays in sync.
+  const [debouncedCreature] = useDebouncedValue(creature, 150);
+  useDidUpdate(() => {
+    if (debouncedCreature) props.updateCompanion(debouncedCreature);
+  }, [debouncedCreature]);
+
+  // Content needed by the heavier panels (Inventory, Spells, Skills).
+  const { data: content } = useQuery({
+    queryKey: ['companion-sheet-content'],
+    queryFn: () =>
+      fetchContentPackage(getDefaultSources('INFO'), {
+        fetchSources: false,
+        fetchCreatures: false,
+      }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Run the same operation pipeline the CreatureDrawer runs so all of
+  // the variable-store-backed sub-panels (AC, saves, attributes,
+  // skills, abilities, inventory bulk, etc.) have populated values.
+  const executingOperations = useRef(false);
+  useEffect(() => {
+    if (!creature || !content || executingOperations.current) return;
+    executingOperations.current = true;
+    executeOperations({
       type: 'CREATURE',
       data: {
         id: STORE_ID,
         creature,
         content,
       },
+    }).then(() => {
+      addExtraItems(STORE_ID, content.items, creature, convertToSetEntity(setCreature));
+      checkBulkLimit(STORE_ID, creature, convertToSetEntity(setCreature), true);
+      applyEquipmentPenalties(STORE_ID, creature);
+      applyConditions(STORE_ID, creature.details?.conditions ?? []);
+
+      if (creature.meta_data?.reset_hp !== false) {
+        const handleRestHP = () => {
+          const maxHealth = getFinalHealthValue(STORE_ID);
+          confirmHealth(`${maxHealth}`, maxHealth, creature, convertToSetEntity(setCreature));
+        };
+        handleRestHP();
+        setTimeout(handleRestHP, 1000);
+      } else {
+        const maxHealth = getFinalHealthValue(STORE_ID);
+        confirmHealth(`${creature.hp_current}`, maxHealth, creature, convertToSetEntity(setCreature));
+      }
+
+      executingOperations.current = false;
+      setTimeout(() => setLoading(false), 100);
     });
-    // Apply conditions after everything else
-    applyConditions(STORE_ID, creature.details?.conditions ?? []);
+  }, [creature, content, STORE_ID]);
 
-    const maxHealth = getFinalHealthValue(STORE_ID);
-    const ac = getFinalAcValue(STORE_ID, getBestArmor(STORE_ID, creature.inventory)?.item);
-    const fort = getFinalProfValue(STORE_ID, 'SAVE_FORT');
-    const reflex = getFinalProfValue(STORE_ID, 'SAVE_REFLEX');
-    const will = getFinalProfValue(STORE_ID, 'SAVE_WILL');
-
-    return {
-      _id: STORE_ID,
-      id: creature.id,
-      type: 'creature',
-      ac: ac,
-      fort: parseInt(fort),
-      reflex: parseInt(reflex),
-      will: parseInt(will),
-      maxHp: maxHealth,
-    };
+  if (loading || !creature || !content) {
+    return (
+      <Box pt={60} ta='center'>
+        <Loader type='bars' />
+      </Box>
+    );
   }
 
-  return await Promise.all(companions.map(computeCompanion));
+  const setEntity = convertToSetEntity(setCreature);
+
+  return (
+    <Stack gap={12}>
+      {/* Header — avatar / name / type / delete */}
+      <Group justify='space-between' wrap='nowrap'>
+        <Group wrap='nowrap' gap={12}>
+          <Box w={56}>
+            <DisplayIcon
+              strValue={creature.details?.image_url ?? 'icon|||avatar|||#373A40'}
+              width={56}
+              iconStyles={{ objectFit: 'contain', height: 56 }}
+            />
+          </Box>
+          <Box>
+            <Title order={3}>{creature.name}</Title>
+            <Text c='dimmed' fz='xs'>
+              {determineCompanionType(creature) || 'Creature'} · Level {getEntityLevel(creature)}
+            </Text>
+          </Box>
+        </Group>
+        <Tooltip label='Delete Companion'>
+          <ActionIcon variant='subtle' color='red' onClick={props.onRemove} aria-label='Delete Companion'>
+            <IconTrash size='1.1rem' />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+
+      <Accordion
+        multiple
+        value={openSections}
+        onChange={setOpenSections}
+        variant='separated'
+        radius='md'
+        chevron={<IconChevronDown size='1rem' />}
+        styles={{
+          item: {
+            backgroundColor: IMPRINT_BG_COLOR,
+            border: `1px solid ${IMPRINT_BORDER_COLOR}`,
+          },
+          control: { padding: '10px 14px' },
+          label: {
+            fontSize: 13,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          },
+          chevron: { color: 'var(--gold-bright, #e8c557)' },
+          content: { padding: '0 10px 10px' },
+        }}
+      >
+        <Accordion.Item value='health'>
+          <Accordion.Control>Health &amp; Conditions</Accordion.Control>
+          <Accordion.Panel>
+            <HealthSection id={STORE_ID} entity={creature} setEntity={setEntity} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value='defenses'>
+          <Accordion.Control>Defenses</Accordion.Control>
+          <Accordion.Panel>
+            <ArmorSection id={STORE_ID} entity={creature} setEntity={setEntity} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value='attributes'>
+          <Accordion.Control>Attributes</Accordion.Control>
+          <Accordion.Panel>
+            <AttributeSection id={STORE_ID} entity={creature} setEntity={setEntity} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value='senses-speed'>
+          <Accordion.Control>Senses &amp; Speed</Accordion.Control>
+          <Accordion.Panel>
+            <AltSpeedSection id={STORE_ID} entity={creature} setEntity={setEntity} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value='skills'>
+          <Accordion.Control>Skills &amp; Actions</Accordion.Control>
+          <Accordion.Panel>
+            <SkillsActionsPanel
+              id={STORE_ID}
+              entity={creature}
+              setEntity={setEntity}
+              content={content}
+              panelHeight={500}
+              panelWidth={props.panelWidth}
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value='abilities'>
+          <Accordion.Control>Abilities</Accordion.Control>
+          <Accordion.Panel>
+            <CreatureAbilitiesPanel
+              id={STORE_ID}
+              content={content}
+              panelHeight={500}
+              panelWidth={props.panelWidth}
+              creature={creature}
+              setCreature={setCreature}
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value='inventory'>
+          <Accordion.Control>Inventory</Accordion.Control>
+          <Accordion.Panel>
+            <InventoryPanel
+              id={STORE_ID}
+              entity={creature}
+              setEntity={setEntity}
+              content={content}
+              panelHeight={500}
+              panelWidth={props.panelWidth}
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value='spells'>
+          <Accordion.Control>Spells</Accordion.Control>
+          <Accordion.Panel>
+            <SpellsPanel
+              id={STORE_ID}
+              entity={creature}
+              setEntity={setEntity}
+              panelHeight={500}
+              panelWidth={props.panelWidth}
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value='details'>
+          <Accordion.Control>Description &amp; Details</Accordion.Control>
+          <Accordion.Panel>
+            <CreatureDetailsPanel
+              id={STORE_ID}
+              creature={creature}
+              content={content}
+              panelHeight={500}
+              panelWidth={props.panelWidth}
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value='notes'>
+          <Accordion.Control>Notes</Accordion.Control>
+          <Accordion.Panel>
+            <NotesPanel
+              panelHeight={500}
+              panelWidth={props.panelWidth}
+              entity={creature}
+              setEntity={setEntity}
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+      </Accordion>
+    </Stack>
+  );
 }
 
-function AddCompanionSection() {
-  const [character, setCharacter] = useAtom(characterState);
+// ─── Add Companion picker (re-used by empty state + topbar button) ───
+// Identical to the previous in-panel inline picker. `onAdded` lets the
+// Popover-wrapped variant close itself after a selection lands.
+function AddCompanionSection(props: { onAdded?: () => void } = {}) {
+  const [_character, setCharacter] = useAtom(characterState);
   const [selectedType, setSelectedType] = useState<number | null>(null);
   const isPhone = useMediaQuery(phoneQuery());
 
-  const { data, isFetching } = useQuery({
+  const { data } = useQuery({
     queryKey: [`get-companions-data`],
     queryFn: async () => {
       const traits = await fetchContentAll<Trait>('trait', getDefaultSources('PAGE'));
       const creatures = await fetchContentAll<Creature>('creature', getDefaultSources('PAGE'));
-
-      return {
-        traits,
-        creatures,
-      };
+      return { traits, creatures };
     },
   });
 
@@ -516,9 +535,7 @@ function AddCompanionSection() {
     return (
       data?.traits
         ?.filter((t) => t.meta_data?.companion_type_trait)
-        .sort((a, b) => {
-          return a.name.localeCompare(b.name);
-        }) ?? []
+        .sort((a, b) => a.name.localeCompare(b.name)) ?? []
     );
   }, [data]);
 
@@ -526,11 +543,23 @@ function AddCompanionSection() {
     return (
       data?.creatures
         ?.filter((c) => findCreatureTraits(c).includes(selectedType ?? -1))
-        .sort((a, b) => {
-          return a.name.localeCompare(b.name);
-        }) ?? []
+        .sort((a, b) => a.name.localeCompare(b.name)) ?? []
     );
   }, [data, selectedType]);
+
+  const pushCompanion = (creature: Creature) => {
+    setCharacter((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        companions: {
+          ...(prev.companions ?? {}),
+          list: [...(prev.companions?.list ?? []), creature],
+        },
+      };
+    });
+    props.onAdded?.();
+  };
 
   return (
     <Box
@@ -559,17 +588,8 @@ function AddCompanionSection() {
               selectContent<Creature>(
                 'creature',
                 (option) => {
-                  // Add creature to character
-                  setCharacter((prev) => {
-                    if (!prev) return prev;
-                    return {
-                      ...prev,
-                      companions: {
-                        ...(prev.companions ?? {}),
-                        list: [...(prev.companions?.list ?? []), option!],
-                      },
-                    };
-                  });
+                  if (!option) return;
+                  pushCompanion(option);
                 },
                 {
                   showButton: true,
@@ -584,11 +604,11 @@ function AddCompanionSection() {
             }
           }}
           w={isPhone ? 120 : 150}
-          styles={(theme) => ({
+          styles={() => ({
             input: {
               borderTopRightRadius: 0,
               borderBottomRightRadius: 0,
-              '--input-placeholder-color': theme.colors.gray[6],
+              '--input-placeholder-color': 'var(--mantine-color-gray-6)',
               backgroundColor: IMPRINT_BG_COLOR,
               borderColor: IMPRINT_BORDER_COLOR,
             },
@@ -603,27 +623,17 @@ function AddCompanionSection() {
           onChange={(value) => {
             if (!value) return;
             const creature = creatureOptions.find((c) => c.id === parseInt(`${value}`));
-            // Add creature to character
-            setCharacter((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                companions: {
-                  ...(prev.companions ?? {}),
-                  list: [...(prev.companions?.list ?? []), creature!],
-                },
-              };
-            });
-
+            if (!creature) return;
+            pushCompanion(creature);
             setSelectedType(null);
           }}
           value={''}
           w={isPhone ? 120 : 150}
-          styles={(theme) => ({
+          styles={() => ({
             input: {
               borderTopLeftRadius: 0,
               borderBottomLeftRadius: 0,
-              '--input-placeholder-color': theme.colors.gray[6],
+              '--input-placeholder-color': 'var(--mantine-color-gray-6)',
               backgroundColor: IMPRINT_BG_COLOR,
               borderColor: IMPRINT_BORDER_COLOR,
             },
