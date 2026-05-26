@@ -546,12 +546,28 @@ export function CodexSpellsPanel(props: {
     sourceObj: { name: string; type?: string; tradition?: string },
     rank: number
   ) => {
-    const tradition = sourceObj.tradition?.toLowerCase();
     const knownIdsAtRank = new Set(
       (character?.spells?.list ?? [])
         .filter((e) => e.source === sourceObj.name && e.rank === rank)
         .map((e) => e.spell_id)
     );
+    // Per user request — the "+ Add Cantrip" / "+ Add N-th-Rank Spell"
+    // buttons should only show spells already added to the character
+    // via the Manage Spells modal (i.e. anything currently in
+    // character.spells.list, regardless of source/rank). We resolve
+    // each list entry to its full Spell object from the content cache
+    // and pass the curated set via `overrideOptions`, which bypasses
+    // SelectContent's full-library query. Dedupe by spell_id so a
+    // spell present at multiple ranks/sources only appears once.
+    const managerSpellIds = Array.from(
+      new Set((character?.spells?.list ?? []).map((e) => e.spell_id))
+    );
+    const allSpells = getCachedContent<Spell>('spell');
+    const byId = new Map(allSpells.map((s) => [s.id, s]));
+    const managerSpells = managerSpellIds
+      .map((id) => byId.get(id))
+      .filter((s): s is Spell => Boolean(s));
+
     selectContent<Spell>(
       'spell',
       (option) => {
@@ -580,6 +596,7 @@ export function CodexSpellsPanel(props: {
       {
         overrideLabel: rank === 0 ? 'Add Cantrip' : 'Add to Repertoire',
         zIndex: 600,
+        overrideOptions: managerSpells as unknown as Record<string, any>[],
         filterFn: (sRec: Record<string, unknown>) => {
           const s = sRec as Spell;
           if (!isNormalSpell(s)) return false;
@@ -589,13 +606,6 @@ export function CodexSpellsPanel(props: {
           // Don't show spells already in the repertoire at this rank.
           if (knownIdsAtRank.has(s.id)) return false;
           return true;
-        },
-        advancedPresetFilters: {
-          type: 'spell',
-          spell_type: 'NORMAL',
-          traditions: tradition ? [tradition] : undefined,
-          rank_min: 0,
-          rank_max: rank,
         },
       }
     );
