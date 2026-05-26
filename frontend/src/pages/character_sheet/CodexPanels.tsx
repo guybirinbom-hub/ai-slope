@@ -2074,23 +2074,95 @@ export function CodexFeatsPanel(props: {
   }, [content.traits]);
 
   // Tag each block with its source group so we can filter / color-code.
+  //
+  // collectEntityAbilityBlocks returns OVERLAPPING lists — a feat with
+  // both the class trait (bard) and the ancestry trait (elf) lands in
+  // BOTH classFeats and ancestryFeats. Mapping each list to a tag
+  // naively produced two duplicate rows: one in the Class section,
+  // one in the Ancestry section. That's why the user kept seeing
+  // ancestry feats inside the Bard section.
+  //
+  // Walk feats once with a priority order so each id lands in exactly
+  // one bucket:
+  //   1. SKILL trait     → skill           (skill feats are taken in
+  //                                         skill slots regardless of
+  //                                         other traits)
+  //   2. GENERAL trait   → general         (general slots, same logic)
+  //   3. ancestry trait  → ancestry        (ancestry-trait feats are
+  //                                         taken in ancestry slots,
+  //                                         even when they also carry
+  //                                         the class trait)
+  //   4. class trait     → class
+  //   5. otherwise       → general         (orphan / archetype /
+  //                                         multiclass feats fall here)
+  //
+  // Heritages always count as ancestry; class-features and physical-
+  // features as feature. Those don't overlap with the feat lists.
   type TaggedBlock = AbilityBlock & { _group: 'class' | 'ancestry' | 'skill' | 'general' | 'feature' };
   const featBlocks: TaggedBlock[] = useMemo(() => {
     if (!collected) return [];
-    const tag = (g: TaggedBlock['_group']) => (b: AbilityBlock): TaggedBlock => ({ ...b, _group: g });
-    return [
-      ...(collected.classFeats ?? []).map(tag('class')),
-      ...(collected.ancestryFeats ?? []).map(tag('ancestry')),
-      ...(collected.generalAndSkillFeats ?? []).map((f) => {
-        const isSkill = (f.traits ?? []).some((id) => traitNameById.get(id) === 'skill');
-        return { ...f, _group: (isSkill ? 'skill' : 'general') as TaggedBlock['_group'] };
-      }),
-      ...(collected.otherFeats ?? []).map(tag('general')),
-      ...(collected.classFeatures ?? []).map(tag('feature')),
-      ...(collected.heritages ?? []).map(tag('ancestry')),
-      ...(collected.physicalFeatures ?? []).map(tag('feature')),
+
+    // De-dupe across all sources by id. Feature/heritage ids never
+    // collide with feat ids (different ability_block.type) but we keep
+    // the set anyway for defensive equality.
+    const seen = new Set<number>();
+    const out: TaggedBlock[] = [];
+
+    const allFeats: AbilityBlock[] = [
+      ...(collected.classFeats ?? []),
+      ...(collected.ancestryFeats ?? []),
+      ...(collected.generalAndSkillFeats ?? []),
+      ...(collected.otherFeats ?? []),
     ];
-  }, [collected, traitNameById]);
+    // Same id can be in multiple lists — collapse to unique set of
+    // AbilityBlocks first.
+    const uniqueFeats = new Map<number, AbilityBlock>();
+    for (const f of allFeats) {
+      if (!uniqueFeats.has(f.id)) uniqueFeats.set(f.id, f);
+    }
+
+    const classTraitId = character?.details?.class?.trait_id ?? -1;
+    const ancestryTraitId = character?.details?.ancestry?.trait_id ?? -1;
+
+    for (const f of uniqueFeats.values()) {
+      const traits = (f.traits ?? []) as number[];
+      let group: TaggedBlock['_group'];
+      // PF2e: feats carry trait IDs; SKILL/GENERAL traits live in the
+      // content.traits table under those literal names.
+      const hasSkill = traits.some((id) => traitNameById.get(id) === 'skill');
+      const hasGeneral = traits.some((id) => traitNameById.get(id) === 'general');
+      if (hasSkill) group = 'skill';
+      else if (hasGeneral) group = 'general';
+      else if (ancestryTraitId > 0 && traits.includes(ancestryTraitId)) group = 'ancestry';
+      else if (classTraitId > 0 && traits.includes(classTraitId)) group = 'class';
+      else group = 'general';
+
+      if (!seen.has(f.id)) {
+        seen.add(f.id);
+        out.push({ ...f, _group: group });
+      }
+    }
+
+    // Class-features + physical-features → 'feature'. Heritages →
+    // 'ancestry'. These ability-block types never collide with feats.
+    for (const cf of collected.classFeatures ?? []) {
+      if (seen.has(cf.id)) continue;
+      seen.add(cf.id);
+      out.push({ ...cf, _group: 'feature' });
+    }
+    for (const h of collected.heritages ?? []) {
+      if (seen.has(h.id)) continue;
+      seen.add(h.id);
+      out.push({ ...h, _group: 'ancestry' });
+    }
+    for (const pf of collected.physicalFeatures ?? []) {
+      if (seen.has(pf.id)) continue;
+      seen.add(pf.id);
+      out.push({ ...pf, _group: 'feature' });
+    }
+
+    return out;
+  }, [collected, traitNameById, character]);
 
   const matchesSearch = (b: { name?: string }) =>
     !searchQuery.trim() || (b.name ?? '').toLowerCase().includes(searchQuery.trim().toLowerCase());
