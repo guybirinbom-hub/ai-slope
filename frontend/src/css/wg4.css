@@ -22,6 +22,9 @@
    *    dividers, anchors, etc. renders correctly without code changes.
    *    Each wave only needs to flip the WG4_DRAWER_TYPES flag —
    *    the body components inherit the new colors automatically. */
+  --mantine-font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif;
+  --mantine-font-family-headings: 'Newsreader', ui-serif, Georgia, serif;
+  --mantine-font-family-monospace: var(--wg4-font-mono), ui-monospace, monospace;
   --mantine-color-text: var(--wg4-ink);
   --mantine-color-body: var(--wg4-surface);
   --mantine-color-default: var(--wg4-surface);
