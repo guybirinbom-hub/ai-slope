@@ -258,7 +258,7 @@ export function Component(props: {}) {
         width: '100vw',
         height: '100vh',
         zIndex: 9999,
-        background: '#15110b',
+        background: '#e8e4d8', // wg4 parchment to match the new loading-screen palette
       }}
     >
       <iframe

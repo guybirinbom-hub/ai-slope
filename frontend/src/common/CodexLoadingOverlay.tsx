@@ -134,7 +134,7 @@ export default function CodexLoadingOverlay(props: Props) {
         bottom: 0,
         width: position === 'fixed' ? '100vw' : '100%',
         height: position === 'fixed' ? '100vh' : '100%',
-        background: '#15110b',
+        background: '#e8e4d8', // wg4 parchment to match the iframe's interior
         zIndex,
         pointerEvents: 'auto',
       }}

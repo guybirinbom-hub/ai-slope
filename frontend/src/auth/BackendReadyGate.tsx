@@ -46,7 +46,7 @@ export default function BackendReadyGate(props: { children: ReactNode }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#15110b',
+        background: '#e8e4d8', // wg4 parchment
         zIndex: 9999,
       }}
     >
@@ -58,7 +58,7 @@ export default function BackendReadyGate(props: { children: ReactNode }) {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(13, 9, 5, 0.92)',
+            background: 'rgba(232, 228, 216, 0.94)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -69,11 +69,12 @@ export default function BackendReadyGate(props: { children: ReactNode }) {
           <div
             style={{
               maxWidth: 720,
-              border: '1px solid #a83a25',
-              background: '#211a11',
-              color: '#ede4ce',
+              border: '1px solid #b0542f',
+              background: '#f6f3eb',
+              color: '#1a1a1a',
               padding: '24px 28px',
-              fontFamily: "'Cormorant Garamond', serif",
+              fontFamily: "'Newsreader', ui-serif, Georgia, serif",
+              fontStyle: 'italic',
             }}
           >
             <div
