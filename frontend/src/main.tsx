@@ -23,6 +23,10 @@ import './css/codex-panels.css';
 // surfaces (opted in via className='wg4') override codex chrome with
 // the parchment palette + Geist fonts. See css/wg4.css comment.
 import './css/wg4.css';
+// Exhaustive wg4 reskin of every hardcoded font / dark gradient /
+// gold glow in codex.css that the var remap can't reach. Loaded last
+// so these rules always win on .wg4 surfaces.
+import './css/wg4-codex-overrides.css';
 // Codex shell for the character builder Home tab (Sources step).
 // Loaded before codex-bridge.css so the bridge can still override
 // individual Mantine selectors that bleed through.

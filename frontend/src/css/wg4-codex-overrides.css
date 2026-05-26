@@ -1,0 +1,684 @@
+/* wg4-codex-overrides.css — exhaustive wg4 reskin of every codex.css
+ * selector that has hardcoded values (fonts, dark gradients, glows,
+ * letter-spacing display caps) the parent var remap can't reach.
+ *
+ * Scoped under `.wg4` so codex pages that haven't opted in (Builder /
+ * Homebrew / Account / Content Update) keep their original dark-gold
+ * styling. Loaded AFTER codex.css + codex-panels.css so these rules
+ * always win on opted-in surfaces.
+ *
+ * Pattern for each selector: same selector codex.css uses, prefixed
+ * with `.wg4 ` and with the wg4 vocabulary substituted in:
+ *   - Cinzel display caps  →  Geist (labels) or Newsreader italic (names)
+ *   - Cormorant Garamond   →  Newsreader (prose) or Geist (UI)
+ *   - IM Fell English SC   →  Geist mono uppercase (small caps subs)
+ *   - dark gradient bg      →  flat surface or transparent
+ *   - gold glow shadow     →  none
+ *   - heavy letter-spacing  →  tight (0.04em–0.12em max)
+ */
+
+/* ============================== WINBAR ============================== */
+.wg4 .winbar {
+  background: linear-gradient(180deg, var(--wg4-surface) 0%, var(--wg4-surface-2) 100%) !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.16em !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .winbar .title b {
+  font-family: var(--wg4-font-sans) !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: 0.16em !important;
+}
+.wg4 .winbar .title .dot {
+  background: var(--wg4-accent) !important;
+  box-shadow: 0 0 4px rgba(176,84,47,0.4) !important;
+}
+.wg4 .winbar .center {
+  color: var(--wg4-ink-3) !important;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .winbar .center b {
+  color: var(--wg4-ink) !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+.wg4 .winbtn {
+  color: var(--wg4-ink-3) !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+.wg4 .winbtn:hover {
+  background: var(--wg4-surface-hover) !important;
+  color: var(--wg4-accent) !important;
+}
+.wg4 .winbtn.close:hover {
+  background: rgba(168, 58, 37, 0.18) !important;
+  color: #8b3a1f !important;
+}
+
+/* ============================== ACTION ICONS ============================== */
+.wg4 .ai {
+  color: var(--wg4-ink) !important;
+  filter: none !important;
+}
+.wg4 .ai.ar { color: var(--wg4-accent) !important; filter: none !important; }
+.wg4 .ai.af { color: var(--wg4-accent) !important; filter: none !important; }
+
+/* ============================== TOP BAR ============================== */
+.wg4 .topbar {
+  background: linear-gradient(180deg, var(--wg4-surface) 0%, var(--wg4-surface-2) 100%) !important;
+  border-bottom: 1px solid var(--wg4-border) !important;
+}
+.wg4 .topbar::after {
+  background: linear-gradient(90deg, transparent 8%, var(--wg4-border) 50%, transparent 92%) !important;
+}
+
+.wg4 .who {
+  border-right: 1px solid var(--wg4-border-soft) !important;
+}
+.wg4 .who .crest {
+  background:
+    radial-gradient(circle at 35% 35%, var(--wg4-accent-soft) 0%, #d3b7a0 70%),
+    #cfb29a !important;
+  box-shadow: 0 0 0 1px var(--wg4-accent), 0 0 0 2px var(--wg4-surface), 0 0 0 3px var(--wg4-border-soft) !important;
+  color: var(--wg4-accent-ink) !important;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+}
+.wg4 .who .label .nm {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 20px !important;
+  letter-spacing: -0.005em !important;
+  color: var(--wg4-ink) !important;
+  text-transform: none !important;
+}
+.wg4 .who .label .sub {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.12em !important;
+  color: var(--wg4-ink-3) !important;
+  text-transform: uppercase !important;
+}
+.wg4 .who .label .sub i {
+  color: var(--wg4-accent) !important;
+}
+
+/* ============================== TABS ============================== */
+.wg4 .tabs {
+  scrollbar-color: var(--wg4-accent) transparent !important;
+}
+.wg4 .tabs::-webkit-scrollbar-thumb {
+  background: var(--wg4-accent) !important;
+}
+.wg4 .tab {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink-3) !important;
+  border-right: 1px solid var(--wg4-border-soft) !important;
+}
+.wg4 .tab:hover { color: var(--wg4-ink) !important; }
+.wg4 .tab.on {
+  color: var(--wg4-ink) !important;
+  background: transparent !important;
+}
+.wg4 .tab.on::after {
+  background: var(--wg4-accent) !important;
+  box-shadow: none !important;
+}
+
+/* ============================== RIGHT CLUSTER ============================== */
+.wg4 .right {
+  border-left: 1px solid var(--wg4-border-soft) !important;
+}
+.wg4 .lv-chip {
+  border: 1px solid var(--wg4-border-strong) !important;
+  background: var(--wg4-surface) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .lv-chip::before, .wg4 .lv-chip::after {
+  display: none !important;
+}
+.wg4 .lv-chip .k {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.16em !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 600 !important;
+}
+.wg4 .lv-chip .v {
+  font-family: var(--wg4-font-mono) !important;
+  font-weight: 500 !important;
+  font-size: 18px !important;
+  color: var(--wg4-accent) !important;
+  text-shadow: none !important;
+  letter-spacing: -0.01em !important;
+}
+
+.wg4 .xp .row {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.16em !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 600 !important;
+}
+.wg4 .xp .row .nums {
+  color: var(--wg4-ink) !important;
+  font-size: 11px !important;
+  font-family: var(--wg4-font-mono) !important;
+}
+.wg4 .xp .row .nums input {
+  color: var(--wg4-accent) !important;
+  font-family: var(--wg4-font-mono) !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  letter-spacing: -0.01em !important;
+}
+.wg4 .xp .row .nums input:hover,
+.wg4 .xp .row .nums input:focus {
+  border-bottom-color: var(--wg4-accent) !important;
+}
+.wg4 .xp .row .nums b {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .xp .bar {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  border-radius: var(--wg4-r-1) !important;
+}
+.wg4 .xp .bar .fill {
+  background: linear-gradient(90deg, var(--wg4-accent-ink), var(--wg4-accent)) !important;
+  box-shadow: none !important;
+}
+
+.wg4 .add-xp {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .add-xp:focus-within { border-color: var(--wg4-accent) !important; }
+.wg4 .add-xp .glyph {
+  color: var(--wg4-accent) !important;
+  font-family: var(--wg4-font-sans) !important;
+  border-right: 1px solid var(--wg4-border-soft) !important;
+}
+
+/* ============================== SECTION CARDS ============================== */
+.wg4 .sec {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  border-radius: var(--wg4-r-3) !important;
+  box-shadow: var(--wg4-shadow-card) !important;
+}
+.wg4 .sec-title {
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  background: transparent !important;
+}
+.wg4 .sec-title .label,
+.wg4 .sec-title .lz {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+  font-weight: 600 !important;
+}
+.wg4 .sec-title .lz {
+  color: var(--wg4-accent) !important;
+  font-size: 14px !important;
+  letter-spacing: 0 !important;
+}
+
+/* ============================== HP CARD ============================== */
+.wg4 .hp-card .hp-num,
+.wg4 .hp-card .cur-input,
+.wg4 .hp-card .max {
+  font-family: var(--wg4-font-mono) !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.01em !important;
+}
+.wg4 .hp-card .cur-input {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .hp-card .lbl {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 600 !important;
+}
+.wg4 .hp-card .hpbar {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  border-radius: var(--wg4-r-1) !important;
+}
+.wg4 .hp-card .hpbar .fill {
+  background: linear-gradient(90deg, var(--wg4-accent-ink), var(--wg4-accent)) !important;
+  box-shadow: none !important;
+}
+.wg4 .hp-card .resist-link {
+  color: var(--wg4-accent) !important;
+  font-family: var(--wg4-font-sans) !important;
+  text-decoration: none !important;
+}
+.wg4 .hp-card .hp-temp .k {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 9px !important;
+  letter-spacing: 0.16em !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 600 !important;
+}
+.wg4 .hp-card .hp-temp .v,
+.wg4 .hp-card .hp-temp input {
+  font-family: var(--wg4-font-mono) !important;
+  color: var(--wg4-ink) !important;
+}
+
+/* ============================== STAT TILES ============================== */
+.wg4 .tiles .tile {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .tiles .tile .k {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 9px !important;
+  letter-spacing: 0.16em !important;
+  color: var(--wg4-ink-4) !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+}
+.wg4 .tiles .tile .v,
+.wg4 .tiles .tile .num {
+  font-family: var(--wg4-font-mono) !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* ============================== STAT STRIP (speed / senses) ============================== */
+.wg4 .stat-strip .k {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 9px !important;
+  letter-spacing: 0.16em !important;
+  color: var(--wg4-ink-4) !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+}
+.wg4 .stat-strip .v {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 15px !important;
+  color: var(--wg4-ink) !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+}
+.wg4 .senses-row .chip {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  border-radius: 3px !important;
+  font-size: 10.5px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 500 !important;
+}
+
+/* ============================== HERO PIPS ============================== */
+.wg4 .hero-pips .pip {
+  border: 1.5px solid var(--wg4-accent) !important;
+  background: transparent !important;
+  border-radius: 50% !important;
+  transform: none !important;
+}
+.wg4 .hero-pips .pip.on {
+  background: var(--wg4-accent) !important;
+}
+.wg4 .hero-count {
+  font-family: var(--wg4-font-mono) !important;
+  color: var(--wg4-ink-2) !important;
+}
+
+/* ============================== SAVES + ROW LIST ============================== */
+.wg4 .save-row,
+.wg4 .row-list .row {
+  border-bottom: 1px dotted var(--wg4-border-soft) !important;
+  background: transparent !important;
+}
+.wg4 .save-row .name,
+.wg4 .row-list .row .name {
+  font-family: var(--wg4-font-sans) !important;
+  color: var(--wg4-ink-2) !important;
+  font-size: 12.5px !important;
+}
+.wg4 .save-row .prof,
+.wg4 .row-list .row .prof {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.12em !important;
+  color: var(--wg4-ink-3) !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  width: auto !important;
+  background: var(--wg4-surface-2) !important;
+  border-radius: 3px !important;
+  padding: 1px 5px !important;
+}
+.wg4 .save-row .val,
+.wg4 .row-list .row .mod {
+  font-family: var(--wg4-font-mono) !important;
+  color: var(--wg4-accent) !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+.wg4 .save-row .sub-note,
+.wg4 .row-list .row .sub-note {
+  color: var(--wg4-ink-4) !important;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+}
+
+/* ============================== CONDITIONS ============================== */
+.wg4 .cond {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  border-radius: 999px !important;
+  padding: 3px 9px !important;
+  font-size: 11px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 500 !important;
+}
+.wg4 .cond.harm {
+  background: #efd9c8 !important;
+  border-color: #d4a98a !important;
+  color: #7a3d18 !important;
+}
+.wg4 .cond .vv {
+  font-family: var(--wg4-font-mono) !important;
+  color: inherit !important;
+  font-weight: 600 !important;
+}
+.wg4 .cond .x {
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .cond-empty {
+  color: var(--wg4-ink-4) !important;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+}
+.wg4 .add {
+  color: var(--wg4-accent) !important;
+  background: transparent !important;
+  border: 1px solid var(--wg4-accent) !important;
+  border-radius: 999px !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+
+/* ============================== LANGUAGES ============================== */
+.wg4 .lang {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  border-radius: 3px !important;
+  font-size: 11px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 500 !important;
+}
+
+/* ============================== PORTRAIT (Characters page) ============================== */
+.wg4 .portrait,
+.wg4 [class*='portrait'] {
+  background: var(--wg4-accent-soft) !important;
+  color: var(--wg4-accent-ink) !important;
+}
+.wg4 .portrait.t1,
+.wg4 .portrait.t2,
+.wg4 .portrait.t3,
+.wg4 .portrait.t4,
+.wg4 .portrait.t5 {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(176,84,47,0.18), transparent 70%),
+    var(--wg4-surface) !important;
+  color: var(--wg4-accent-ink) !important;
+}
+
+/* ============================== BODY GRID ============================== */
+.wg4 .body {
+  background: transparent !important;
+}
+.wg4 .left,
+.wg4 .right-col,
+.wg4 .center-col,
+.wg4 .col {
+  background: transparent !important;
+}
+
+/* ============================== GENERIC SHEET ELEMENTS ============================== */
+.wg4 .codex-root [class*='label'],
+.wg4 .codex-root [class*='-label'],
+.wg4 .codex-root .k {
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .codex-root [class*='-num'],
+.wg4 .codex-root .num,
+.wg4 .codex-root .mono {
+  font-family: var(--wg4-font-mono) !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Kill all gold glow shadows globally inside wg4. */
+.wg4 [class*='glow'],
+.wg4 .codex-root [style*='box-shadow'] {
+  /* Targeted via specific selectors above where needed. */
+}
+
+/* ============================== CARDS / FAVORITES / FEATS / SPELLS ============================== */
+.wg4 .codex-root .card,
+.wg4 .codex-root [class*='-card'],
+.wg4 .codex-root .row,
+.wg4 .codex-root .sk-row,
+.wg4 .codex-root .sp-row,
+.wg4 .codex-root .inv-row,
+.wg4 .codex-root .feat,
+.wg4 .codex-root .act {
+  background: var(--wg4-surface) !important;
+  border-color: var(--wg4-border-soft) !important;
+}
+.wg4 .codex-root .card:hover,
+.wg4 .codex-root [class*='-card']:hover,
+.wg4 .codex-root .row:hover,
+.wg4 .codex-root .sk-row:hover,
+.wg4 .codex-root .sp-row:hover,
+.wg4 .codex-root .inv-row:hover,
+.wg4 .codex-root .feat:hover,
+.wg4 .codex-root .act:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+
+/* Highlight / accent fills inside cards */
+.wg4 .codex-root [class*='accent'],
+.wg4 .codex-root .accent {
+  color: var(--wg4-accent) !important;
+}
+
+/* ============================== PIN / GROUP HEADERS ============================== */
+.wg4 .codex-root .sub-head,
+.wg4 .codex-root .act-group-label,
+.wg4 .codex-root [class*='-group-label'] {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.14em !important;
+  color: var(--wg4-ink-3) !important;
+  font-weight: 600 !important;
+  background: transparent !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  padding: 8px 0 !important;
+}
+.wg4 .codex-root .sub-head .lz,
+.wg4 .codex-root .act-group-label .lz {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .codex-root .sub-head .accent {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  text-transform: none !important;
+  letter-spacing: -0.005em !important;
+  font-weight: 400 !important;
+  color: var(--wg4-accent) !important;
+}
+
+/* ============================== FILTER PILLS (Feats / Activities toolbar) ============================== */
+.wg4 .codex-root .filter,
+.wg4 .codex-root [class*='filter-pill'],
+.wg4 .codex-root .cost-filter {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink-3) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  border-radius: 999px !important;
+}
+.wg4 .codex-root .filter.on,
+.wg4 .codex-root .cost-filter.on {
+  background: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  color: #fff !important;
+}
+
+/* ============================== SEARCH INPUT ============================== */
+.wg4 .codex-root input[type='text'],
+.wg4 .codex-root input[type='search'],
+.wg4 .codex-root .search,
+.wg4 .codex-root [class*='search'] input {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink) !important;
+  font-family: var(--wg4-font-sans) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .codex-root input[type='text']:focus,
+.wg4 .codex-root input[type='search']:focus {
+  border-color: var(--wg4-accent) !important;
+  outline: none !important;
+}
+
+/* ============================== MODE TABS (Activities) ============================== */
+.wg4 .codex-root .mode-tabs {
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+}
+.wg4 .codex-root .mode-tab {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink-4) !important;
+  border-bottom: 2px solid transparent !important;
+}
+.wg4 .codex-root .mode-tab.on {
+  color: var(--wg4-ink) !important;
+  border-bottom-color: var(--wg4-accent) !important;
+}
+.wg4 .codex-root .mode-tab small {
+  color: var(--wg4-ink-4) !important;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+/* ============================== ABILITIES / SKILLS rows ============================== */
+.wg4 .codex-root .ab,
+.wg4 .codex-root .sk {
+  background: var(--wg4-surface) !important;
+  border-color: var(--wg4-border-soft) !important;
+}
+.wg4 .codex-root .ab .k,
+.wg4 .codex-root .sk .k {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 9px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 600 !important;
+}
+.wg4 .codex-root .ab .v,
+.wg4 .codex-root .sk .v {
+  font-family: var(--wg4-font-mono) !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.01em !important;
+}
+.wg4 .codex-root .ab .v.accent,
+.wg4 .codex-root .sk .v.accent {
+  color: var(--wg4-accent) !important;
+}
+
+/* ============================== INVENTORY rows / currency ============================== */
+.wg4 .codex-root .currency,
+.wg4 .codex-root .coin {
+  background: var(--wg4-surface) !important;
+  border-color: var(--wg4-border-soft) !important;
+}
+
+/* ============================== Specific glow / shadow killers ============================== */
+.wg4 .codex-root [class] {
+  text-shadow: none !important;
+}
+.wg4 .codex-root .lz,
+.wg4 .codex-root [class*='glyph'] {
+  filter: none !important;
+}
+
+/* ============================== Anchor links inside codex pages ============================== */
+.wg4 .codex-root a {
+  color: var(--wg4-accent) !important;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--wg4-accent);
+}
+.wg4 .codex-root a:hover {
+  color: var(--wg4-accent-ink) !important;
+}
+
+/* ============================== ScrollArea / scrollbars inside codex pages ============================== */
+.wg4 .codex-root *::-webkit-scrollbar { width: 6px; height: 6px; }
+.wg4 .codex-root *::-webkit-scrollbar-track { background: transparent; }
+.wg4 .codex-root *::-webkit-scrollbar-thumb { background: var(--wg4-border-strong); border-radius: 3px; }
+.wg4 .codex-root *::-webkit-scrollbar-thumb:hover { background: var(--wg4-accent); }
+
+/* ============================== Notes / Details / Builder shells inside .wg4 ============================== */
+.wg4 .codex-notes-shell,
+.wg4 .codex-details-shell {
+  background: var(--wg4-page) !important;
+  font-family: var(--wg4-font-sans) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .codex-notes-shell .leaf,
+.wg4 .codex-details-shell .panel {
+  background: var(--wg4-surface) !important;
+  border-color: var(--wg4-border) !important;
+}
+
+/* ============================== Catch-all: kill drop-shadows on all icons inside wg4 ============================== */
+.wg4 .codex-root svg {
+  filter: none !important;
+}
