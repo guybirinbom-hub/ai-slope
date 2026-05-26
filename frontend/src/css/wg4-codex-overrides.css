@@ -855,6 +855,46 @@
   color: var(--wg4-ink) !important;
 }
 
+/* ============================== Conditions / Modes Modal (.cm-*) ============================== */
+.wg4 .cm-tabs,
+.wg4 .cm-head,
+.wg4 .cm-foot,
+.wg4 .cm-desc-head {
+  background: var(--wg4-surface-2) !important;
+  border-color: var(--wg4-border-soft) !important;
+}
+.wg4 .cm-tab {
+  font-family: var(--wg4-font-sans) !important;
+  letter-spacing: 0.14em !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink-3) !important;
+  border-right: 1px solid var(--wg4-border-soft) !important;
+  text-transform: uppercase !important;
+}
+.wg4 .cm-tab.on,
+.wg4 .cm-tab[data-active] {
+  color: var(--wg4-ink) !important;
+  background: var(--wg4-surface) !important;
+}
+.wg4 .cm-desc-title {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  text-transform: none !important;
+  letter-spacing: -0.005em !important;
+  color: var(--wg4-ink) !important;
+  font-weight: 500 !important;
+}
+.wg4 .cm-foot-hint {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .cm-add-btn {
+  background: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  color: #fff !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+
 /* Mantine Spotlight — searchbar palette. Mantine renders this into
  * a portal, so its root needs to be checked for .wg4 class via
  * SearchSpotlight's classNames prop. We style the chrome here. */
