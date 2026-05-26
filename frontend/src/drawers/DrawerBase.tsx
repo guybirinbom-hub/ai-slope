@@ -28,6 +28,50 @@ import DrawerCreatureBase from './DrawerCreatureBase';
 const DrawerContent = lazy(() => import('./DrawerContent'));
 const DrawerTitle = lazy(() => import('./DrawerTitle'));
 
+// wg4 redesign — drawer types that have been ported to the parchment
+// design language. When the open drawer's type is in this set, we
+// apply `classNames={{ root: 'wg4', content: 'wg4-drawer-mantine' }}`
+// to the Mantine Drawer so the wg4 CSS overrides kick in (parchment
+// background, ink-2 title, hairline border). Drawers not in the set
+// keep the existing dark codex chrome. Append types as their bodies
+// get ported through waves 2-4.
+const WG4_DRAWER_TYPES = new Set<string>([
+  // Wave 2 — description-card drawers (FeatDrawer template + reuses).
+  'feat',
+  'spell',
+  'item',
+  'condition',
+  'background',
+  'archetype',
+  'versatile-heritage',
+  'language',
+  'trait',
+  'content-source',
+  'generic',
+  'class-feature',
+  'class-archetype',
+  'action',
+  'heritage',
+  'sense',
+  'physical-feature',
+  'mode',
+  // Wave 3 — stat drawers (StatAttrDrawer template + reuses).
+  'stat-prof',
+  'stat-attr',
+  'stat-hp',
+  'stat-ac',
+  'stat-weapon',
+  'stat-speed',
+  'stat-perception',
+  'stat-resist-weak',
+  // Wave 4 — special drawers (each unique).
+  'class',
+  'ancestry',
+  'inv-item',
+  'cast-spell',
+  'manage-coins',
+]);
+
 // No feedback drawers
 const NO_FEEDBACK_DRAWERS = [
   'generic',
@@ -178,11 +222,20 @@ export default function DrawerBase() {
   const swipeHandlers = useSwipeGesture({ onSwipeRight: handleDrawerGoBack });
 
   const opened = !!_drawer;
+  // Apply wg4 chrome only when the open drawer type is one we've
+  // ported. The classNames flow into Mantine's root portal + content
+  // panel so the wg4.css overrides take effect (parchment bg, ink
+  // title, hairline border, Geist typography).
+  const isWg4Drawer = !!(_drawer?.type && WG4_DRAWER_TYPES.has(_drawer.type));
+  const drawerClassNames = isWg4Drawer
+    ? { root: 'wg4', content: 'wg4-drawer-mantine', header: 'wg4-drawer-mantine-head', body: 'wg4-drawer-mantine-body' }
+    : undefined;
   return (
     <>
       <Drawer
         opened={opened}
         onClose={handleDrawerClose}
+        classNames={drawerClassNames}
         title={
           <>
             {displayTitle && (

@@ -16,6 +16,48 @@
  */
 
 .wg4 {
+  /* ── Mantine variable overrides — surfaces that opt into .wg4
+   *    inherit the parchment palette through Mantine's own CSS vars,
+   *    so existing JSX using `c='gray.2'`, `bg='dark.7'`, badges,
+   *    dividers, anchors, etc. renders correctly without code changes.
+   *    Each wave only needs to flip the WG4_DRAWER_TYPES flag —
+   *    the body components inherit the new colors automatically. */
+  --mantine-color-text: var(--wg4-ink);
+  --mantine-color-body: var(--wg4-surface);
+  --mantine-color-default: var(--wg4-surface);
+  --mantine-color-default-hover: var(--wg4-surface-hover);
+  --mantine-color-default-color: var(--wg4-ink);
+  --mantine-color-default-border: var(--wg4-border);
+  --mantine-color-dimmed: var(--wg4-ink-4);
+  --mantine-color-bright: var(--wg4-ink);
+  --mantine-color-placeholder: var(--wg4-ink-5);
+  --mantine-color-anchor: var(--wg4-accent);
+
+  /* Map dark codex grays → wg4 ink scale. `c='gray.0'` (lightest
+   *  text on dark codex) becomes the darkest ink on parchment so
+   *  the contrast direction flips correctly. */
+  --mantine-color-gray-0: var(--wg4-ink);
+  --mantine-color-gray-1: var(--wg4-ink);
+  --mantine-color-gray-2: var(--wg4-ink);
+  --mantine-color-gray-3: var(--wg4-ink-2);
+  --mantine-color-gray-4: var(--wg4-ink-2);
+  --mantine-color-gray-5: var(--wg4-ink-3);
+  --mantine-color-gray-6: var(--wg4-ink-3);
+  --mantine-color-gray-7: var(--wg4-ink-4);
+  --mantine-color-gray-8: var(--wg4-ink-4);
+  --mantine-color-gray-9: var(--wg4-ink-5);
+
+  --mantine-color-dark-0: var(--wg4-ink);
+  --mantine-color-dark-1: var(--wg4-ink-2);
+  --mantine-color-dark-2: var(--wg4-ink-3);
+  --mantine-color-dark-3: var(--wg4-ink-3);
+  --mantine-color-dark-4: var(--wg4-ink-4);
+  --mantine-color-dark-5: var(--wg4-border);
+  --mantine-color-dark-6: var(--wg4-surface-2);
+  --mantine-color-dark-7: var(--wg4-surface);
+  --mantine-color-dark-8: var(--wg4-surface-2);
+  --mantine-color-dark-9: var(--wg4-surface-2);
+
   /* Surfaces — warm paper page, slightly off-white cards. */
   --wg4-page: #e8e4d8;
   --wg4-surface: #f6f3eb;
@@ -430,6 +472,58 @@
   color: var(--wg4-ink) !important;
 }
 
+/* ── Mantine Drawer override for wg4-ported drawer types.
+ *    DrawerBase passes classNames={{ root: 'wg4', content:
+ *    'wg4-drawer-mantine', header: 'wg4-drawer-mantine-head',
+ *    body: 'wg4-drawer-mantine-body' }} only when the open drawer
+ *    type is in WG4_DRAWER_TYPES. These selectors then re-skin the
+ *    Mantine chrome to parchment without touching unported drawers. */
+.wg4-drawer-mantine {
+  background-color: var(--wg4-surface, #f6f3eb) !important;
+  color: var(--wg4-ink, #1a1a1a) !important;
+  font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif !important;
+  border-left: 1px solid var(--wg4-border, #d8d3c4) !important;
+}
+.wg4-drawer-mantine-head {
+  background-color: var(--wg4-surface, #f6f3eb) !important;
+  border-bottom: 1px solid var(--wg4-border-soft, #e0dbcd) !important;
+}
+.wg4-drawer-mantine-head .mantine-Title-root,
+.wg4-drawer-mantine-head h3 {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink, #1a1a1a) !important;
+  letter-spacing: -0.005em !important;
+}
+.wg4-drawer-mantine-body {
+  background-color: var(--wg4-surface, #f6f3eb) !important;
+  color: var(--wg4-ink, #1a1a1a) !important;
+}
+.wg4-drawer-mantine-body .mantine-ScrollArea-viewport {
+  background-color: transparent !important;
+}
+/* The close / back ActionIcon in the title bar — restore visibility on
+ * parchment. */
+.wg4-drawer-mantine-head .mantine-ActionIcon-root {
+  background-color: transparent !important;
+  color: var(--wg4-ink-3, #6b6962) !important;
+  border: 1px solid var(--wg4-border, #d8d3c4) !important;
+}
+.wg4-drawer-mantine-head .mantine-ActionIcon-root:hover {
+  background-color: var(--wg4-surface-hover, #ece8dd) !important;
+  color: var(--wg4-ink, #1a1a1a) !important;
+}
+/* The horizontal Divider inside the title slot — soften to match
+ * other wg4 dividers. */
+.wg4-drawer-mantine-head .mantine-Divider-root {
+  border-color: var(--wg4-border-soft, #e0dbcd) !important;
+}
+/* Favorite + feedback floating buttons get a parchment backdrop. */
+.wg4-drawer-mantine-body > div[onTouchStart] > div[style*="position: absolute"] {
+  background-color: var(--wg4-surface, #f6f3eb) !important;
+}
+
 /* Popover dropdown (used for HoverCard / Popover anchors inside wg4). */
 .wg4 .mantine-Popover-dropdown,
 .wg4 .mantine-HoverCard-dropdown {
@@ -438,4 +532,196 @@
   color: var(--wg4-ink) !important;
   font-family: var(--wg4-font-sans) !important;
   box-shadow: var(--wg4-shadow-drawer) !important;
+}
+
+/* ── Mantine component overrides — apply parchment styling to the
+ *    components most-used inside drawer bodies (Badge, Pill, Divider,
+ *    Anchor, Text, Title, RichText prose). Selectors are scoped
+ *    under `.wg4` so codex-themed surfaces are unaffected. */
+
+/* Trait pills (Mantine Badge). TraitsDisplay renders these for every
+ * trait, so re-skinning here is what turns dark-codex badges into
+ * the parchment rust pills the wg4 design uses. */
+.wg4 .mantine-Badge-root {
+  background-color: var(--wg4-accent-soft) !important;
+  border: 1px solid #d8b9a4 !important;
+  color: var(--wg4-accent-ink) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  border-radius: 3px !important;
+  padding: 3px 10px !important;
+  font-size: 10px !important;
+  height: auto !important;
+  line-height: 1.3 !important;
+}
+.wg4 .mantine-Badge-root[data-color='red'],
+.wg4 .mantine-Badge-root[data-color='rare'] {
+  background-color: #efdde3 !important;
+  border-color: #d6a5b5 !important;
+  color: #8b3a55 !important;
+}
+.wg4 .mantine-Badge-root[data-color='yellow'],
+.wg4 .mantine-Badge-root[data-color='uncommon'] {
+  background-color: #f3e5cf !important;
+  border-color: #d9bd8d !important;
+  color: #806123 !important;
+}
+.wg4 .mantine-Badge-label {
+  color: inherit !important;
+}
+
+/* Pill (smaller chip variant — used for skill / size displays). */
+.wg4 .mantine-Pill-root {
+  background-color: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+
+/* Divider — soften to hairline parchment rule. */
+.wg4 .mantine-Divider-root {
+  border-color: var(--wg4-border-soft) !important;
+  border-block-color: var(--wg4-border-soft) !important;
+}
+
+/* Anchor (inline link). */
+.wg4 .mantine-Anchor-root,
+.wg4 a {
+  color: var(--wg4-accent) !important;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--wg4-accent);
+}
+.wg4 .mantine-Anchor-root:hover,
+.wg4 a:hover {
+  color: var(--wg4-accent-ink) !important;
+  border-bottom-style: solid;
+}
+
+/* Text + Title — Geist sans for UI text, Newsreader italic for
+ * Mantine Title (mirrors the wg4 drawer head pattern). */
+.wg4 .mantine-Text-root {
+  font-family: var(--wg4-font-sans);
+  color: var(--wg4-ink);
+}
+.wg4 .mantine-Title-root {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.005em !important;
+}
+
+/* RichText (custom component that wraps prose) — Newsreader serif. */
+.wg4 .mantine-RichTextEditor-root,
+.wg4 .RichText,
+.wg4 [data-rich-text] {
+  font-family: 'Newsreader', ui-serif, Georgia, serif;
+  color: var(--wg4-ink);
+}
+
+/* Loader (drawer loading state) — rust accent instead of gold. */
+.wg4 .mantine-Loader-root {
+  color: var(--wg4-accent) !important;
+}
+
+/* HoverCard inner — used by interactable trait pills + condition pills. */
+.wg4 .mantine-HoverCard-dropdown .mantine-Text-root,
+.wg4 .mantine-Popover-dropdown .mantine-Text-root {
+  color: var(--wg4-ink-2) !important;
+}
+
+/* ActionIcon (favorite star, close button, etc.) inside wg4 — give
+ * a parchment-friendly outline so the icons don't disappear. */
+.wg4 .mantine-ActionIcon-root {
+  color: var(--wg4-ink-3);
+}
+.wg4 .mantine-ActionIcon-root[data-variant='subtle']:hover {
+  background-color: var(--wg4-surface-hover) !important;
+  color: var(--wg4-ink) !important;
+}
+
+/* ScrollArea scrollbar — match rust accent. */
+.wg4 .mantine-ScrollArea-thumb {
+  background-color: var(--wg4-accent) !important;
+}
+.wg4 .mantine-ScrollArea-scrollbar {
+  background-color: transparent !important;
+}
+
+/* Inputs (Select/TextInput/Textarea/NumberInput) inside wg4 — clean
+ * parchment forms for ShortForm/HomebrewForm modals. */
+.wg4 .mantine-Input-input,
+.wg4 .mantine-Select-input,
+.wg4 .mantine-Textarea-input,
+.wg4 .mantine-NumberInput-input {
+  background-color: var(--wg4-surface) !important;
+  border-color: var(--wg4-border) !important;
+  color: var(--wg4-ink) !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+.wg4 .mantine-Input-input:focus,
+.wg4 .mantine-Select-input:focus,
+.wg4 .mantine-Textarea-input:focus,
+.wg4 .mantine-NumberInput-input:focus {
+  border-color: var(--wg4-accent) !important;
+}
+.wg4 .mantine-InputLabel-root {
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-weight: 600 !important;
+}
+
+/* Tabs (used inside drawers + sheet) — accent underline. */
+.wg4 .mantine-Tabs-tab {
+  color: var(--wg4-ink-4) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+}
+.wg4 .mantine-Tabs-tab[data-active] {
+  color: var(--wg4-ink) !important;
+  border-bottom-color: var(--wg4-accent) !important;
+  background-color: transparent !important;
+}
+
+/* Accordion (used inside drawers — coin pouch, etc.) */
+.wg4 .mantine-Accordion-item {
+  background-color: var(--wg4-surface) !important;
+  border-color: var(--wg4-border-soft) !important;
+}
+.wg4 .mantine-Accordion-control {
+  color: var(--wg4-ink) !important;
+}
+.wg4 .mantine-Accordion-chevron {
+  color: var(--wg4-accent) !important;
+}
+
+/* Button (Mantine) — give parchment treatment too. */
+.wg4 .mantine-Button-root[data-variant='filled'] {
+  background-color: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  color: #fff !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+}
+.wg4 .mantine-Button-root[data-variant='filled']:hover {
+  background-color: var(--wg4-accent-ink) !important;
+  border-color: var(--wg4-accent-ink) !important;
+}
+.wg4 .mantine-Button-root[data-variant='outline'],
+.wg4 .mantine-Button-root[data-variant='default'],
+.wg4 .mantine-Button-root[data-variant='light'] {
+  background-color: var(--wg4-surface) !important;
+  border-color: var(--wg4-border) !important;
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+.wg4 .mantine-Button-root[data-variant='outline']:hover,
+.wg4 .mantine-Button-root[data-variant='default']:hover,
+.wg4 .mantine-Button-root[data-variant='light']:hover {
+  background-color: var(--wg4-surface-hover) !important;
+  color: var(--wg4-ink) !important;
 }
