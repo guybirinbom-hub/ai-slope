@@ -564,6 +564,94 @@
   color: var(--wg4-accent) !important;
 }
 
+/* Feat cards — :hover, :feature gradient, .nm small, .meta b
+ * specifics that codex hardcoded with rgba(201,161,59,.0X) gold. */
+.wg4 .codex-root .feat:hover {
+  background: linear-gradient(180deg, rgba(176,84,47,0.06), var(--wg4-surface)) !important;
+  border-color: var(--wg4-accent) !important;
+}
+.wg4 .codex-root .feat.feature {
+  background: linear-gradient(180deg, rgba(176,84,47,0.04), var(--wg4-surface)) !important;
+  border-left-color: var(--wg4-accent) !important;
+}
+.wg4 .codex-root .feat .nm small {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .codex-root .feat .meta {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.12em !important;
+  color: var(--wg4-ink-4) !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+}
+.wg4 .codex-root .feat .meta b {
+  color: var(--wg4-accent) !important;
+  font-weight: 500 !important;
+}
+/* Feat group accents — color-code by feat source (class/ancestry/skill/general/feature) */
+.wg4 .codex-root .feat.class { border-left: 2px solid var(--wg4-accent) !important; }
+.wg4 .codex-root .feat.ancestry { border-left: 2px solid #5b7148 !important; }
+.wg4 .codex-root .feat.skill { border-left: 2px solid var(--wg4-ink-4) !important; }
+.wg4 .codex-root .feat.general { border-left: 2px solid #a83a25 !important; }
+
+/* Spell rows + cantrips — match wg4 trade dress. */
+.wg4 .codex-root .sp-row {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 7px 10px !important;
+}
+.wg4 .codex-root .sp-row:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+.wg4 .codex-root .sp-add {
+  background: transparent !important;
+  border: 1px dashed var(--wg4-border-strong) !important;
+  color: var(--wg4-ink-3) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  font-weight: 500 !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 7px 10px !important;
+}
+.wg4 .codex-root .sp-add:hover {
+  border-color: var(--wg4-accent) !important;
+  color: var(--wg4-accent) !important;
+  background: rgba(176, 84, 47, 0.04) !important;
+}
+.wg4 .codex-root .sp-add .plus {
+  color: var(--wg4-accent) !important;
+}
+
+/* Activities bar — flat parchment bar, no codex gold border. */
+.wg4 .codex-root .activities-bar {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .codex-root .activities-bar .field {
+  background: transparent !important;
+}
+.wg4 .codex-root .activities-bar .field input {
+  background: transparent !important;
+  color: var(--wg4-ink) !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+
+/* Inventory toolbar (.inv-toolbar). */
+.wg4 .codex-root .inv-toolbar {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+
 /* ============================== PIN / GROUP HEADERS ============================== */
 .wg4 .codex-root .sub-head,
 .wg4 .codex-root .act-group-label,
