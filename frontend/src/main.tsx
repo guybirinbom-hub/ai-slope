@@ -19,14 +19,6 @@ import './index.css';
 // pages we've migrated to the codex design language.
 import './css/codex.css';
 import './css/codex-panels.css';
-// wg4 minimalist parchment redesign. Loaded after codex.css so wg4
-// surfaces (opted in via className='wg4') override codex chrome with
-// the parchment palette + Geist fonts. See css/wg4.css comment.
-import './css/wg4.css';
-// Exhaustive wg4 reskin of every hardcoded font / dark gradient /
-// gold glow in codex.css that the var remap can't reach. Loaded last
-// so these rules always win on .wg4 surfaces.
-import './css/wg4-codex-overrides.css';
 // Codex shell for the character builder Home tab (Sources step).
 // Loaded before codex-bridge.css so the bridge can still override
 // individual Mantine selectors that bleed through.
@@ -42,6 +34,16 @@ import './css/codex-notes-details.css';
 // haven't been hand-rewritten still look codex-themed; pages that
 // have are unaffected (they use codex.css class names directly).
 import './css/codex-bridge.css';
+// wg4 minimalist parchment redesign. Loaded LAST so wg4-scoped
+// (`.wg4`) overrides win against every preceding codex/bridge rule.
+// Without this load order, codex-bridge.css's
+// [data-mantine-color-scheme='light'] var overrides clobbered the
+// wg4 vars and Mantine components still rendered dark codex.
+import './css/wg4.css';
+// Exhaustive wg4 reskin of every hardcoded font / dark gradient /
+// gold glow in codex.css + codex-panels.css that the var remap can't
+// reach. Loaded last so these rules always win on .wg4 surfaces.
+import './css/wg4-codex-overrides.css';
 import { ErrorPage } from './pages/ErrorPage.tsx';
 import { MantineProvider } from '@mantine/core';
 
