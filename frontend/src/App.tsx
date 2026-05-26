@@ -528,7 +528,7 @@ export default function App() {
           </Anchor>
         )}
         <SearchSpotlight />
-        <Notifications position='top-right' zIndex={9400} containerWidth={350} />
+        <Notifications position='top-right' zIndex={9400} containerWidth={350} classNames={{ notification: 'wg4' }} />
         <DrawerBase />
         {/* Zoom is applied to <html> in the useEffect above, not here,
             so that portaled UI (drawers, modals, tooltips, popovers,

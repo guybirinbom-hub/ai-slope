@@ -707,6 +707,23 @@
   padding: 4px 8px !important;
   border-radius: var(--wg4-r-1) !important;
 }
+/* Mantine Notifications — toast styling. */
+.wg4.mantine-Notification-root {
+  background-color: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink) !important;
+  box-shadow: var(--wg4-shadow-drawer) !important;
+}
+.wg4.mantine-Notification-root .mantine-Notification-title {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4.mantine-Notification-root .mantine-Notification-description {
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+}
 
 /* ── Mantine component overrides — apply parchment styling to the
  *    components most-used inside drawer bodies (Badge, Pill, Divider,
