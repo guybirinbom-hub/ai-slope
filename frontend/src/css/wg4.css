@@ -25,6 +25,35 @@
   --mantine-font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif;
   --mantine-font-family-headings: 'Newsreader', ui-serif, Georgia, serif;
   --mantine-font-family-monospace: var(--wg4-font-mono), ui-monospace, monospace;
+  /* Primary color slot — flip Mantine's blue-keyed primary chain to
+   * rust so any filled-button / progress / loader / focus ring
+   * driven by theme.primaryColor picks up wg4 accent. */
+  --mantine-primary-color-0: rgba(176,84,47,0.04);
+  --mantine-primary-color-1: rgba(176,84,47,0.10);
+  --mantine-primary-color-2: rgba(176,84,47,0.20);
+  --mantine-primary-color-3: rgba(176,84,47,0.40);
+  --mantine-primary-color-4: #c97045;
+  --mantine-primary-color-5: var(--wg4-accent);
+  --mantine-primary-color-6: var(--wg4-accent-ink);
+  --mantine-primary-color-7: #6e2e15;
+  --mantine-primary-color-8: #56210e;
+  --mantine-primary-color-9: #3e160a;
+  --mantine-primary-color-filled: var(--wg4-accent);
+  --mantine-primary-color-filled-hover: var(--wg4-accent-ink);
+  --mantine-primary-color-light: rgba(176,84,47,0.10);
+  --mantine-primary-color-light-hover: rgba(176,84,47,0.18);
+  --mantine-primary-color-light-color: var(--wg4-accent);
+  --mantine-primary-color-contrast: #fff;
+  --mantine-color-anchor: var(--wg4-accent);
+  --mantine-color-error: #a83a25;
+  /* Mantine radii — wg4 prefers small parchment-card radii (4-6px)
+   * instead of codex's 0px sharp corners. */
+  --mantine-radius-xs: 4px;
+  --mantine-radius-sm: 4px;
+  --mantine-radius-md: 6px;
+  --mantine-radius-lg: 8px;
+  --mantine-radius-xl: 10px;
+  --mantine-radius-default: 6px;
   --mantine-color-text: var(--wg4-ink);
   --mantine-color-body: var(--wg4-surface);
   --mantine-color-default: var(--wg4-surface);
