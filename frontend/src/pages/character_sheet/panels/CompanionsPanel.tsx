@@ -1,7 +1,6 @@
 import { characterState } from '@atoms/characterAtoms';
 import { fetchContentAll, fetchContentPackage, getDefaultSources } from '@content/content-store';
 import {
-  Accordion,
   ActionIcon,
   Box,
   Group,
@@ -16,7 +15,7 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue, useDidUpdate, useMediaQuery } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
-import { Creature, Trait } from '@schemas/content';
+import { AbilityBlock, Creature, Trait } from '@schemas/content';
 import { findCreatureTraits, determineCompanionType } from '@utils/creature';
 import { phoneQuery } from '@utils/mobile-responsive';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -27,31 +26,47 @@ import { IconChevronDown, IconPlus, IconTrash } from '@tabler/icons-react';
 import { cloneDeep } from 'lodash-es';
 import { executeOperations } from '@operations/operations.main';
 import { addExtraItems, checkBulkLimit } from '@items/inv-handlers';
-import { applyEquipmentPenalties } from '@items/inv-utils';
+import { applyEquipmentPenalties, getBestArmor } from '@items/inv-utils';
 import { applyConditions } from '@conditions/condition-handler';
 import { modals } from '@mantine/modals';
 import { selectContent } from '@common/select/SelectContent';
 import { getEntityLevel } from '@utils/entity-utils';
 import { IMPRINT_BG_COLOR, IMPRINT_BG_COLOR_HOVER, IMPRINT_BORDER_COLOR } from '@constants/data';
 import { convertToSetEntity } from '@utils/type-fixing';
-import { getFinalHealthValue } from '@variables/variable-helpers';
+import { getFinalAcValue, getFinalHealthValue, getFinalProfValue } from '@variables/variable-helpers';
+import { getAllSpeedVariables, getVariable } from '@variables/variable-manager';
+import { labelToVariable } from '@variables/variable-utils';
+import { getCachedContent } from '@content/content-store';
+import { drawerState } from '@atoms/navAtoms';
+import type { VariableAttr, VariableListStr } from '@schemas/variables';
+import { sign } from '@utils/numbers';
 
-import HealthSection from '../sections/HealthSection';
-import ArmorSection from '../sections/ArmorSection';
-import AttributeSection from '../sections/AttributeSection';
-import { AltSpeedSection } from '../sections/SpeedSection';
-import CreatureAbilitiesPanel from './CreatureAbilitiesPanel';
+import { ConditionPills } from '../sections/ConditionSection';
 import SkillsActionsPanel from './SkillsActionsPanel';
+import CreatureAbilitiesPanel from './CreatureAbilitiesPanel';
 import InventoryPanel from './InventoryPanel';
 import SpellsPanel from './SpellsPanel';
 import NotesPanel from './NotesPanel';
 import CreatureDetailsPanel from './CreatureDetailsPanel';
 
-// ─── Companion panel ─────────────────────────────────────────────────
-// One full sheet per companion, switched via gold pill switcher at the
-// top. Each section of the sheet is independently collapsible (multi-
-// open accordion). Zero-companion case shows only the Add picker; 1+
-// case shows pills + Add + the selected companion's full sheet.
+/* ───────────────────────────────────────────────────────────────────
+ *  CompanionsPanel
+ *  - 0 companions: centered Add Companion picker only
+ *  - 1+ companions: pill switcher + outline "+ Add Companion" button
+ *    on top, full sheet for the selected companion below. Every
+ *    section of the sheet is its own custom collapsible (gold caret +
+ *    caps label + optional hint text). Top stat sections render as
+ *    cube grids matching the approved mockup. Heavier panels (Skills,
+ *    Abilities, Inventory, Spells, Description, Notes) render the
+ *    existing rich Mantine panel components inside the collapsible
+ *    body so all the functionality keeps working.
+ *
+ *  Sheet is NOT wrapped in its own scroll container — the parent
+ *  `.codex-tab-body` already does overflow-y:auto with min-height:0,
+ *  so we just lay out children and let that scroll. (The previous
+ *  pass wrapped everything in a fixed-height ScrollArea which left a
+ *  big black gap below the content.)
+ * ─────────────────────────────────────────────────────────────────── */
 
 export default function CompanionsPanel(props: { panelHeight: number; panelWidth: number }) {
   const [character, setCharacter] = useAtom(characterState);
@@ -59,25 +74,21 @@ export default function CompanionsPanel(props: { panelHeight: number; panelWidth
 
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // If the selected companion gets removed (or the list shrinks), snap
-  // selection back into range so we don't try to render undefined.
   useEffect(() => {
     if (selectedIndex >= companions.length) {
       setSelectedIndex(Math.max(0, companions.length - 1));
     }
   }, [companions.length, selectedIndex]);
 
-  // ── Zero-companion empty state ─────────────────────────────────────
+  // 0-companion empty state.
   if (companions.length === 0) {
     return (
-      <ScrollArea p={8} style={{ height: props.panelHeight - 50 }}>
-        <Stack mt={40} gap={14} align='center' justify='center'>
-          <Text ta='center' c='gray.2' fs='italic' fz='sm'>
-            No companions found, want to add one?
-          </Text>
-          <AddCompanionSection />
-        </Stack>
-      </ScrollArea>
+      <Stack mt={40} gap={14} align='center' justify='center'>
+        <Text ta='center' c='gray.2' fs='italic' fz='sm'>
+          No companions found, want to add one?
+        </Text>
+        <AddCompanionSection />
+      </Stack>
     );
   }
 
@@ -124,19 +135,19 @@ export default function CompanionsPanel(props: { panelHeight: number; panelWidth
   };
 
   return (
-    <Stack h={props.panelHeight} gap={0}>
-      {/* Switcher row */}
+    <Stack gap={12} style={{ flex: 1, minHeight: 0 }}>
+      {/* Switcher row — pills + Add button (matches mockup Option A) */}
       <Group
         wrap='nowrap'
         gap={8}
-        px={8}
-        py={6}
+        px={4}
+        py={4}
         style={{
           borderBottom: `1px solid ${IMPRINT_BORDER_COLOR}`,
           background: 'linear-gradient(180deg, rgba(201,161,59,.04) 0%, transparent 100%)',
         }}
       >
-        <ScrollArea scrollbars='x' style={{ flex: 1, minWidth: 0 }}>
+        <ScrollArea scrollbars='x' style={{ flex: 1, minWidth: 0 }} type='never'>
           <Group gap={6} wrap='nowrap'>
             {companions.map((c, i) => (
               <CompanionPill
@@ -151,55 +162,48 @@ export default function CompanionsPanel(props: { panelHeight: number; panelWidth
         <AddCompanionButton />
       </Group>
 
-      {/* Selected companion sheet */}
-      <Box style={{ flex: 1, minHeight: 0 }}>
-        <ScrollArea h={props.panelHeight - 52} p={10}>
-          <CompanionSheet
-            key={`companion-sheet-${selectedIndex}-${selected.id}`}
-            companion={selected}
-            storeId={`COMPANION_${selectedIndex}`}
-            panelWidth={props.panelWidth}
-            panelHeight={props.panelHeight}
-            updateCompanion={updateSelected}
-            onRemove={removeSelected}
-          />
-        </ScrollArea>
-      </Box>
+      <CompanionSheet
+        key={`companion-sheet-${selectedIndex}-${selected.id}`}
+        companion={selected}
+        storeId={`COMPANION_${selectedIndex}`}
+        panelWidth={props.panelWidth}
+        panelHeight={props.panelHeight}
+        updateCompanion={updateSelected}
+        onRemove={removeSelected}
+      />
     </Stack>
   );
 }
 
-// ─── Pill in the switcher row ────────────────────────────────────────
+/* ─── Switcher pill ──────────────────────────────────────────────── */
+
 function CompanionPill(props: { companion: Creature; active: boolean; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <Box
       onClick={props.onClick}
-      style={() => ({
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
         padding: '4px 12px 4px 4px',
         borderRadius: 999,
-        background: props.active ? 'rgba(201,161,59,.10)' : IMPRINT_BG_COLOR,
+        background: props.active
+          ? 'rgba(201,161,59,.10)'
+          : hovered
+            ? IMPRINT_BG_COLOR_HOVER
+            : IMPRINT_BG_COLOR,
         border: `1px solid ${props.active ? 'var(--gold-deep, #8a6f25)' : IMPRINT_BORDER_COLOR}`,
         boxShadow: props.active ? '0 0 0 1px var(--gold-deep, #8a6f25)' : 'none',
         color: props.active ? 'var(--ink, #ede4ce)' : 'var(--ink-dim, #c3b69a)',
         cursor: 'pointer',
         whiteSpace: 'nowrap',
         transition: 'all .15s',
-      })}
-      onMouseEnter={(e) => {
-        if (!props.active) {
-          (e.currentTarget as HTMLDivElement).style.background = IMPRINT_BG_COLOR_HOVER;
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!props.active) {
-          (e.currentTarget as HTMLDivElement).style.background = IMPRINT_BG_COLOR;
-        }
       }}
     >
-      <Box w={26} h={26} style={{ flex: '0 0 26px' }}>
+      <Box style={{ width: 26, height: 26, flex: '0 0 26px' }}>
         <DisplayIcon
           strValue={props.companion.details?.image_url ?? 'icon|||avatar|||#373A40'}
           width={26}
@@ -210,17 +214,17 @@ function CompanionPill(props: { companion: Creature; active: boolean; onClick: (
         {props.companion.name}
       </Text>
       <Text fz='xs' c='dimmed' span>
-        Lv {getEntityLevel(props.companion)}
+        · Lv {getEntityLevel(props.companion)}
       </Text>
     </Box>
   );
 }
 
-// ─── Add Companion button — uses a Popover to host the existing
-// AddCompanionSection picker, so the same Type→Creature flow keeps
-// working without duplicating logic.
+/* ─── Add Companion button — wraps existing picker in a Popover ── */
+
 function AddCompanionButton() {
   const [opened, setOpened] = useState(false);
+  const [hovered, setHovered] = useState(false);
   return (
     <Popover
       opened={opened}
@@ -233,25 +237,22 @@ function AddCompanionButton() {
       <Popover.Target>
         <Box
           onClick={() => setOpened((o) => !o)}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
             padding: '6px 14px',
             borderRadius: 999,
-            background: 'transparent',
+            background: hovered ? 'rgba(201,161,59,.08)' : 'transparent',
             border: `1px solid var(--gold-deep, #8a6f25)`,
             color: 'var(--gold-bright, #e8c557)',
             cursor: 'pointer',
             fontSize: 13,
             fontWeight: 600,
             whiteSpace: 'nowrap',
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLDivElement).style.background = 'rgba(201,161,59,.08)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+            transition: 'all .15s',
           }}
         >
           <IconPlus size='1rem' stroke={2} />
@@ -265,7 +266,136 @@ function AddCompanionButton() {
   );
 }
 
-// ─── Companion full sheet — header + collapsible sections ────────────
+/* ─── Custom collapsible section — gold caret + caps title + hint ── */
+
+function CollapsibleSection(props: {
+  title: string;
+  hint?: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(props.defaultOpen ?? false);
+
+  return (
+    <Box
+      style={{
+        borderTop: `1px solid ${IMPRINT_BORDER_COLOR}`,
+      }}
+    >
+      <Box
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '10px 4px',
+          cursor: 'pointer',
+          color: 'var(--ink, #ede4ce)',
+          fontSize: 13,
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          userSelect: 'none',
+        }}
+      >
+        <IconChevronDown
+          size='0.85rem'
+          stroke={2.5}
+          style={{
+            color: 'var(--gold-bright, #e8c557)',
+            transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+            transition: 'transform .15s',
+          }}
+        />
+        <Box style={{ flex: 1 }}>{props.title}</Box>
+        {props.hint && (
+          <Text
+            fz='xs'
+            c='dimmed'
+            style={{
+              fontWeight: 400,
+              textTransform: 'none',
+              letterSpacing: 0,
+            }}
+          >
+            {props.hint}
+          </Text>
+        )}
+      </Box>
+      {open && <Box style={{ padding: '4px 4px 14px' }}>{props.children}</Box>}
+    </Box>
+  );
+}
+
+/* ─── Cube cells ─────────────────────────────────────────────────── */
+
+function Cube(props: { label: string; value: React.ReactNode; gold?: boolean; small?: boolean }) {
+  return (
+    <Box
+      style={{
+        background: IMPRINT_BG_COLOR,
+        border: `1px solid ${IMPRINT_BORDER_COLOR}`,
+        borderRadius: 8,
+        padding: '8px 10px',
+        textAlign: 'center',
+      }}
+    >
+      <Text
+        fz='10px'
+        c='dimmed'
+        style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}
+      >
+        {props.label}
+      </Text>
+      <Text
+        c={props.gold ? 'var(--gold-bright, #e8c557)' : 'var(--ink, #ede4ce)'}
+        fw={700}
+        ff='Cinzel, serif'
+        style={{
+          fontSize: props.small ? 14 : 18,
+          lineHeight: 1.1,
+          marginTop: 2,
+        }}
+      >
+        {props.value}
+      </Text>
+    </Box>
+  );
+}
+
+function AttrCube(props: { label: string; value: number; partial?: boolean }) {
+  return (
+    <Box
+      style={{
+        background: IMPRINT_BG_COLOR,
+        border: `1px solid ${IMPRINT_BORDER_COLOR}`,
+        borderRadius: 6,
+        padding: '6px 4px',
+        textAlign: 'center',
+      }}
+    >
+      <Text
+        fz='9px'
+        c='dimmed'
+        style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}
+      >
+        {props.label}
+      </Text>
+      <Text
+        c='var(--ink, #ede4ce)'
+        fw={700}
+        ff='Cinzel, serif'
+        td={props.partial ? 'underline' : undefined}
+        style={{ fontSize: 16, lineHeight: 1.1, marginTop: 2 }}
+      >
+        {sign(props.value)}
+      </Text>
+    </Box>
+  );
+}
+
+/* ─── Companion full sheet ──────────────────────────────────────── */
+
 function CompanionSheet(props: {
   companion: Creature;
   storeId: string;
@@ -276,26 +406,20 @@ function CompanionSheet(props: {
 }) {
   const STORE_ID = props.storeId;
 
-  // Local working copy. Switching companions remounts via the parent's
-  // `key`, so we don't need to keep prev/next in sync inside this
-  // component — initial mount handles the swap.
   const [creature, setCreature] = useState<Creature | null>(() => cloneDeep(props.companion));
   const [loading, setLoading] = useState(true);
-  const [openSections, setOpenSections] = useState<string[]>([
-    'health',
-    'defenses',
-    'attributes',
-    'senses-speed',
-  ]);
+  const [_drawer, openDrawer] = useAtom(drawerState);
 
-  // Push debounced local-creature changes back upstream so the
-  // companion list in `character.companions.list` stays in sync.
+  // Debounced upstream push so HP / conditions / inventory edits land
+  // in character.companions.list.
   const [debouncedCreature] = useDebouncedValue(creature, 150);
   useDidUpdate(() => {
     if (debouncedCreature) props.updateCompanion(debouncedCreature);
   }, [debouncedCreature]);
 
-  // Content needed by the heavier panels (Inventory, Spells, Skills).
+  // Content for the heavier sub-panels (Inventory needs items, Skills
+  // needs traits, etc.). Cached for 5 minutes so re-mounts on switcher
+  // change don't re-fetch.
   const { data: content } = useQuery({
     queryKey: ['companion-sheet-content'],
     queryFn: () =>
@@ -306,9 +430,10 @@ function CompanionSheet(props: {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Run the same operation pipeline the CreatureDrawer runs so all of
-  // the variable-store-backed sub-panels (AC, saves, attributes,
-  // skills, abilities, inventory bulk, etc.) have populated values.
+  // Operation pipeline — mirrors CreatureDrawerContent. Populates the
+  // per-companion variable store so the cube grids (AC, saves,
+  // perception, attrs, speeds) read real computed values, and so the
+  // sub-panels (Skills, Inventory, etc.) work normally.
   const executingOperations = useRef(false);
   useEffect(() => {
     if (!creature || !content || executingOperations.current) return;
@@ -345,7 +470,7 @@ function CompanionSheet(props: {
 
   if (loading || !creature || !content) {
     return (
-      <Box pt={60} ta='center'>
+      <Box pt={40} ta='center'>
         <Loader type='bars' />
       </Box>
     );
@@ -353,22 +478,112 @@ function CompanionSheet(props: {
 
   const setEntity = convertToSetEntity(setCreature);
 
+  // ── Read computed values for the cube grid ────────────────────────
+  const armor = getBestArmor(STORE_ID, creature.inventory)?.item;
+  const ac = getFinalAcValue(STORE_ID, armor);
+  const fort = getFinalProfValue(STORE_ID, 'SAVE_FORT');
+  const ref = getFinalProfValue(STORE_ID, 'SAVE_REFLEX');
+  const will = getFinalProfValue(STORE_ID, 'SAVE_WILL');
+  const perception = getFinalProfValue(STORE_ID, 'PERCEPTION');
+  const maxHp = getFinalHealthValue(STORE_ID);
+  const currentHp = creature.hp_current ?? maxHp;
+  const tempHp = creature.hp_temp ?? 0;
+  const hpFrac = maxHp > 0 ? Math.max(0, Math.min(1, currentHp / maxHp)) : 0;
+
+  // Attributes (mockup order: Str/Dex/Con/Int/Wis/Cha)
+  const attrs: { label: string; value: number; partial: boolean }[] = (
+    [
+      { label: 'STR', var: 'ATTRIBUTE_STR' },
+      { label: 'DEX', var: 'ATTRIBUTE_DEX' },
+      { label: 'CON', var: 'ATTRIBUTE_CON' },
+      { label: 'INT', var: 'ATTRIBUTE_INT' },
+      { label: 'WIS', var: 'ATTRIBUTE_WIS' },
+      { label: 'CHA', var: 'ATTRIBUTE_CHA' },
+    ] as const
+  ).map((a) => {
+    const v = getVariable<VariableAttr>(STORE_ID, a.var);
+    return {
+      label: a.label,
+      value: v?.value.value ?? 0,
+      partial: v?.value.partial ?? false,
+    };
+  });
+
+  // Speeds + senses for the Senses & Speed section.
+  const speedVars = getAllSpeedVariables(STORE_ID);
+  const speeds = speedVars
+    .map((v) => ({ name: v.name, value: (v.value as number) ?? 0 }))
+    .filter((s) => s.value > 0);
+
+  const formatSense = (s: string) =>
+    s
+      .toLowerCase()
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  const sensesPrecise = ((getVariable<VariableListStr>(STORE_ID, 'SENSES_PRECISE')?.value ?? []) as string[])
+    .filter((s: string) => s !== 'NORMAL_VISION');
+  const sensesImprecise = ((getVariable<VariableListStr>(STORE_ID, 'SENSES_IMPRECISE')?.value ?? []) as string[])
+    .filter((s: string) => s !== 'HEARING');
+  const sensesVague = ((getVariable<VariableListStr>(STORE_ID, 'SENSES_VAGUE')?.value ?? []) as string[])
+    .filter((s: string) => s !== 'SMELL');
+  const allSenses = [...sensesPrecise, ...sensesImprecise, ...sensesVague];
+
+  const openSense = (raw: string) => {
+    // Resolve the sense's variable-name to its ability-block id and
+    // open the standard sense drawer. Falls back to the generic
+    // drawer when no content row exists (homebrew, removed bundles).
+    const senseBlocks = (getCachedContent<AbilityBlock>('ability-block') ?? []).filter(
+      (b) => b.type === 'sense'
+    );
+    const hit = senseBlocks.find((b) => labelToVariable(b.name) === raw);
+    if (hit) {
+      openDrawer({ type: 'sense', data: { id: hit.id }, extra: { addToHistory: true } });
+    } else {
+      openDrawer({
+        type: 'generic',
+        data: {
+          title: formatSense(raw),
+          description: 'No description registered for this sense in the current content pack.',
+        },
+        extra: { addToHistory: true },
+      });
+    }
+  };
+
+  // Helpers (parses "+9" / "-2" / "0" → number for cube display)
+  const profNum = (s: string | number | undefined) => {
+    if (typeof s === 'number') return s;
+    const n = parseInt(String(s ?? '').replace(/^\+/, ''));
+    return isNaN(n) ? 0 : n;
+  };
+
   return (
-    <Stack gap={12}>
-      {/* Header — avatar / name / type / delete */}
-      <Group justify='space-between' wrap='nowrap'>
+    <Stack gap={0} style={{ flex: 1, minHeight: 0 }}>
+      {/* Header row */}
+      <Group
+        justify='space-between'
+        wrap='nowrap'
+        py={8}
+        px={4}
+        style={{ borderBottom: `1px solid ${IMPRINT_BORDER_COLOR}` }}
+      >
         <Group wrap='nowrap' gap={12}>
-          <Box w={56}>
+          <Box style={{ width: 58, height: 58 }}>
             <DisplayIcon
               strValue={creature.details?.image_url ?? 'icon|||avatar|||#373A40'}
-              width={56}
-              iconStyles={{ objectFit: 'contain', height: 56 }}
+              width={58}
+              iconStyles={{ objectFit: 'contain', height: 58 }}
             />
           </Box>
           <Box>
-            <Title order={3}>{creature.name}</Title>
-            <Text c='dimmed' fz='xs'>
-              {determineCompanionType(creature) || 'Creature'} · Level {getEntityLevel(creature)}
+            <Title order={3} style={{ fontFamily: 'Cinzel, serif' }}>
+              {creature.name}
+            </Title>
+            <Text c='dimmed' fz='xs' style={{ letterSpacing: '0.04em' }}>
+              {determineCompanionType(creature) || 'Creature'}{' '}
+              <span style={{ color: 'var(--gold, #c9a13b)' }}>·</span> Level{' '}
+              {getEntityLevel(creature)}
             </Text>
           </Box>
         </Group>
@@ -379,144 +594,231 @@ function CompanionSheet(props: {
         </Tooltip>
       </Group>
 
-      <Accordion
-        multiple
-        value={openSections}
-        onChange={setOpenSections}
-        variant='separated'
-        radius='md'
-        chevron={<IconChevronDown size='1rem' />}
-        styles={{
-          item: {
-            backgroundColor: IMPRINT_BG_COLOR,
-            border: `1px solid ${IMPRINT_BORDER_COLOR}`,
-          },
-          control: { padding: '10px 14px' },
-          label: {
-            fontSize: 13,
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-          },
-          chevron: { color: 'var(--gold-bright, #e8c557)' },
-          content: { padding: '0 10px 10px' },
-        }}
+      {/* Health & Conditions */}
+      <CollapsibleSection
+        title='Health & Conditions'
+        defaultOpen
+        hint={`${currentHp} / ${maxHp} HP${tempHp > 0 ? `  +${tempHp} temp` : ''}`}
       >
-        <Accordion.Item value='health'>
-          <Accordion.Control>Health &amp; Conditions</Accordion.Control>
-          <Accordion.Panel>
-            <HealthSection id={STORE_ID} entity={creature} setEntity={setEntity} />
-          </Accordion.Panel>
-        </Accordion.Item>
+        <Stack gap={8}>
+          {/* HP bar */}
+          <Group
+            wrap='nowrap'
+            gap={10}
+            style={{
+              background: IMPRINT_BG_COLOR,
+              border: `1px solid ${IMPRINT_BORDER_COLOR}`,
+              borderRadius: 8,
+              padding: '8px 12px',
+            }}
+          >
+            <Text fz='11px' c='dimmed' style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              HP
+            </Text>
+            <Text fw={700} ff='Cinzel, serif' fz='md' c='var(--ink, #ede4ce)'>
+              {currentHp}
+            </Text>
+            <Box
+              style={{
+                flex: 1,
+                height: 8,
+                background: 'rgba(0,0,0,.4)',
+                borderRadius: 4,
+                overflow: 'hidden',
+                border: `1px solid ${IMPRINT_BORDER_COLOR}`,
+              }}
+            >
+              <Box
+                style={{
+                  height: '100%',
+                  width: `${hpFrac * 100}%`,
+                  background: 'linear-gradient(90deg, #6b8e23, #94a85b)',
+                  transition: 'width .25s',
+                }}
+              />
+            </Box>
+            <Text fw={700} ff='Cinzel, serif' fz='md' c='var(--ink-dim, #c3b69a)'>
+              {maxHp}
+            </Text>
+          </Group>
+          {/* Conditions row */}
+          <Box>
+            <ConditionPills id={STORE_ID} entity={creature} setEntity={setEntity} />
+          </Box>
+        </Stack>
+      </CollapsibleSection>
 
-        <Accordion.Item value='defenses'>
-          <Accordion.Control>Defenses</Accordion.Control>
-          <Accordion.Panel>
-            <ArmorSection id={STORE_ID} entity={creature} setEntity={setEntity} />
-          </Accordion.Panel>
-        </Accordion.Item>
+      {/* Defenses — 6-cube grid */}
+      <CollapsibleSection
+        title='Defenses'
+        defaultOpen
+        hint={`AC ${ac} · Fort ${fort} · Ref ${ref} · Will ${will}`}
+      >
+        <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          <Cube label='AC' value={ac} gold />
+          <Cube label='Fortitude' value={sign(profNum(fort))} />
+          <Cube label='Reflex' value={sign(profNum(ref))} />
+          <Cube label='Will' value={sign(profNum(will))} />
+          <Cube label='Perception' value={sign(profNum(perception))} />
+          <Cube
+            label='Speed'
+            value={speeds.length > 0 ? `${speeds[0].value} ft` : '—'}
+            small
+          />
+        </Box>
+      </CollapsibleSection>
 
-        <Accordion.Item value='attributes'>
-          <Accordion.Control>Attributes</Accordion.Control>
-          <Accordion.Panel>
-            <AttributeSection id={STORE_ID} entity={creature} setEntity={setEntity} />
-          </Accordion.Panel>
-        </Accordion.Item>
+      {/* Attributes — 6-cube grid */}
+      <CollapsibleSection title='Attributes' defaultOpen>
+        <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
+          {attrs.map((a) => (
+            <AttrCube key={a.label} label={a.label} value={a.value} partial={a.partial} />
+          ))}
+        </Box>
+      </CollapsibleSection>
 
-        <Accordion.Item value='senses-speed'>
-          <Accordion.Control>Senses &amp; Speed</Accordion.Control>
-          <Accordion.Panel>
-            <AltSpeedSection id={STORE_ID} entity={creature} setEntity={setEntity} />
-          </Accordion.Panel>
-        </Accordion.Item>
+      {/* Senses & Speed */}
+      <CollapsibleSection title='Senses & Speed' defaultOpen>
+        <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <Box>
+            <Text fz='11px' c='dimmed' mb={4} style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Senses
+            </Text>
+            {allSenses.length === 0 ? (
+              <Text fz='xs' c='dimmed'>
+                —
+              </Text>
+            ) : (
+              <Group gap={6} wrap='wrap'>
+                {allSenses.map((s) => (
+                  <Text
+                    key={s}
+                    fz='xs'
+                    span
+                    onClick={() => openSense(s)}
+                    style={{
+                      cursor: 'pointer',
+                      color: 'var(--ink, #ede4ce)',
+                      borderBottom: '1px dotted var(--gold-deep, #8a6f25)',
+                      paddingBottom: 1,
+                    }}
+                    title={`Open ${formatSense(s)} description`}
+                  >
+                    {formatSense(s)}
+                  </Text>
+                ))}
+              </Group>
+            )}
+          </Box>
+          <Box>
+            <Text fz='11px' c='dimmed' mb={4} style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Speeds
+            </Text>
+            {speeds.length === 0 ? (
+              <Text fz='xs' c='dimmed'>
+                —
+              </Text>
+            ) : (
+              <Stack gap={2}>
+                {speeds.map((sp) => (
+                  <Group key={sp.name} justify='space-between' gap={6}>
+                    <Text fz='xs' c='var(--ink-dim, #c3b69a)'>
+                      {labelize(sp.name)}
+                    </Text>
+                    <Text fz='xs' c='var(--ink, #ede4ce)' fw={600}>
+                      {sp.value} ft
+                    </Text>
+                  </Group>
+                ))}
+              </Stack>
+            )}
+          </Box>
+        </Box>
+      </CollapsibleSection>
 
-        <Accordion.Item value='skills'>
-          <Accordion.Control>Skills &amp; Actions</Accordion.Control>
-          <Accordion.Panel>
-            <SkillsActionsPanel
-              id={STORE_ID}
-              entity={creature}
-              setEntity={setEntity}
-              content={content}
-              panelHeight={500}
-              panelWidth={props.panelWidth}
-            />
-          </Accordion.Panel>
-        </Accordion.Item>
+      {/* Heavier panels — wrapped in custom collapsibles so the user can
+          fold them away. Default closed for the rich panels to keep
+          the initial view focused on stats. */}
+      <CollapsibleSection title='Skills & Actions'>
+        <SkillsActionsPanel
+          id={STORE_ID}
+          entity={creature}
+          setEntity={setEntity}
+          content={content}
+          panelHeight={600}
+          panelWidth={props.panelWidth}
+        />
+      </CollapsibleSection>
 
-        <Accordion.Item value='abilities'>
-          <Accordion.Control>Abilities</Accordion.Control>
-          <Accordion.Panel>
-            <CreatureAbilitiesPanel
-              id={STORE_ID}
-              content={content}
-              panelHeight={500}
-              panelWidth={props.panelWidth}
-              creature={creature}
-              setCreature={setCreature}
-            />
-          </Accordion.Panel>
-        </Accordion.Item>
+      <CollapsibleSection title='Abilities'>
+        <CreatureAbilitiesPanel
+          id={STORE_ID}
+          content={content}
+          panelHeight={600}
+          panelWidth={props.panelWidth}
+          creature={creature}
+          setCreature={setCreature}
+        />
+      </CollapsibleSection>
 
-        <Accordion.Item value='inventory'>
-          <Accordion.Control>Inventory</Accordion.Control>
-          <Accordion.Panel>
-            <InventoryPanel
-              id={STORE_ID}
-              entity={creature}
-              setEntity={setEntity}
-              content={content}
-              panelHeight={500}
-              panelWidth={props.panelWidth}
-            />
-          </Accordion.Panel>
-        </Accordion.Item>
+      <CollapsibleSection title='Inventory'>
+        <InventoryPanel
+          id={STORE_ID}
+          entity={creature}
+          setEntity={setEntity}
+          content={content}
+          panelHeight={600}
+          panelWidth={props.panelWidth}
+        />
+      </CollapsibleSection>
 
-        <Accordion.Item value='spells'>
-          <Accordion.Control>Spells</Accordion.Control>
-          <Accordion.Panel>
-            <SpellsPanel
-              id={STORE_ID}
-              entity={creature}
-              setEntity={setEntity}
-              panelHeight={500}
-              panelWidth={props.panelWidth}
-            />
-          </Accordion.Panel>
-        </Accordion.Item>
+      <CollapsibleSection title='Spells'>
+        <SpellsPanel
+          id={STORE_ID}
+          entity={creature}
+          setEntity={setEntity}
+          panelHeight={600}
+          panelWidth={props.panelWidth}
+        />
+      </CollapsibleSection>
 
-        <Accordion.Item value='details'>
-          <Accordion.Control>Description &amp; Details</Accordion.Control>
-          <Accordion.Panel>
-            <CreatureDetailsPanel
-              id={STORE_ID}
-              creature={creature}
-              content={content}
-              panelHeight={500}
-              panelWidth={props.panelWidth}
-            />
-          </Accordion.Panel>
-        </Accordion.Item>
+      <CollapsibleSection title='Description & Details'>
+        <CreatureDetailsPanel
+          id={STORE_ID}
+          creature={creature}
+          content={content}
+          panelHeight={600}
+          panelWidth={props.panelWidth}
+        />
+      </CollapsibleSection>
 
-        <Accordion.Item value='notes'>
-          <Accordion.Control>Notes</Accordion.Control>
-          <Accordion.Panel>
-            <NotesPanel
-              panelHeight={500}
-              panelWidth={props.panelWidth}
-              entity={creature}
-              setEntity={setEntity}
-            />
-          </Accordion.Panel>
-        </Accordion.Item>
-      </Accordion>
+      <CollapsibleSection title='Notes'>
+        <NotesPanel
+          panelHeight={600}
+          panelWidth={props.panelWidth}
+          entity={creature}
+          setEntity={setEntity}
+        />
+      </CollapsibleSection>
     </Stack>
   );
 }
 
-// ─── Add Companion picker (re-used by empty state + topbar button) ───
-// Identical to the previous in-panel inline picker. `onAdded` lets the
-// Popover-wrapped variant close itself after a selection lands.
+// Turn "SPEED_FLY" → "Fly", "SPEED" → "Land" (the unprefixed base speed).
+function labelize(varName: string) {
+  if (varName === 'SPEED') return 'Land';
+  return varName
+    .replace(/^SPEED_/, '')
+    .toLowerCase()
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+/* ─── Add Companion picker (used by empty state + Add button popover)
+       Same Type→Creature flow as before — kept to preserve the wired-
+       up filterFn + select-content escape hatch for "any creature". */
+
 function AddCompanionSection(props: { onAdded?: () => void } = {}) {
   const [_character, setCharacter] = useAtom(characterState);
   const [selectedType, setSelectedType] = useState<number | null>(null);
@@ -584,7 +886,6 @@ function AddCompanionSection(props: { onAdded?: () => void } = {}) {
           value={selectedType ? `${selectedType}` : null}
           onChange={(value) => {
             if (value === '-10') {
-              // Select any creature
               selectContent<Creature>(
                 'creature',
                 (option) => {
@@ -594,7 +895,6 @@ function AddCompanionSection(props: { onAdded?: () => void } = {}) {
                 {
                   showButton: true,
                   zIndex: 400,
-                  // Hide companions
                   filterFn: (c) => c.level !== -100,
                 }
               );

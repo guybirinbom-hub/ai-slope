@@ -57,7 +57,8 @@ import {
 } from '@modes/custom-modes';
 import { cloneDeep } from 'lodash-es';
 import { makeRequest } from '@requests/request-manager';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchContentAll, getDefaultSources } from '@content/content-store';
 import { useAtom } from 'jotai';
 import { drawerState } from '@atoms/navAtoms';
 import { confirmHealth, handleRest } from './entity-handler';
@@ -211,6 +212,19 @@ export default function CodexSheet(props: {
   // next /sheet/<id> mount reads STALE data from cache instead of the
   // updated character — even though the DB row was already updated.
   const queryClient = useQueryClient();
+
+  // Prefetch all ability-blocks into the in-memory content cache so
+  // click-time lookups by name (most importantly the sense chips →
+  // openDrawer flow at the bottom of the Vitals card) can resolve
+  // without an extra network round-trip. Without this the cache may
+  // be empty on first sheet open (only the current character/content
+  // package gets fetched), making the senses fall through to the
+  // "No description registered…" generic fallback.
+  useQuery({
+    queryKey: ['prefetch-ability-blocks-for-sheet'],
+    queryFn: () => fetchContentAll<AbilityBlock>('ability-block', getDefaultSources('INFO')),
+    staleTime: 60 * 60 * 1000,
+  });
 
   // Global section collapse with smooth height animation. Strategy:
   //   1. To OPEN: set max-height to scrollHeight (animates from 0 → N),
