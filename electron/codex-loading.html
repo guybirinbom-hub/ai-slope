@@ -5,47 +5,44 @@
 <title>Wanderer's Codex — Loading</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,14..32,400;1,14..32,500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #ede4ce;
-    --ink-dim: #c3b69a;
-    --ink-muted: #8a7e64;
-    --ink-deep: #6b5e44;
-    --gold: #c9a13b;
-    --gold-bright: #e8c557;
-    --gold-deep: #8a6f25;
+    /* wg4 redesign palette — parchment + rust */
+    --ink: #1a1a1a;
+    --ink-dim: #3a3a37;
+    --ink-muted: #6b6962;
+    --ink-deep: #91897c;
+    --gold: #b0542f;
+    --gold-bright: #8a3f1f;
+    --gold-deep: #8a3f1f;
     --crimson: #a83a25;
     --crimson-deep: #6f1f10;
-    --bg: #15110b;
-    --bg-2: #1c1710;
-    --bg-3: #261e14;
-    --bg-card: #211a11;
-    --rule: rgba(201, 161, 59, 0.32);
-    --rule-soft: rgba(201, 161, 59, 0.16);
+    --bg: #e8e4d8;
+    --bg-2: #f6f3eb;
+    --bg-3: #efebe1;
+    --bg-card: #f6f3eb;
+    --rule: rgba(176, 84, 47, 0.32);
+    --rule-soft: rgba(216, 211, 196, 0.6);
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; height: 100%; width: 100%;
     background: var(--bg);
     color: var(--ink);
-    font-family: 'Cormorant Garamond', 'Georgia', serif;
-    font-size: 15px;
-    line-height: 1.4;
+    font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
     overflow: hidden;
   }
   body::before {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background:
-      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,161,59,0.06), transparent 70%),
-      radial-gradient(ellipse 100% 50% at 50% 100%, rgba(168, 58, 37, 0.04), transparent 70%),
-      repeating-linear-gradient(43deg, rgba(255,240,210,.012) 0 2px, transparent 2px 5px),
-      repeating-linear-gradient(137deg, rgba(255,240,210,.010) 0 2px, transparent 2px 7px);
+    background: none;
   }
   body::after {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
     background:
-      radial-gradient(circle at 50% 52%, rgba(201,161,59,.12) 0%, rgba(201,161,59,.04) 22%, transparent 55%);
+      radial-gradient(circle at 50% 52%, rgba(176,84,47,0.06) 0%, rgba(176,84,47,0.02) 22%, transparent 55%);
   }
 
   .page { position: relative; z-index: 1; height: 100%; display: grid; grid-template-rows: 26px 1fr auto auto; min-height: 0; }
@@ -55,9 +52,9 @@
     align-items: center;
     height: 26px;
     padding: 0 4px 0 14px;
-    background: linear-gradient(180deg, #0e0a06 0%, #1a140c 100%);
+    background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-3) 100%);
     border-bottom: 1px solid var(--rule-soft);
-    font-family: 'Cinzel', serif;
+    font-family: 'Geist', ui-sans-serif, sans-serif;
     font-size: 9px;
     letter-spacing: .26em;
     color: var(--ink-muted);
@@ -82,7 +79,7 @@
     text-align: center;
     font-style: italic;
     color: var(--ink-deep);
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Newsreader', ui-serif, Georgia, serif; font-style: italic;
     font-size: 11px;
     letter-spacing: .14em;
     text-transform: none;
@@ -154,22 +151,22 @@
     width: 168px; height: 168px;
     border-radius: 50%;
     background:
-      radial-gradient(circle at 32% 28%, #3a2d18 0%, #1a1208 60%, #0a0703 100%);
+      radial-gradient(circle at 32% 28%, var(--bg-2) 0%, var(--bg-3) 60%, var(--bg) 100%);
     box-shadow:
       0 0 0 1px var(--gold-deep),
       0 0 0 5px var(--bg),
       0 0 0 6px var(--rule-soft),
-      0 0 40px rgba(201,161,59,.35),
-      inset 0 0 30px rgba(0,0,0,.6);
+      0 0 30px rgba(176,84,47,.15),
+      inset 0 0 18px rgba(176,84,47,.06);
     display: grid; place-items: center;
     z-index: 2;
   }
   .seal-core .crest-d20 {
     width: 140px; height: 140px;
-    color: var(--gold-bright);
+    color: var(--gold);
     filter:
-      drop-shadow(0 0 18px rgba(232,197,87,.55))
-      drop-shadow(0 2px 0 rgba(0,0,0,.6));
+      drop-shadow(0 0 8px rgba(176,84,47,.28))
+      drop-shadow(0 1px 0 rgba(0,0,0,.18));
     transition: transform .12s ease;
   }
   .seal-core .crest-d20.rolling { animation: d20-roll 1.4s linear infinite; }
@@ -196,7 +193,7 @@
     stroke: currentColor; fill: none; stroke-width: 2; stroke-linejoin: round;
   }
   .seal-core .crest-d20 .num {
-    font-family: 'Cinzel', serif;
+    font-family: 'Geist', ui-sans-serif, sans-serif;
     font-weight: 900;
     font-size: 22px;
     fill: currentColor;
@@ -267,7 +264,7 @@
     min-width: 360px;
   }
   .caption .status {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Newsreader', ui-serif, Georgia, serif; font-style: italic;
     font-style: italic;
     color: var(--ink-dim);
     font-size: 16px;
@@ -298,7 +295,7 @@
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 14px;
-    font-family: 'Cinzel', serif;
+    font-family: 'Geist', ui-sans-serif, sans-serif;
     font-size: 9px;
     letter-spacing: .28em;
     color: var(--ink-muted);
@@ -337,7 +334,7 @@
     border-top: 1px solid var(--rule-soft);
     background: linear-gradient(180deg, transparent, rgba(0,0,0,.35));
     pointer-events: none;
-    font-family: 'Cinzel', serif;
+    font-family: 'Geist', ui-sans-serif, sans-serif;
     font-size: 9px;
     letter-spacing: .28em;
     text-transform: uppercase;
@@ -346,7 +343,7 @@
   }
   .signoff .v b { color: var(--ink-muted); font-weight: 700; }
   .signoff .quote {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Newsreader', ui-serif, Georgia, serif; font-style: italic;
     font-style: italic;
     /* Bumped from 11px / --ink-deep so the tip is actually readable
        against the bg-dark gradient at the bottom of the loader. The
@@ -381,10 +378,10 @@
     background: var(--bg-card);
     padding: 24px 28px;
     color: var(--ink);
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Newsreader', ui-serif, Georgia, serif; font-style: italic;
   }
   .err-overlay .err-title {
-    font-family: 'Cinzel', serif; color: var(--crimson);
+    font-family: 'Geist', ui-sans-serif, sans-serif; color: var(--crimson);
     font-size: 14px; letter-spacing: .28em; text-transform: uppercase;
     margin: 0 0 12px;
   }

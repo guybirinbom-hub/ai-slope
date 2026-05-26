@@ -169,6 +169,7 @@ export default function SearchSpotlight() {
     <>
       <Spotlight
         scrollable
+        classNames={{ root: 'wg4', content: 'wg4-modal-mantine', search: 'wg4-spotlight-search', overlay: 'wg4-modal-mantine-overlay' }}
         onQueryChange={(query: string) => {
           /* Whenever input changes, this function is called and query is set via setQuery
            * setQuery is a debouncer, after the set debounce time the above useEffect callback is executed.

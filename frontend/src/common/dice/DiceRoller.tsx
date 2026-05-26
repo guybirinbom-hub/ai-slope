@@ -575,6 +575,7 @@ export default function DiceRoller(props: {
       <Drawer
         opened={props.opened}
         onClose={props.onClose}
+        classNames={{ root: 'wg4', content: 'wg4-drawer-mantine', header: 'wg4-drawer-mantine-head', body: 'wg4-drawer-mantine-body' }}
         title={
           <Group wrap='nowrap' gap={10} justify='space-between'>
             <Group wrap='nowrap' gap={10}>

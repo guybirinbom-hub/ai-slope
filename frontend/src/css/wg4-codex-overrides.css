@@ -682,3 +682,198 @@
 .wg4 .codex-root svg {
   filter: none !important;
 }
+
+/* ============================== KITCHEN SINK ============================== */
+/* This is the broad-stroke override that catches every codex selector
+ * that uses Cinzel / Cormorant Garamond / IM Fell, hardcoded dark
+ * gradients, or gold glows. Listed last so it overrides codex-panels.css
+ * and any per-panel hardcoded rules. */
+
+/* Every element inside a wg4-scoped codex page uses Geist sans as the
+ * baseline. Per-class restorations below upgrade headings to Newsreader
+ * italic, and numeric spans to Geist Mono. */
+.wg4 .codex-root,
+.wg4 .codex-root *:not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon) {
+  font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* Newsreader italic for character / spell / feat names and titles
+ * inside codex panels (the .nm / [class*="-name"] / h1-h3 selectors). */
+.wg4 .codex-root h1,
+.wg4 .codex-root h2,
+.wg4 .codex-root h3,
+.wg4 .codex-root .nm,
+.wg4 .codex-root [class*='-nm'],
+.wg4 .codex-root .sec-title h3,
+.wg4 .codex-root [class*='title']:not([class*='label']):not([class*='tab']):not([class*='filter']),
+.wg4 .codex-root .feat .nm,
+.wg4 .codex-root .sp-row .nm,
+.wg4 .codex-root .inv-row .nm,
+.wg4 .codex-root .act .nm,
+.wg4 .codex-root .card .nm {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  text-transform: none !important;
+}
+
+/* Mono numerics — every .num / .mono / .v inside numeric cells. */
+.wg4 .codex-root .num,
+.wg4 .codex-root .mono,
+.wg4 .codex-root [class*='-num'],
+.wg4 .codex-root .tile .v,
+.wg4 .codex-root .hp-num,
+.wg4 .codex-root .hp-num *,
+.wg4 .codex-root .stat-strip .v,
+.wg4 .codex-root .ab .v,
+.wg4 .codex-root .sk .v,
+.wg4 .codex-root .save-row .val,
+.wg4 .codex-root .row-list .mod,
+.wg4 .codex-root .coin .v,
+.wg4 .codex-root .bulk-block .v,
+.wg4 .codex-root .lv-chip .v,
+.wg4 .codex-root .xp .row .nums,
+.wg4 .codex-root .xp .row .nums input,
+.wg4 .codex-root .hero-count {
+  font-family: var(--wg4-font-mono), ui-monospace, monospace !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Mono uppercase labels — .k cells / .lbl / sub-labels. */
+.wg4 .codex-root .k,
+.wg4 .codex-root .lbl,
+.wg4 .codex-root [class*='-label'],
+.wg4 .codex-root .sub,
+.wg4 .codex-root .meta,
+.wg4 .codex-root .eyebrow,
+.wg4 .codex-root .tile .k,
+.wg4 .codex-root .ab .k,
+.wg4 .codex-root .sk .k,
+.wg4 .codex-root .stat-strip .k,
+.wg4 .codex-root .coin .k,
+.wg4 .codex-root .bulk-block .k,
+.wg4 .codex-root .lv-chip .k {
+  font-family: var(--wg4-font-mono), ui-monospace, monospace !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.14em !important;
+  font-weight: 600 !important;
+}
+
+/* Italic Newsreader prose inside any "description" / "prose" block,
+ * including character description, spell descriptions, item flavor. */
+.wg4 .codex-root [class*='desc'],
+.wg4 .codex-root [class*='prose'],
+.wg4 .codex-root .body-text,
+.wg4 .codex-root .flavor,
+.wg4 .codex-root [class*='note-body'] {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  color: var(--wg4-ink) !important;
+}
+
+/* Tab / button labels keep Geist sans uppercase letterspaced. */
+.wg4 .codex-root .tab,
+.wg4 .codex-root button[role='tab'],
+.wg4 .codex-root .mode-tab,
+.wg4 .codex-root .filter,
+.wg4 .codex-root .cost-filter {
+  font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.14em !important;
+  font-weight: 600 !important;
+}
+
+/* Kill all dark linear-gradient backgrounds — sweep all CSS background
+ * gradients inside codex panels that reference codex's dark tones. */
+.wg4 .codex-root .sec-title,
+.wg4 .codex-root .tab.on,
+.wg4 .codex-root [class*='-strip'],
+.wg4 .codex-root [class*='gold-strip'],
+.wg4 .codex-root .currency-bar,
+.wg4 .codex-root .progress-bar {
+  background-image: none !important;
+}
+
+/* Coin disks (currency badges) — repaint to wg4 palette so they read
+ * as warm parchment metals rather than dark codex coins. */
+.wg4 .codex-root .coin.pp .disk { background: linear-gradient(180deg, #e9e8e2, #cfcec8) !important; color: #4a4a4f !important; }
+.wg4 .codex-root .coin.gp .disk { background: linear-gradient(180deg, #d8b878, #b18a3e) !important; color: #4a3a16 !important; }
+.wg4 .codex-root .coin.sp .disk { background: linear-gradient(180deg, #d2d0c8, #adaba2) !important; color: #2a2a2f !important; }
+.wg4 .codex-root .coin.cp .disk { background: linear-gradient(180deg, #c19071, #8e5d3f) !important; color: #fff !important; }
+
+/* Progress / HP / XP fill bars — single rust gradient (no glow). */
+.wg4 .codex-root .progress-bar,
+.wg4 .codex-root .hpbar,
+.wg4 .codex-root .xp .bar {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  border-radius: var(--wg4-r-1) !important;
+  box-shadow: none !important;
+}
+.wg4 .codex-root .progress-bar .fill,
+.wg4 .codex-root .hpbar .fill,
+.wg4 .codex-root .xp .bar .fill {
+  background: linear-gradient(90deg, var(--wg4-accent-ink), var(--wg4-accent)) !important;
+  box-shadow: none !important;
+}
+
+/* Spell rank slot diamonds (sp-pip etc.) — rust outline / fill. */
+.wg4 .codex-root [class*='pip'],
+.wg4 .codex-root .sp-pip,
+.wg4 .codex-root .slot-pip {
+  border-color: var(--wg4-accent) !important;
+  background: transparent !important;
+}
+.wg4 .codex-root [class*='pip'].used,
+.wg4 .codex-root [class*='pip'].on {
+  background: var(--wg4-accent) !important;
+}
+
+/* Codex Notes shell (tiptap editor + page list). */
+.wg4 .codex-notes-shell *,
+.wg4 .codex-details-shell * {
+  color: var(--wg4-ink) !important;
+}
+
+/* CodexLoadingOverlay backdrop — keep dark codex if the loader is
+ * shown OUTSIDE a wg4 surface; but if it's wrapped in .wg4, lighten
+ * to parchment so the loader matches its parent. */
+.wg4 [class*='loading-overlay'],
+.wg4 [class*='LoadingOverlay'] {
+  background: var(--wg4-page) !important;
+}
+
+/* DiceRoller tray — parchment surface if it ends up inside a wg4
+ * surface (it's a slide-up overlay so it's usually portal-rendered
+ * but we set a baseline). */
+.wg4 [class*='dice-tray'],
+.wg4 [class*='DiceRoller'] {
+  background: var(--wg4-surface) !important;
+  color: var(--wg4-ink) !important;
+}
+
+/* Mantine Spotlight — searchbar palette. Mantine renders this into
+ * a portal, so its root needs to be checked for .wg4 class via
+ * SearchSpotlight's classNames prop. We style the chrome here. */
+.wg4 [class*='Spotlight-root'],
+.wg4 [class*='Spotlight-content'] {
+  background-color: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 [class*='Spotlight-search'],
+.wg4 .mantine-Spotlight-search {
+  background-color: var(--wg4-surface) !important;
+  color: var(--wg4-ink) !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+}
+.wg4 .mantine-Spotlight-action {
+  color: var(--wg4-ink) !important;
+}
+.wg4 .mantine-Spotlight-action:hover,
+.wg4 .mantine-Spotlight-action[data-hovered] {
+  background-color: var(--wg4-surface-hover) !important;
+}
