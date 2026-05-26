@@ -144,7 +144,7 @@ export default function CompanionsPanel(props: { panelHeight: number; panelWidth
         py={4}
         style={{
           borderBottom: `1px solid ${IMPRINT_BORDER_COLOR}`,
-          background: 'linear-gradient(180deg, rgba(201,161,59,.04) 0%, transparent 100%)',
+          background: 'linear-gradient(180deg, rgba(176,84,47,.04) 0%, transparent 100%)',
         }}
       >
         <ScrollArea scrollbars='x' style={{ flex: 1, minWidth: 0 }} type='never'>
