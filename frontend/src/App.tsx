@@ -329,6 +329,10 @@ export default function App() {
               '--mantine-color-dark-6': 'rgba(37,  38,  43,  1)',
             },
           }),
+          // wg4 — Popover dropdowns portal to body; attach wg4 directly.
+          defaultProps: {
+            classNames: { dropdown: 'wg4' },
+          },
         },
         Menu: {
           vars: () => ({
@@ -336,6 +340,16 @@ export default function App() {
               '--mantine-color-dark-6': 'rgba(37,  38,  43,  1)',
             },
           }),
+          // wg4 — Menu dropdowns portal to body; attach wg4 directly.
+          defaultProps: {
+            classNames: { dropdown: 'wg4' },
+          },
+        },
+        Tooltip: {
+          // wg4 — Tooltip tooltips portal to body; attach wg4 directly.
+          defaultProps: {
+            classNames: { tooltip: 'wg4' },
+          },
         },
         HoverCard: {
           vars: () => ({
@@ -343,6 +357,14 @@ export default function App() {
               '--mantine-color-dark-6': 'rgba(37,  38,  43,  1)',
             },
           }),
+          // wg4 redesign — every HoverCard dropdown gets parchment chrome.
+          // Mantine portals the dropdown to document.body, outside any
+          // surface-level .wg4 wrapper, so we attach `wg4` directly to
+          // the dropdown class. The .wg4 .mantine-HoverCard-dropdown
+          // selectors in wg4.css then re-skin the popup.
+          defaultProps: {
+            classNames: { dropdown: 'wg4' },
+          },
         },
         Accordion: {
           vars: () => ({

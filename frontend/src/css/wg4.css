@@ -641,14 +641,35 @@
   color: var(--wg4-ink, #1a1a1a) !important;
 }
 
-/* Popover dropdown (used for HoverCard / Popover anchors inside wg4). */
+/* Popover / HoverCard / Menu / Tooltip dropdowns — the wg4 class is
+ * attached via Mantine theme defaultProps in App.tsx, so .wg4 here
+ * matches the dropdown root directly (no nested selector). */
+.wg4.mantine-Popover-dropdown,
+.wg4.mantine-HoverCard-dropdown,
+.wg4.mantine-Menu-dropdown,
+.wg4.mantine-Tooltip-tooltip,
 .wg4 .mantine-Popover-dropdown,
-.wg4 .mantine-HoverCard-dropdown {
+.wg4 .mantine-HoverCard-dropdown,
+.wg4 .mantine-Menu-dropdown {
   background-color: var(--wg4-surface) !important;
   border-color: var(--wg4-border) !important;
   color: var(--wg4-ink) !important;
   font-family: var(--wg4-font-sans) !important;
   box-shadow: var(--wg4-shadow-drawer) !important;
+}
+.wg4.mantine-Menu-dropdown .mantine-Menu-item:hover,
+.wg4 .mantine-Menu-dropdown .mantine-Menu-item:hover {
+  background-color: var(--wg4-surface-hover) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4.mantine-Tooltip-tooltip {
+  background-color: var(--wg4-ink) !important;
+  color: var(--wg4-surface) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 4px 8px !important;
+  border-radius: var(--wg4-r-1) !important;
 }
 
 /* ── Mantine component overrides — apply parchment styling to the
