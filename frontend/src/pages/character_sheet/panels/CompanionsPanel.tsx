@@ -259,8 +259,8 @@ function AddCompanionButton() {
           <span>Add Companion</span>
         </Box>
       </Popover.Target>
-      <Popover.Dropdown p={8}>
-        <AddCompanionSection onAdded={() => setOpened(false)} />
+      <Popover.Dropdown p={6} style={{ background: 'var(--bg-2, #1c1710)', border: `1px solid ${IMPRINT_BORDER_COLOR}` }}>
+        <AddCompanionSection compact onAdded={() => setOpened(false)} />
       </Popover.Dropdown>
     </Popover>
   );
@@ -533,10 +533,15 @@ function CompanionSheet(props: {
     // Resolve the sense's variable-name to its ability-block id and
     // open the standard sense drawer. Falls back to the generic
     // drawer when no content row exists (homebrew, removed bundles).
+    // Both sides need labelToVariable: SENSES_PRECISE stores the raw
+    // operation payload ("low-light vision") not the canonical
+    // upper-underscored form, so comparing labelToVariable(b.name)
+    // against the raw string never matched.
     const senseBlocks = (getCachedContent<AbilityBlock>('ability-block') ?? []).filter(
       (b) => b.type === 'sense'
     );
-    const hit = senseBlocks.find((b) => labelToVariable(b.name) === raw);
+    const targetKey = labelToVariable(raw);
+    const hit = senseBlocks.find((b) => labelToVariable(b.name) === targetKey);
     if (hit) {
       openDrawer({ type: 'sense', data: { id: hit.id }, extra: { addToHistory: true } });
     } else {
@@ -819,7 +824,7 @@ function labelize(varName: string) {
        Same Type→Creature flow as before — kept to preserve the wired-
        up filterFn + select-content escape hatch for "any creature". */
 
-function AddCompanionSection(props: { onAdded?: () => void } = {}) {
+function AddCompanionSection(props: { onAdded?: () => void; compact?: boolean } = {}) {
   const [_character, setCharacter] = useAtom(characterState);
   const [selectedType, setSelectedType] = useState<number | null>(null);
   const isPhone = useMediaQuery(phoneQuery());
@@ -863,18 +868,33 @@ function AddCompanionSection(props: { onAdded?: () => void } = {}) {
     props.onAdded?.();
   };
 
-  return (
-    <Box
-      p='xs'
-      style={(t) => ({
-        backgroundColor: IMPRINT_BG_COLOR,
-        borderRadius: t.radius.xl,
-      })}
-    >
-      <Group gap={0} align='center' justify='center'>
-        <Text c='gray.2' mx={10}>
-          Add
-        </Text>
+  // `compact` (popover variant) drops the pill background + "Add"
+  // label so the dropdown reads as a tight inline pair of selects.
+  // The empty-state variant keeps the soft pill chrome.
+  const Wrap = (children: React.ReactNode) =>
+    props.compact ? (
+      <Group gap={0} align='center' wrap='nowrap'>
+        {children}
+      </Group>
+    ) : (
+      <Box
+        p='xs'
+        style={(t) => ({
+          backgroundColor: IMPRINT_BG_COLOR,
+          borderRadius: t.radius.xl,
+        })}
+      >
+        <Group gap={0} align='center' justify='center'>
+          <Text c='gray.2' mx={10}>
+            Add
+          </Text>
+          {children}
+        </Group>
+      </Box>
+    );
+
+  return Wrap(
+    <>
         <Select
           variant='filled'
           size='sm'
@@ -903,7 +923,7 @@ function AddCompanionSection(props: { onAdded?: () => void } = {}) {
               setSelectedType(parseInt(`${value ?? -1}`));
             }
           }}
-          w={isPhone ? 120 : 150}
+          w={props.compact ? (isPhone ? 110 : 130) : isPhone ? 120 : 150}
           styles={() => ({
             input: {
               borderTopRightRadius: 0,
@@ -928,7 +948,7 @@ function AddCompanionSection(props: { onAdded?: () => void } = {}) {
             setSelectedType(null);
           }}
           value={''}
-          w={isPhone ? 120 : 150}
+          w={props.compact ? (isPhone ? 110 : 130) : isPhone ? 120 : 150}
           styles={() => ({
             input: {
               borderTopLeftRadius: 0,
@@ -939,7 +959,6 @@ function AddCompanionSection(props: { onAdded?: () => void } = {}) {
             },
           })}
         />
-      </Group>
-    </Box>
+    </>
   );
 }

@@ -1095,8 +1095,17 @@ export default function CodexSheet(props: {
                                   // the lookup.
                                   const all = (getCachedContent<AbilityBlock>('ability-block') ?? [])
                                     .filter((b) => b.type === 'sense');
+                                  // Normalise BOTH sides through labelToVariable.
+                                  // The value stored on SENSES_PRECISE is the
+                                  // raw operation payload — e.g. "low-light
+                                  // vision" — not the canonical
+                                  // upper-underscored form. Comparing the
+                                  // canonical ability-block name against the
+                                  // raw value never matched, so every sense
+                                  // fell through to the generic fallback.
+                                  const targetKey = labelToVariable(s.raw);
                                   const hit = all.find(
-                                    (b) => labelToVariable(b.name) === s.raw
+                                    (b) => labelToVariable(b.name) === targetKey
                                   );
                                   if (hit) {
                                     openDrawer({
