@@ -2166,7 +2166,7 @@ function CodexNavMenu(props: {
                 }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(201, 161, 59, 0.10)';
+                    'rgba(176, 84, 47, 0.10)';
                   (e.currentTarget as HTMLButtonElement).style.color =
                     'var(--gold-bright)';
                 }}

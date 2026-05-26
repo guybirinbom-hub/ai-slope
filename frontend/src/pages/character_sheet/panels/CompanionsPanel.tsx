@@ -191,7 +191,7 @@ function CompanionPill(props: { companion: Creature; active: boolean; onClick: (
         padding: '4px 12px 4px 4px',
         borderRadius: 999,
         background: props.active
-          ? 'rgba(201,161,59,.10)'
+          ? 'rgba(176,84,47,.10)'
           : hovered
             ? IMPRINT_BG_COLOR_HOVER
             : IMPRINT_BG_COLOR,
@@ -245,7 +245,7 @@ function AddCompanionButton() {
             gap: 6,
             padding: '6px 14px',
             borderRadius: 999,
-            background: hovered ? 'rgba(201,161,59,.08)' : 'transparent',
+            background: hovered ? 'rgba(176,84,47,.08)' : 'transparent',
             border: `1px solid var(--gold-deep, #8a6f25)`,
             color: 'var(--gold-bright, #e8c557)',
             cursor: 'pointer',

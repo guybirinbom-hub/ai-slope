@@ -245,7 +245,7 @@ export function ActionGlyph(props: { cost: 1 | 2 | 3 | 'r' | 'f' | string }) {
             ? 'drop-shadow(0 0 3px rgba(168,58,37,.45))'
             : c === 'f'
               ? 'none'
-              : 'drop-shadow(0 0 3px rgba(201,161,59,.35))',
+              : 'drop-shadow(0 0 3px rgba(176,84,47,.35))',
       }}
     >
       {ch}
