@@ -15,6 +15,13 @@
  * scoped selectors at the bottom of this file.
  */
 
+/* Specificity boost — every wg4 surface also flips Mantine's
+ * color-scheme attribute via JS isn't reliable, so we raise wg4's
+ * specificity by combining the class with the html element's
+ * data attribute. This guarantees wg4 vars win against
+ * codex-bridge.css's [data-mantine-color-scheme='light'] selectors
+ * regardless of import order. */
+[data-mantine-color-scheme] .wg4,
 .wg4 {
   /* ── Mantine variable overrides — surfaces that opt into .wg4
    *    inherit the parchment palette through Mantine's own CSS vars,
