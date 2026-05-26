@@ -221,19 +221,25 @@
   border-bottom: 1px solid var(--wg4-border-soft) !important;
   background: transparent !important;
 }
-.wg4 .sec-title .label,
-.wg4 .sec-title .lz {
+.wg4 .sec-title .label {
   font-family: var(--wg4-font-sans) !important;
-  font-size: 11px !important;
-  letter-spacing: 0.14em !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.10em !important;
   text-transform: uppercase !important;
   color: var(--wg4-ink-3) !important;
-  font-weight: 600 !important;
+  font-weight: 500 !important;
 }
+/* Lozenge glyph next to section label — quiet gray per wg4 design
+ * (not rust accent like codex used). */
+.wg4 .sec-title .label .lz,
 .wg4 .sec-title .lz {
-  color: var(--wg4-accent) !important;
-  font-size: 14px !important;
+  color: var(--wg4-ink-5) !important;
+  font-family: var(--wg4-font-mono) !important;
+  font-weight: 400 !important;
+  text-transform: none !important;
   letter-spacing: 0 !important;
+  margin-right: 8px !important;
+  font-size: 13px !important;
 }
 
 /* ============================== HP CARD ============================== */
@@ -266,9 +272,33 @@
   box-shadow: none !important;
 }
 .wg4 .hp-card .resist-link {
-  color: var(--wg4-accent) !important;
+  display: inline-block !important;
+  margin-top: 10px !important;
+  color: var(--wg4-ink-3) !important;
   font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
   text-decoration: none !important;
+  border-bottom: 1px dashed var(--wg4-border-strong) !important;
+  padding-bottom: 1px !important;
+  cursor: pointer !important;
+}
+.wg4 .hp-card .resist-link:hover {
+  color: var(--wg4-ink) !important;
+  border-bottom-color: var(--wg4-ink-4) !important;
+}
+/* Current HP value — large rust mono per wg4 design. */
+.wg4 .hp-card .cur-input {
+  font-size: 30px !important;
+  font-weight: 500 !important;
+  color: var(--wg4-accent) !important;
+  letter-spacing: -0.03em !important;
+  line-height: 1 !important;
+}
+.wg4 .hp-card .max,
+.wg4 .hp-card .sep {
+  color: var(--wg4-ink-3) !important;
+  font-size: 18px !important;
+  font-weight: 400 !important;
 }
 .wg4 .hp-card .hp-temp .k {
   font-family: var(--wg4-font-mono) !important;
@@ -284,10 +314,28 @@
 }
 
 /* ============================== STAT TILES ============================== */
-.wg4 .tiles .tile {
-  background: var(--wg4-surface-2) !important;
+/* wg4 design uses 1px gap between tiles inside a parchment-bordered
+ * grid (creates inset-divider effect) rather than per-tile borders. */
+.wg4 .tiles {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 1px !important;
+  background: var(--wg4-border-soft) !important;
   border: 1px solid var(--wg4-border-soft) !important;
   border-radius: var(--wg4-r-2) !important;
+  overflow: hidden !important;
+  margin-top: 14px !important;
+}
+.wg4 .tiles .tile {
+  background: var(--wg4-surface) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 9px 10px 10px !important;
+  cursor: pointer !important;
+  transition: background .1s !important;
+}
+.wg4 .tiles .tile:hover {
+  background: var(--wg4-surface-2) !important;
 }
 .wg4 .tiles .tile .k {
   font-family: var(--wg4-font-mono) !important;
@@ -804,20 +852,30 @@
 .wg4 .codex-root .coin.sp .disk { background: linear-gradient(180deg, #d2d0c8, #adaba2) !important; color: #2a2a2f !important; }
 .wg4 .codex-root .coin.cp .disk { background: linear-gradient(180deg, #c19071, #8e5d3f) !important; color: #fff !important; }
 
-/* Progress / HP / XP fill bars — single rust gradient (no glow). */
+/* Progress / HP / XP fill bars — match wg4 design: thin pill, solid
+ * rust fill, no tick marks, no glow. */
 .wg4 .codex-root .progress-bar,
 .wg4 .codex-root .hpbar,
 .wg4 .codex-root .xp .bar {
-  background: var(--wg4-surface-2) !important;
-  border: 1px solid var(--wg4-border-soft) !important;
-  border-radius: var(--wg4-r-1) !important;
+  background: var(--wg4-border-soft) !important;
+  border: none !important;
+  border-radius: var(--wg4-r-pill) !important;
   box-shadow: none !important;
+  height: 5px !important;
+  overflow: hidden !important;
 }
 .wg4 .codex-root .progress-bar .fill,
 .wg4 .codex-root .hpbar .fill,
 .wg4 .codex-root .xp .bar .fill {
-  background: linear-gradient(90deg, var(--wg4-accent-ink), var(--wg4-accent)) !important;
+  background: var(--wg4-accent) !important;
+  border-radius: var(--wg4-r-pill) !important;
   box-shadow: none !important;
+}
+/* Kill codex hpbar tick marks (every 1/13 vertical line drawn via ::after). */
+.wg4 .codex-root .hpbar::after,
+.wg4 .codex-root .progress-bar::after {
+  display: none !important;
+  content: none !important;
 }
 
 /* Spell rank slot diamonds (sp-pip etc.) — rust outline / fill. */
