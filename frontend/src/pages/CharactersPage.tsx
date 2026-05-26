@@ -153,7 +153,7 @@ export function Component() {
   ).length;
 
   return (
-    <div className='codex-root'>
+    <div className='codex-root wg4'>
       {/* Fullscreen codex loader during the create-character API call.
           Without this, clicking "Forge a New Hero" produces no visible
           response for 5-15 seconds while the upsert + post-create

@@ -684,7 +684,7 @@ export default function CodexSheet(props: {
   // ---- Render ----
 
   return (
-    <div className='codex-root codex-sheet-root'>
+    <div className='codex-root codex-sheet-root wg4'>
       <div className='codex-sheet-page'>
         {/* ============================ WINBAR ============================
             Styled title-bar strip mimicking the codex design's window

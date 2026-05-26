@@ -464,7 +464,24 @@ export default function App() {
         };
       }}
     >
-      <ModalsProvider modals={modals}>
+      <ModalsProvider
+        modals={modals}
+        // wg4 redesign — every Mantine modal (openConfirmModal,
+        // openContextModal, modals.open) gets `wg4` on its root +
+        // header/body/content classNames. wg4.css overrides those
+        // Mantine slots to render parchment chrome. Per-modal
+        // classNames still merge — only previously-unset slots use
+        // these defaults.
+        modalProps={{
+          classNames: {
+            root: 'wg4',
+            content: 'wg4-modal-mantine',
+            header: 'wg4-modal-mantine-head',
+            body: 'wg4-modal-mantine-body',
+            overlay: 'wg4-modal-mantine-overlay',
+          },
+        }}
+      >
         <BackgroundImage
           src={background?.url ?? ''}
           radius={0}

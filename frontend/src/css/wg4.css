@@ -58,6 +58,41 @@
   --mantine-color-dark-8: var(--wg4-surface-2);
   --mantine-color-dark-9: var(--wg4-surface-2);
 
+  /* ── Codex custom-var remap — surfaces using codex.css (Character
+   *    Sheet root, Codex panels, Codex notes/details, etc.) define
+   *    their own --ink / --gold / --bg / --paper scale globally on
+   *    :root. When the same surface gets `wg4` added, these locally-
+   *    scoped overrides take precedence and flip the entire codex
+   *    palette to parchment without touching any of the codex.css
+   *    rules themselves. */
+  --ink: var(--wg4-ink);
+  --ink-dim: var(--wg4-ink-2);
+  --ink-muted: var(--wg4-ink-3);
+  --ink-deep: var(--wg4-ink-4);
+  --gold: var(--wg4-accent);
+  --gold-bright: var(--wg4-accent-ink);
+  --gold-deep: var(--wg4-accent-ink);
+  --crimson: #a83a25;
+  --crimson-deep: #6f1f10;
+  --sage: #5b7148;
+  --sage-bright: #82a06b;
+  --bg: var(--wg4-page);
+  --bg-2: var(--wg4-surface);
+  --bg-3: var(--wg4-surface-2);
+  --bg-card: var(--wg4-surface);
+  --rule: var(--wg4-border);
+  --rule-soft: var(--wg4-border-soft);
+  --paper: var(--wg4-surface);
+  --paper-2: var(--wg4-surface-2);
+  --paper-3: var(--wg4-surface-hover);
+  --imprint-bg-color: rgba(176, 84, 47, 0.04);
+  --imprint-bg-color-2: rgba(176, 84, 47, 0.08);
+  --imprint-bg-color-hover: rgba(176, 84, 47, 0.06);
+  --imprint-bg-color-hover-2: rgba(176, 84, 47, 0.1);
+  --imprint-border-color: var(--wg4-border);
+  --glass-bg-color: var(--wg4-surface);
+  --glass-border-color: var(--wg4-border);
+
   /* Surfaces — warm paper page, slightly off-white cards. */
   --wg4-page: #e8e4d8;
   --wg4-surface: #f6f3eb;
@@ -522,6 +557,85 @@
 /* Favorite + feedback floating buttons get a parchment backdrop. */
 .wg4-drawer-mantine-body > div[onTouchStart] > div[style*="position: absolute"] {
   background-color: var(--wg4-surface, #f6f3eb) !important;
+}
+
+/* ── Codex root override — when the codex character sheet (or any
+ *    codex-themed page) opts into wg4, kill the dark textured
+ *    background painted by .codex-root and apply parchment. Font
+ *    family also shifts from Cormorant Garamond to Geist. */
+.wg4.codex-root,
+.wg4 .codex-root {
+  background-color: var(--wg4-page) !important;
+  background-image: none !important;
+  color: var(--wg4-ink) !important;
+  font-family: var(--wg4-font-sans), 'Cormorant Garamond', Georgia, serif !important;
+}
+.wg4 .codex-sheet-page,
+.wg4 .codex-sheet-root .page {
+  background-color: transparent !important;
+}
+/* Headings inside codex pages — flip to Newsreader italic. */
+.wg4 .codex-root h1,
+.wg4 .codex-root h2,
+.wg4 .codex-root h3,
+.wg4 .codex-root .nm,
+.wg4 .codex-root [class*='-name'],
+.wg4 .codex-root [class*='-title'] {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+}
+/* Mono-style label rows ("LABEL · 12 · etc.") — keep mono numerics
+ * but lighten the source/letterspacing to fit wg4 quietness. */
+.wg4 .codex-root .num,
+.wg4 .codex-root .mono,
+.wg4 .codex-root [class*='-num'],
+.wg4 .codex-root [class*='-mono'] {
+  font-family: 'Geist Mono', ui-monospace, monospace !important;
+}
+
+/* ── Mantine Modal override for the global modalProps default in
+ *    App.tsx. Every modal (openConfirmModal, openContextModal,
+ *    modals.open) opens with parchment chrome + Newsreader italic
+ *    title + ink-2 body. The overlay is slightly darker than Mantine
+ *    default so the parchment popup reads cleanly. */
+.wg4-modal-mantine {
+  background-color: var(--wg4-surface, #f6f3eb) !important;
+  color: var(--wg4-ink, #1a1a1a) !important;
+  font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif !important;
+  border: 1px solid var(--wg4-border, #d8d3c4) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 0 rgba(20,20,20,.02), 0 6px 20px rgba(20,20,20,.06), 0 18px 60px rgba(20,20,20,.05) !important;
+}
+.wg4-modal-mantine-head {
+  background-color: var(--wg4-surface, #f6f3eb) !important;
+  border-bottom: 1px solid var(--wg4-border-soft, #e0dbcd) !important;
+  padding: 14px 22px 12px !important;
+}
+.wg4-modal-mantine-head .mantine-Title-root,
+.wg4-modal-mantine-head .mantine-Modal-title {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink, #1a1a1a) !important;
+  letter-spacing: -0.005em !important;
+  font-size: 22px !important;
+}
+.wg4-modal-mantine-body {
+  background-color: var(--wg4-surface, #f6f3eb) !important;
+  color: var(--wg4-ink, #1a1a1a) !important;
+  padding: 16px 22px !important;
+}
+.wg4-modal-mantine-overlay {
+  background-color: rgba(26, 24, 18, 0.55) !important;
+}
+.wg4-modal-mantine .mantine-Modal-close,
+.wg4-modal-mantine .mantine-CloseButton-root {
+  color: var(--wg4-ink-3, #6b6962) !important;
+}
+.wg4-modal-mantine .mantine-Modal-close:hover,
+.wg4-modal-mantine .mantine-CloseButton-root:hover {
+  background-color: var(--wg4-surface-hover, #ece8dd) !important;
+  color: var(--wg4-ink, #1a1a1a) !important;
 }
 
 /* Popover dropdown (used for HoverCard / Popover anchors inside wg4). */
