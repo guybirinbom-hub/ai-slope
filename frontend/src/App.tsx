@@ -47,6 +47,7 @@ import GenerateEncounterModal from '@modals/GenerateEncounterModal';
 import UpdateApiClientModal from '@modals/UpdateApiClientModal';
 import { getAnchorStyles } from '@utils/anchor';
 import BuyItemModal from '@modals/BuyItemModal';
+import { Wg4ConfirmModal } from '@common/wg4/Wg4Confirm';
 import { generateColors } from '@mantine/colors-generator';
 import { ImageOption } from '@schemas/index';
 
@@ -77,6 +78,9 @@ const modals = {
   createDicePreset: CreateDicePresetModal,
   addItems: AddItemsModal,
   buyItem: BuyItemModal,
+  // wg4 redesign — parchment-styled confirm prompt. Replaces
+  // ad-hoc openConfirmModal callsites; opened via openWg4Confirm().
+  wg4Confirm: Wg4ConfirmModal,
 };
 // declare module '@mantine/modals' {
 //   export interface MantineModalsOverride {

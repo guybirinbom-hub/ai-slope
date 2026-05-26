@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>wg4 — extensions for the mismatch surfaces</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,14..32,400;1,14..32,500&display=swap" />
+<style>
+  :root {
+    --page: #e8e4d8;
+    --surface: #f6f3eb;
+    --surface-2: #efebe1;
+    --surface-hover: #ece8dd;
+    --border: #d8d3c4;
+    --border-strong: #c2bdac;
+    --border-soft: #e0dbcd;
+    --ink: #1a1a1a;
+    --ink-2: #3a3a37;
+    --ink-3: #6b6962;
+    --ink-4: #91897c;
+    --ink-5: #aea69a;
+    --accent: #b0542f;
+    --accent-soft: #ebd9cb;
+    --accent-ink: #8a3f1f;
+    --r-1: 4px; --r-2: 6px; --r-3: 8px; --r-pill: 999px;
+    --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, monospace;
+    --font-serif: 'Newsreader', ui-serif, Georgia, serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--page); color: var(--ink); font: 13px/1.45 var(--font-sans); -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; }
+  input, textarea, select { font-family: inherit; }
+  .num, .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+  /* page chrome */
+  .wrap { max-width: 1480px; margin: 0 auto; padding: 30px 40px 80px; }
+  .hd { font-family: var(--font-serif); font-style: italic; font-size: 32px; color: var(--ink); margin: 0 0 6px; letter-spacing: -0.01em; }
+  .lead { color: var(--ink-3); margin: 0 0 32px; max-width: 760px; }
+  .section-hd { display: flex; align-items: baseline; gap: 14px; margin: 48px 0 6px; padding-bottom: 8px; border-bottom: 1px solid var(--border-strong); }
+  .section-hd .num-tag { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .section-hd .title { font-family: var(--font-serif); font-style: italic; font-size: 24px; }
+  .section-sub { color: var(--ink-3); margin: 0 0 20px; max-width: 760px; }
+  .grid { display: grid; gap: 24px; }
+  .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .card-frame { position: relative; padding-top: 28px; }
+  .card-frame .label { position: absolute; top: 0; left: 0; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--ink-4); font-weight: 600; }
+
+  /* ===== shared drawer chrome (matches wg4 drawers.jsx) ===== */
+  .drawer {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 1px 0 rgba(20,20,20,.02), 0 6px 20px rgba(20,20,20,.06), 0 18px 60px rgba(20,20,20,.05);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    color: var(--ink);
+    position: relative;
+  }
+  .drawer::before { content: ""; position: absolute; left: 4px; top: 50%; width: 3px; height: 40px; background: var(--border-strong); border-radius: 2px; transform: translateY(-50%); opacity: 0.5; }
+  .dr-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 14px 22px; border-bottom: 1px solid var(--border-soft); flex-shrink: 0; }
+  .dr-head .title-cluster { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .dr-head .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--accent); font-weight: 600; }
+  .dr-head .title { font-family: var(--font-serif); font-style: italic; font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.1; letter-spacing: -0.005em; display: flex; align-items: center; gap: 8px; }
+  .dr-head .nav-cluster { display: flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); }
+  .dr-body { padding: 14px 22px; }
+  .dr-section + .dr-section { border-top: 1px solid var(--border-soft); margin-top: 12px; padding-top: 12px; }
+
+  /* trait pills + chip pill */
+  .traits-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+  .trait-pill { padding: 3px 10px; border-radius: 3px; background: var(--accent-soft); border: 1px solid #d8b9a4; font-size: 10px; color: var(--accent-ink); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .trait-pill.school { background: var(--surface-2); border-color: var(--border-soft); color: var(--ink-3); }
+  .trait-pill.rarity-uncommon { background: #f3e5cf; border-color: #d9bd8d; color: #806123; }
+  .trait-pill.rarity-rare { background: #efdde3; border-color: #d6a5b5; color: #8b3a55; }
+
+  /* indented line with bold label */
+  .indented { padding-left: 14px; font-size: 12.5px; line-height: 1.6; color: var(--ink-2); margin: 4px 0; }
+  .indented .lbl { font-weight: 600; color: var(--ink); }
+  .divider { height: 1px; background: var(--border-soft); margin: 12px 0; }
+
+  /* rich text (prose) */
+  .prose { font-family: var(--font-serif); font-size: 14px; line-height: 1.6; color: var(--ink); }
+  .prose p { margin: 0 0 8px; }
+  .prose b { font-weight: 600; font-family: var(--font-sans); }
+
+  /* action glyphs */
+  .ag { display: inline-flex; align-items: center; color: var(--ink); }
+  .ag svg { width: 14px; height: 14px; }
+
+  /* breakdown table (stat drawers) */
+  .stat-hero { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; padding: 18px 22px; border-bottom: 1px solid var(--border-soft); background: linear-gradient(to bottom, var(--surface), var(--surface-2)); }
+  .stat-hero .big { font-family: var(--font-mono); font-size: 44px; font-weight: 500; color: var(--accent); letter-spacing: -0.03em; line-height: 1; }
+  .stat-hero .meta { font-size: 10.5px; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--font-mono); font-weight: 600; }
+  .stat-hero .meta .v { font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 500; margin-top: 2px; text-transform: none; letter-spacing: 0; }
+  .stat-hero .roll-btn { appearance: none; border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 6px 14px; border-radius: var(--r-pill); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+  .breakdown { display: flex; flex-direction: column; padding: 12px 22px 14px; }
+  .breakdown .br-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border-soft); align-items: center; }
+  .breakdown .br-row:last-child { border-bottom: 0; }
+  .breakdown .br-row.total { font-weight: 600; }
+  .breakdown .br-row .k { font-size: 12px; color: var(--ink-2); }
+  .breakdown .br-row .src { font-size: 10.5px; color: var(--ink-4); font-family: var(--font-serif); font-style: italic; }
+  .breakdown .br-row .v { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); text-align: right; min-width: 28px; }
+  .breakdown .br-row .v.pos { color: var(--accent); }
+  .breakdown .br-row .v.neg { color: var(--ink-4); }
+  .breakdown .br-row.total .v { color: var(--ink); font-size: 14px; }
+
+  /* generic ResistWeak chips */
+  .rw-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0; }
+  .rw-chip { padding: 4px 11px; border-radius: 999px; font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+  .rw-chip.r { background: #d8e6d4; border: 1px solid #afc4a7; color: #3a5d31; }
+  .rw-chip.w { background: #efd9c8; border: 1px solid #d4a98a; color: #7a3d18; }
+  .rw-chip.i { background: #d3d6d9; border: 1px solid #aab0b7; color: #4a4f57; }
+
+  /* speed list */
+  .speed-list { display: flex; flex-direction: column; padding: 8px 0; }
+  .speed-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border-soft); align-items: center; }
+  .speed-row:last-child { border-bottom: 0; }
+  .speed-row .k { font-size: 12px; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono); font-weight: 600; }
+  .speed-row .v { font-family: var(--font-mono); font-size: 14px; color: var(--ink); font-weight: 500; }
+
+  /* ===== ACTIVITIES TAB (standalone — extracted from sheet.jsx so the user can keep Activities as its own tab) ===== */
+  .tab-page { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; box-shadow: 0 1px 2px rgba(20,20,20,.03); }
+  .tab-hd { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+  .tab-hd .lz { color: var(--accent); font-size: 16px; }
+  .tab-hd .nm { font-family: var(--font-serif); font-style: italic; font-size: 24px; color: var(--ink); letter-spacing: -0.01em; }
+  .tab-hd .meta { margin-left: auto; font-size: 11px; color: var(--ink-4); letter-spacing: 0.04em; font-family: var(--font-mono); }
+  .act-toolbar { display: flex; gap: 10px; align-items: center; padding: 10px 0 12px; border-bottom: 1px solid var(--border-soft); margin-bottom: 14px; }
+  .act-toolbar .search { flex: 1; border: 1px solid var(--border); border-radius: var(--r-2); background: var(--surface); padding: 7px 12px; font-size: 13px; color: var(--ink); outline: none; }
+  .act-toolbar .pill-group { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r-pill); overflow: hidden; }
+  .act-toolbar .pill-group button { appearance: none; background: transparent; border: 0; padding: 6px 14px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; color: var(--ink-3); }
+  .act-toolbar .pill-group button.on { background: var(--accent); color: #fff; }
+  .mode-tabs { display: flex; gap: 4px; padding: 0 0 10px; border-bottom: 1px solid var(--border-soft); margin-bottom: 12px; }
+  .mode-tab { appearance: none; background: transparent; border: 0; padding: 7px 14px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; color: var(--ink-4); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .mode-tab.on { color: var(--ink); border-bottom-color: var(--accent); }
+  .sub-head { display: flex; align-items: baseline; gap: 6px; margin: 12px 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); font-weight: 600; }
+  .sub-head .lz { color: var(--accent); font-size: 13px; }
+  .sub-head .accent { color: var(--accent); font-family: var(--font-serif); font-style: italic; text-transform: none; letter-spacing: -0.005em; font-weight: 400; }
+  .act-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .act-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-2); padding: 10px 12px; cursor: pointer; }
+  .act-card:hover { background: var(--surface-2); border-color: var(--border-strong); }
+  .act-card .top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .act-card .ag { display: inline-grid; place-items: center; width: 18px; height: 18px; color: var(--ink); }
+  .act-card .ag svg { width: 14px; height: 14px; }
+  .act-card .nm { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+  .act-card .stat-line { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); }
+  .act-card .info { font-family: var(--font-serif); font-style: italic; font-size: 11.5px; color: var(--ink-4); margin-top: 4px; line-height: 1.4; }
+
+  /* ===== COMPANIONS TAB ===== */
+  .comp-switcher { display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); margin-bottom: 16px; }
+  .comp-pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--border); color: var(--ink-3); cursor: pointer; font-size: 13px; }
+  .comp-pill .av { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); border: 1px solid #d8b9a4; display: grid; place-items: center; font-family: var(--font-serif); font-style: italic; font-size: 14px; color: var(--accent-ink); }
+  .comp-pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 1px var(--accent); }
+  .comp-pill .lv { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-4); }
+  .comp-add-btn { margin-left: auto; appearance: none; border: 1px solid var(--accent); background: transparent; color: var(--accent); padding: 6px 14px; border-radius: var(--r-pill); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
+  .comp-header { display: grid; grid-template-columns: 64px 1fr auto; gap: 14px; align-items: center; margin-bottom: 14px; }
+  .comp-header .crest { width: 64px; height: 64px; border-radius: var(--r-2); background: var(--accent-soft); border: 1px solid #d8b9a4; display: grid; place-items: center; font-family: var(--font-serif); font-style: italic; font-size: 32px; color: var(--accent-ink); }
+  .comp-header .nm { font-family: var(--font-serif); font-style: italic; font-size: 26px; color: var(--ink); letter-spacing: -0.01em; line-height: 1; }
+  .comp-header .sub { font-size: 11px; color: var(--ink-3); letter-spacing: 0.12em; text-transform: uppercase; font-family: var(--font-mono); margin-top: 4px; }
+  .comp-header .trash { appearance: none; border: 1px solid var(--border); background: transparent; color: var(--ink-3); padding: 6px 10px; border-radius: var(--r-2); }
+  .comp-sec { border-top: 1px solid var(--border-soft); }
+  .comp-sec:first-of-type { border-top: 0; }
+  .comp-sec-head { display: flex; align-items: center; gap: 8px; padding: 10px 4px; cursor: pointer; }
+  .comp-sec-head .caret { color: var(--accent); font-size: 11px; }
+  .comp-sec-head .ttl { flex: 1; font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 600; color: var(--ink-2); }
+  .comp-sec-head .hint { font-size: 10.5px; color: var(--ink-4); font-family: var(--font-mono); }
+  .comp-sec-body { padding: 4px 4px 14px; }
+  .comp-cube-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .comp-cube { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-2); padding: 10px 12px; text-align: center; }
+  .comp-cube .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-4); font-weight: 600; font-family: var(--font-mono); }
+  .comp-cube .v { font-family: var(--font-mono); font-size: 20px; color: var(--ink); font-weight: 500; margin-top: 4px; }
+  .comp-cube .v.accent { color: var(--accent); }
+  .comp-attr-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .comp-attr { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-1); padding: 6px 4px; text-align: center; }
+  .comp-attr .k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-4); font-family: var(--font-mono); font-weight: 600; }
+  .comp-attr .v { font-family: var(--font-mono); font-size: 16px; color: var(--ink); font-weight: 500; margin-top: 2px; }
+  .hp-row { display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-2); margin-bottom: 8px; }
+  .hp-row .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-4); font-family: var(--font-mono); font-weight: 600; }
+  .hp-row .num { font-family: var(--font-mono); font-size: 14px; color: var(--ink); font-weight: 500; }
+  .hp-row .bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--border-soft); }
+  .hp-row .bar .fill { height: 100%; background: linear-gradient(90deg, #8aa45f, #b8c890); }
+  .cond-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cond-pill { padding: 3px 10px; border-radius: 999px; background: #efd9c8; border: 1px solid #d4a98a; color: #7a3d18; font-size: 10.5px; font-weight: 600; }
+  .ss-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ss-2col .h { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-4); font-weight: 600; font-family: var(--font-mono); margin-bottom: 6px; }
+  .ss-list { display: flex; flex-direction: column; gap: 3px; }
+  .ss-row { display: flex; justify-content: space-between; font-size: 12px; }
+  .ss-row .k { color: var(--ink-2); }
+  .ss-row .v { color: var(--ink); font-family: var(--font-mono); }
+  .ss-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ss-chip { padding: 2px 8px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border-soft); font-size: 11px; color: var(--ink-2); cursor: pointer; }
+  .ss-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* footer (small drawers) */
+  .dr-foot { padding: 12px 18px; background: var(--surface-2); border-top: 1px solid var(--border-soft); display: flex; align-items: center; gap: 6px; }
+  .dr-foot .spacer { flex: 1; }
+  .btn { appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); padding: 7px 14px; border-radius: var(--r-2); font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--accent-ink); border-color: #d8b9a4; }
+
+  /* source line */
+  .source-line { font-family: var(--font-serif); font-style: italic; font-size: 11.5px; color: var(--ink-4); padding-top: 4px; }
+  .source-line b { color: var(--ink-2); font-weight: 500; font-style: normal; font-family: var(--font-sans); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="hd">wg4 — extensions for mismatch surfaces</h1>
+  <p class="lead">
+    Mockups extending the wg4 vocabulary to cover surfaces the original design folder skipped or only sketched partially.
+    Same palette, fonts, primitives — just applied to the description-card / stat-breakdown / tab / popover variants the designer didn't draw.
+    Approve and I'll port them into the app.
+  </p>
+
+  <!-- ============================================================ -->
+  <!--  TABS — Activities (standalone) + Companions                 -->
+  <!-- ============================================================ -->
+  <div class="section-hd"><span class="num-tag">Section A · Tabs</span><span class="title">Activities &amp; Companions</span></div>
+  <p class="section-sub">
+    Designer folded Activities into the main tab and left Companions undesigned.
+    These standalone designs keep both as their own tabs without changing the data shape.
+  </p>
+
+  <!-- Activities (standalone) -->
+  <div class="card-frame">
+    <span class="label">A1 — Activities (standalone tab page)</span>
+    <div class="tab-page">
+      <div class="tab-hd">
+        <span class="lz">⧉</span>
+        <span class="nm">Activities</span>
+        <span class="meta">11 actions in 3 modes</span>
+      </div>
+      <div class="act-toolbar">
+        <input class="search" placeholder="Search activities…"/>
+        <div class="pill-group">
+          <button class="on">All</button>
+          <button>Strikes</button>
+          <button>Skill</button>
+          <button>Speciality</button>
+          <button>Exploration</button>
+          <button>Downtime</button>
+        </div>
+      </div>
+      <div class="mode-tabs">
+        <button class="mode-tab on">Encounter</button>
+        <button class="mode-tab">Exploration</button>
+        <button class="mode-tab">Downtime</button>
+      </div>
+
+      <div class="sub-head"><span class="lz">×</span>Strikes <span class="accent">· one action each</span></div>
+      <div class="act-grid">
+        <div class="act-card"><div class="top"><span class="ag">⚔</span><span class="nm">Rapier</span></div><div class="stat-line">+12 melee · 1d6 P</div></div>
+        <div class="act-card"><div class="top"><span class="ag">⚔</span><span class="nm">Shortbow</span></div><div class="stat-line">+12 ranged · 1d6 P</div></div>
+        <div class="act-card"><div class="top"><span class="ag">⚔</span><span class="nm">Dagger</span></div><div class="stat-line">+12 melee · 1d4 P</div></div>
+        <div class="act-card"><div class="top"><span class="ag">⚔</span><span class="nm">Unarmed</span></div><div class="stat-line">+10 melee · 1d4 B</div></div>
+      </div>
+
+      <div class="sub-head"><span class="lz">◌</span>Universal <span class="accent">· encounter</span></div>
+      <div class="act-grid">
+        <div class="act-card"><div class="top"><span class="ag">⬢</span><span class="nm">Stride</span></div><div class="info">Move up to your Speed.</div></div>
+        <div class="act-card"><div class="top"><span class="ag">⬢</span><span class="nm">Step</span></div><div class="info">5-ft move that doesn't trigger reactions.</div></div>
+        <div class="act-card"><div class="top"><span class="ag">⬢</span><span class="nm">Raise a Shield</span></div><div class="info">Gain +2 circumstance bonus to AC.</div></div>
+        <div class="act-card"><div class="top"><span class="ag">⬢</span><span class="nm">Take Cover</span></div><div class="info">+2 / +4 circumstance bonus to AC.</div></div>
+      </div>
+
+      <div class="sub-head"><span class="lz">◆</span>Class &amp; Speciality <span class="accent">· feats with actions</span></div>
+      <div class="act-grid">
+        <div class="act-card"><div class="top"><span class="ag">⚔⚔</span><span class="nm">Twin Feint</span></div><div class="info">Two Strikes, one with each weapon. Off-guard on second.</div></div>
+        <div class="act-card"><div class="top"><span class="ag">↻</span><span class="nm">Reactive Strike</span></div><div class="info">Trigger: foe uses a manipulate action within reach.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Companions tab -->
+  <div class="card-frame" style="margin-top: 28px;">
+    <span class="label">A2 — Companions tab (pill switcher + full sheet)</span>
+    <div class="tab-page">
+      <div class="comp-switcher">
+        <div class="comp-pill on"><span class="av">W</span><span>Whisper</span><span class="lv">· Lv 3</span></div>
+        <div class="comp-pill"><span class="av">I</span><span>Isobu</span><span class="lv">· Lv 5</span></div>
+        <button class="comp-add-btn">+ Add Companion</button>
+      </div>
+
+      <div class="comp-header">
+        <div class="crest">W</div>
+        <div>
+          <div class="nm">Whisper</div>
+          <div class="sub">Animal Companion · Cat · Level 3</div>
+        </div>
+        <button class="trash">Delete</button>
+      </div>
+
+      <div class="comp-sec">
+        <div class="comp-sec-head"><span class="caret">▾</span><span class="ttl">Health &amp; Conditions</span><span class="hint">28 / 40 HP</span></div>
+        <div class="comp-sec-body">
+          <div class="hp-row">
+            <span class="label">HP</span><span class="num">28</span>
+            <div class="bar"><div class="fill" style="width:70%"></div></div>
+            <span class="num">40</span>
+          </div>
+          <div class="cond-row">
+            <span class="cond-pill">Frightened 1</span>
+            <span class="cond-pill">Off-Guard</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comp-sec">
+        <div class="comp-sec-head"><span class="caret">▾</span><span class="ttl">Defenses</span><span class="hint">AC 19 · Fort +9 · Ref +11 · Will +7</span></div>
+        <div class="comp-sec-body">
+          <div class="comp-cube-grid">
+            <div class="comp-cube"><div class="k">AC</div><div class="v accent">19</div></div>
+            <div class="comp-cube"><div class="k">Fortitude</div><div class="v">+9</div></div>
+            <div class="comp-cube"><div class="k">Reflex</div><div class="v">+11</div></div>
+            <div class="comp-cube"><div class="k">Will</div><div class="v">+7</div></div>
+            <div class="comp-cube"><div class="k">Perception</div><div class="v">+9</div></div>
+            <div class="comp-cube"><div class="k">Speed</div><div class="v" style="font-size:14px">40 ft</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comp-sec">
+        <div class="comp-sec-head"><span class="caret">▾</span><span class="ttl">Attributes</span></div>
+        <div class="comp-sec-body">
+          <div class="comp-attr-grid">
+            <div class="comp-attr"><div class="k">STR</div><div class="v">+2</div></div>
+            <div class="comp-attr"><div class="k">DEX</div><div class="v">+4</div></div>
+            <div class="comp-attr"><div class="k">CON</div><div class="v">+2</div></div>
+            <div class="comp-attr"><div class="k">INT</div><div class="v">−4</div></div>
+            <div class="comp-attr"><div class="k">WIS</div><div class="v">+2</div></div>
+            <div class="comp-attr"><div class="k">CHA</div><div class="v">+0</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comp-sec">
+        <div class="comp-sec-head"><span class="caret">▾</span><span class="ttl">Senses &amp; Speed</span></div>
+        <div class="comp-sec-body">
+          <div class="ss-2col">
+            <div>
+              <div class="h">Senses</div>
+              <div class="ss-chips">
+                <span class="ss-chip">Low-Light Vision</span>
+                <span class="ss-chip">Scent 30 ft</span>
+              </div>
+            </div>
+            <div>
+              <div class="h">Speeds</div>
+              <div class="ss-list">
+                <div class="ss-row"><span class="k">Land</span><span class="v">40 ft</span></div>
+                <div class="ss-row"><span class="k">Climb</span><span class="v">25 ft</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comp-sec">
+        <div class="comp-sec-head"><span class="caret">▸</span><span class="ttl">Skills &amp; Actions</span><span class="hint">8 trained</span></div>
+      </div>
+      <div class="comp-sec">
+        <div class="comp-sec-head"><span class="caret">▸</span><span class="ttl">Abilities</span><span class="hint">Strike, Bestial Fury…</span></div>
+      </div>
+      <div class="comp-sec">
+        <div class="comp-sec-head"><span class="caret">▸</span><span class="ttl">Inventory</span><span class="hint">Barding, 2 items</span></div>
+      </div>
+      <div class="comp-sec">
+        <div class="comp-sec-head"><span class="caret">▸</span><span class="ttl">Spells</span></div>
+      </div>
+      <div class="comp-sec">
+        <div class="comp-sec-head"><span class="caret">▸</span><span class="ttl">Description &amp; Notes</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  DESCRIPTION-CARD DRAWERS — extending FeatDrawer template     -->
+  <!-- ============================================================ -->
+  <div class="section-hd"><span class="num-tag">Section B · Description-Card Drawers</span><span class="title">12 variants reusing the FeatDrawer template</span></div>
+  <p class="section-sub">
+    Same head + traits + indented metadata + divider + RichText body the designer drew for FeatDrawer.
+    The only thing that varies between variants is which indented "metadata" lines appear and the eyebrow label.
+  </p>
+
+  <div class="grid grid-3">
+    <!-- B1: SpellDrawer (read-only, no Cast button) -->
+    <div class="card-frame">
+      <span class="label">B1 — SpellDrawer (read-only)</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster">
+            <span class="eyebrow">Spell · Rank 1</span>
+            <span class="title">Magic Missile <span class="ag"><svg viewBox="0 0 16 16"><path d="M8 1.2 L9.6 6.4 L14.8 8 L9.6 9.6 L8 14.8 L6.4 9.6 L1.2 8 L6.4 6.4 Z" fill="currentColor"/></svg></span></span>
+          </div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="traits-row"><span class="trait-pill">Concentrate</span><span class="trait-pill">Manipulate</span><span class="trait-pill school">Force</span></div>
+          <div class="indented"><span class="lbl">Traditions</span> arcane, occult</div>
+          <div class="indented"><span class="lbl">Range</span> 120 feet; <span class="lbl">Targets</span> 1 creature</div>
+          <div class="indented"><span class="lbl">Duration</span> instantaneous</div>
+          <div class="divider"></div>
+          <div class="prose">You send a dart of force streaking toward a creature you can see. It automatically hits and deals 1d4+1 force damage. For each additional action you use when Casting the Spell, increase the missiles to two then three (max).</div>
+          <div class="divider"></div>
+          <div class="indented"><span class="lbl">Heightened (+2)</span> You shoot one additional missile with each action.</div>
+          <div class="source-line">Source: <b>Player Core</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B2: ItemDrawer (library, read-only) -->
+    <div class="card-frame">
+      <span class="label">B2 — ItemDrawer (library, read-only)</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Item · Level 5</span><span class="title">Healing Potion (Moderate)</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="indented"><span class="lbl">Price</span> 50 gp; <span class="lbl">Bulk</span> L</div>
+          <div class="traits-row"><span class="trait-pill">Consumable</span><span class="trait-pill">Healing</span><span class="trait-pill">Magical</span><span class="trait-pill">Potion</span></div>
+          <div class="divider"></div>
+          <div class="indented"><span class="lbl">Activate</span> Single Action; <span class="lbl">Frequency</span> —</div>
+          <div class="divider"></div>
+          <div class="prose">A healing potion is a vial of a tangy magical liquid that you can drink to regain 3d8+10 Hit Points.</div>
+          <div class="source-line">Source: <b>Player Core</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B3: ConditionDrawer -->
+    <div class="card-frame">
+      <span class="label">B3 — ConditionDrawer (with severity)</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Condition · Value 2</span><span class="title">Frightened</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="traits-row"><span class="trait-pill">Emotion</span><span class="trait-pill">Mental</span><span class="trait-pill">Fear</span></div>
+          <div class="indented"><span class="lbl">Current value</span> 2 — apply −2 status penalty</div>
+          <div class="divider"></div>
+          <div class="prose">You're gripped by fear and struggle to control your nerves. The frightened condition always includes a value. You take a status penalty equal to this value to all your checks and DCs. Unless specified otherwise, at the end of each of your turns, the value of your frightened condition decreases by 1.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B4: BackgroundDrawer -->
+    <div class="card-frame">
+      <span class="label">B4 — BackgroundDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Background</span><span class="title">Acolyte</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="traits-row"><span class="trait-pill">Common</span></div>
+          <div class="indented"><span class="lbl">Attribute Boosts</span> Intelligence or Wisdom (choose), Free</div>
+          <div class="indented"><span class="lbl">Trained Skill</span> Religion</div>
+          <div class="indented"><span class="lbl">Lore Skill</span> Scribing Lore</div>
+          <div class="indented"><span class="lbl">Skill Feat</span> Student of the Canon</div>
+          <div class="divider"></div>
+          <div class="prose">You spent your early days in a religious monastery or cloister. You may have traveled out into the world to spread the message of your religion or to lend your aid to those struggling.</div>
+          <div class="source-line">Source: <b>Player Core</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B5: ArchetypeDrawer -->
+    <div class="card-frame">
+      <span class="label">B5 — ArchetypeDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Archetype · Multiclass</span><span class="title">Marshal</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="traits-row"><span class="trait-pill">Common</span><span class="trait-pill">Archetype</span></div>
+          <div class="indented"><span class="lbl">Dedication</span> Marshal Dedication</div>
+          <div class="divider"></div>
+          <div class="prose">Marshals inspire and lead by taking decisive action on the battlefield. You'll learn to grant allies new tactical options and bonuses against your foes.</div>
+          <div class="divider"></div>
+          <div class="indented"><span class="lbl">Dedication Feats</span> Marshal Dedication (2)</div>
+          <div class="indented"><span class="lbl">Available Feats</span> Cadence Call (4), Dread Marshal Stance (4), Inspiring Marshal Stance (4), +6 more…</div>
+          <div class="source-line">Source: <b>Player Core 2</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B6: VersatileHeritageDrawer -->
+    <div class="card-frame">
+      <span class="label">B6 — VersatileHeritageDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Versatile Heritage</span><span class="title">Changeling</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="traits-row"><span class="trait-pill">Common</span></div>
+          <div class="divider"></div>
+          <div class="prose">A changeling is born from the union of a mortal and a hag. From infancy, you can hear faint whispering at the edge of your hearing — your true mother's call.</div>
+          <div class="divider"></div>
+          <div class="indented"><span class="lbl">Hag Type</span> Annis, Blood, Sea, Storm, or Winter</div>
+          <div class="indented"><span class="lbl">Granted Feats</span> Hag Claws (1), Brine Stride (5), Called (9), Hag Magic (13)</div>
+          <div class="source-line">Source: <b>Player Core 2</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B7: LanguageDrawer -->
+    <div class="card-frame">
+      <span class="label">B7 — LanguageDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Language · Common</span><span class="title">Sylvan</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="indented"><span class="lbl">Region</span> Verduran Forest, the First World</div>
+          <div class="indented"><span class="lbl">Spoken by</span> Fey, gnomes, leshys</div>
+          <div class="divider"></div>
+          <div class="prose">The language of the fey, with twisting cadences and onomatopoeic words for natural phenomena. It uses no fixed writing system.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B8: TraitDrawer -->
+    <div class="card-frame">
+      <span class="label">B8 — TraitDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Trait</span><span class="title">Backstabber</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="indented"><span class="lbl">Appears on</span> 14 items, 3 feats</div>
+          <div class="divider"></div>
+          <div class="prose">When you hit an off-guard creature with this weapon, you deal 1 precision damage in addition to the weapon's normal damage. The precision damage increases to 2 if the weapon is a +3 weapon.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B9: ContentSourceDrawer -->
+    <div class="card-frame">
+      <span class="label">B9 — ContentSourceDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Sourcebook · 2023</span><span class="title">Player Core</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="indented"><span class="lbl">Author</span> Logan Bonner, Mark Seifter</div>
+          <div class="indented"><span class="lbl">Published</span> November 15, 2023</div>
+          <div class="indented"><span class="lbl">URL</span> paizo.com/products/btq02ee2</div>
+          <div class="divider"></div>
+          <div class="prose">The Pathfinder Player Core is the essential rules reference for every player and game master.</div>
+          <div class="divider"></div>
+          <div class="indented"><span class="lbl">Contains</span> 14 ancestries · 8 classes · 412 feats · 320 spells · 86 conditions</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B10: GenericDrawer -->
+    <div class="card-frame">
+      <span class="label">B10 — GenericDrawer (fallback)</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="title">Wandering Inspiration</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="prose">No structured content for this entry — only a title and a description block. Used as a fallback when the drawer system can't resolve the type.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B11: ClassFeatureDrawer -->
+    <div class="card-frame">
+      <span class="label">B11 — ClassFeatureDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Class Feature · Lv 1</span><span class="title">Sneak Attack</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="traits-row"><span class="trait-pill">Rogue</span></div>
+          <div class="divider"></div>
+          <div class="prose">When your enemy can't properly defend itself, you take advantage to deal extra damage. If you Strike a creature with the off-guard condition with an agile or finesse melee weapon, an agile or finesse unarmed attack, or a ranged weapon attack, you deal 1d6 extra precision damage.</div>
+          <div class="divider"></div>
+          <div class="indented"><span class="lbl">Heightened</span> At 5th level, 1d6 → 2d6; at 11th, → 3d6; at 17th, → 4d6.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B12: ClassArchetypeDrawer -->
+    <div class="card-frame">
+      <span class="label">B12 — ClassArchetypeDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Class Archetype · Bard</span><span class="title">Maestro</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="traits-row"><span class="trait-pill">Bard</span><span class="trait-pill">Archetype</span></div>
+          <div class="indented"><span class="lbl">Replaces</span> Polymath muse path</div>
+          <div class="indented"><span class="lbl">Granted</span> Lingering Composition feat, Inspire Heroics at 6</div>
+          <div class="divider"></div>
+          <div class="prose">The maestro pursues musical excellence as a tradition unto itself. Through it, they connect deeply with their muse and inspire allies with longer-lasting compositions.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B13: AncestryDrawer (compact — ClassDrawer template) -->
+    <div class="card-frame">
+      <span class="label">B13 — AncestryDrawer (extends Class browser)</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Ancestry</span><span class="title">Elf</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="traits-row"><span class="trait-pill">Common</span><span class="trait-pill">Humanoid</span><span class="trait-pill">Elf</span></div>
+          <div class="prose">As an ancient people, elves have seen great change and have the perspective that can come only from watching the arc of history.</div>
+          <div class="divider"></div>
+          <div class="indented"><span class="lbl">Hit Points</span> 6</div>
+          <div class="indented"><span class="lbl">Size</span> Medium</div>
+          <div class="indented"><span class="lbl">Speed</span> 30 feet</div>
+          <div class="indented"><span class="lbl">Attribute Boosts</span> Dexterity, Intelligence, Free</div>
+          <div class="indented"><span class="lbl">Attribute Flaw</span> Constitution</div>
+          <div class="indented"><span class="lbl">Languages</span> Common, Elven</div>
+          <div class="divider"></div>
+          <div class="indented" style="font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.14em; font-size: 10.5px; color: var(--ink-3);">Heritages — 6</div>
+          <div class="indented">Arctic, Cavern, Desert, Seer, Whisper, Woodland</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B14: ActionDrawer -->
+    <div class="card-frame">
+      <span class="label">B14 — ActionDrawer (covers action/heritage/sense/physical-feature/mode)</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Action · Universal</span><span class="title">Demoralize <span class="ag"><svg viewBox="0 0 16 16"><path d="M8 1.2 L9.6 6.4 L14.8 8 L9.6 9.6 L8 14.8 L6.4 9.6 L1.2 8 L6.4 6.4 Z" fill="currentColor"/></svg></span></span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="traits-row"><span class="trait-pill">Auditory</span><span class="trait-pill">Concentrate</span><span class="trait-pill">Emotion</span><span class="trait-pill">Fear</span><span class="trait-pill">Mental</span></div>
+          <div class="indented"><span class="lbl">Skill</span> Intimidation</div>
+          <div class="indented"><span class="lbl">Requirements</span> The target is within 30 feet and can see and hear you.</div>
+          <div class="divider"></div>
+          <div class="prose">With a sudden shout, a well-timed taunt, or a cutting putdown, you can shake an enemy's resolve. Make an Intimidation check against the Will DC of the target.</div>
+          <div class="divider"></div>
+          <div class="indented"><span class="lbl">Critical Success</span> The target becomes frightened 2.</div>
+          <div class="indented"><span class="lbl">Success</span> The target becomes frightened 1.</div>
+          <div class="indented"><span class="lbl">Failure</span> No effect.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  STAT DRAWERS — extending StatAttrDrawer template            -->
+  <!-- ============================================================ -->
+  <div class="section-hd"><span class="num-tag">Section C · Stat Drawers</span><span class="title">7 variants reusing the StatHero + Breakdown template</span></div>
+  <p class="section-sub">
+    Same hero strip (computed value in big rust mono + label + Roll button when relevant) + the rows-of-modifiers breakdown table.
+    Each variant just changes which sources show up and which roll button (if any) appears.
+  </p>
+
+  <div class="grid grid-2">
+    <!-- C1: StatProfDrawer -->
+    <div class="card-frame">
+      <span class="label">C1 — StatProfDrawer (Stealth shown)</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Skill · Stealth</span><span class="title">Stealth</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="stat-hero">
+          <div class="big">+10</div>
+          <div>
+            <div class="meta">Modifier</div>
+            <div class="meta v">Expert (E) · Dex +4 · Lv 3 · Item +1</div>
+          </div>
+          <button class="roll-btn"><span class="die" style="width:5px;height:5px;border-radius:50%;background:#fff;display:inline-block;margin-right:6px;"></span>Roll</button>
+        </div>
+        <div class="breakdown">
+          <div class="br-row"><div class="k">Dexterity</div><div class="src">attribute</div><div class="v pos">+4</div></div>
+          <div class="br-row"><div class="k">Proficiency · Expert</div><div class="src">class + lvl</div><div class="v pos">+5</div></div>
+          <div class="br-row"><div class="k">Mithral chain</div><div class="src">item bonus</div><div class="v pos">+1</div></div>
+          <div class="br-row total"><div class="k">Total</div><div class="src"></div><div class="v">+10</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C2: StatHealthDrawer -->
+    <div class="card-frame">
+      <span class="label">C2 — StatHealthDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Vital · Hit Points</span><span class="title">Hit Points</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="stat-hero">
+          <div class="big">38</div>
+          <div>
+            <div class="meta">of 48 max</div>
+            <div class="meta v">Temp 0 · Dying 0 · Wounded 0</div>
+          </div>
+        </div>
+        <div class="breakdown">
+          <div class="br-row"><div class="k">Ancestry · Elf</div><div class="src">starting</div><div class="v pos">+6</div></div>
+          <div class="br-row"><div class="k">Class · Rogue</div><div class="src">8 + Con / lvl</div><div class="v pos">+30</div></div>
+          <div class="br-row"><div class="k">Constitution</div><div class="src">3 lvls × +2</div><div class="v pos">+6</div></div>
+          <div class="br-row"><div class="k">Toughness feat</div><div class="src">+1 / lvl</div><div class="v pos">+6</div></div>
+          <div class="br-row total"><div class="k">Maximum HP</div><div class="src"></div><div class="v">48</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C3: StatAcDrawer -->
+    <div class="card-frame">
+      <span class="label">C3 — StatAcDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Defense · Armor Class</span><span class="title">Armor Class</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="stat-hero">
+          <div class="big">19</div>
+          <div>
+            <div class="meta">Touch 14 · Flat-footed 17</div>
+            <div class="meta v">Mithral chain · Expert · Dex +4</div>
+          </div>
+        </div>
+        <div class="breakdown">
+          <div class="br-row"><div class="k">Base</div><div class="src">10</div><div class="v">10</div></div>
+          <div class="br-row"><div class="k">Dexterity (capped)</div><div class="src">+4 (cap 4)</div><div class="v pos">+4</div></div>
+          <div class="br-row"><div class="k">Mithral chain</div><div class="src">item</div><div class="v pos">+4</div></div>
+          <div class="br-row"><div class="k">Proficiency · Expert</div><div class="src">class + lvl</div><div class="v pos">+1</div></div>
+          <div class="br-row total"><div class="k">Total AC</div><div class="src"></div><div class="v">19</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C4: StatWeaponDrawer -->
+    <div class="card-frame">
+      <span class="label">C4 — StatWeaponDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Weapon · Martial</span><span class="title">Rapier</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="stat-hero">
+          <div class="big">+12</div>
+          <div>
+            <div class="meta">Damage 1d6+4 P</div>
+            <div class="meta v">Finesse · Deadly d8 · Disarm</div>
+          </div>
+          <button class="roll-btn">Roll</button>
+        </div>
+        <div class="breakdown">
+          <div class="br-row"><div class="k">Dexterity (finesse)</div><div class="src">attribute</div><div class="v pos">+4</div></div>
+          <div class="br-row"><div class="k">Proficiency · Expert</div><div class="src">class + lvl</div><div class="v pos">+5</div></div>
+          <div class="br-row"><div class="k">+1 weapon</div><div class="src">item potency</div><div class="v pos">+1</div></div>
+          <div class="br-row"><div class="k">Flanking</div><div class="src">circumstance</div><div class="v pos">+2</div></div>
+          <div class="br-row total"><div class="k">Attack Roll</div><div class="src"></div><div class="v">+12</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C5: StatSpeedDrawer -->
+    <div class="card-frame">
+      <span class="label">C5 — StatSpeedDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Speed · Movement</span><span class="title">Speeds</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="stat-hero">
+          <div class="big">30<span style="font-size:18px;color:var(--ink-3);"> ft</span></div>
+          <div>
+            <div class="meta">Land speed</div>
+            <div class="meta v">Climb 25 · Swim 20</div>
+          </div>
+        </div>
+        <div class="speed-list" style="padding: 12px 22px 14px;">
+          <div class="speed-row"><span class="k">Land</span><span></span><span class="v">30 ft</span></div>
+          <div class="speed-row"><span class="k">Climb</span><span></span><span class="v">25 ft</span></div>
+          <div class="speed-row"><span class="k">Swim</span><span></span><span class="v">20 ft</span></div>
+          <div class="speed-row"><span class="k">Fly</span><span></span><span class="v">—</span></div>
+          <div class="speed-row"><span class="k">Burrow</span><span></span><span class="v">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C6: StatPerceptionDrawer -->
+    <div class="card-frame">
+      <span class="label">C6 — StatPerceptionDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Vital · Perception</span><span class="title">Perception</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="stat-hero">
+          <div class="big">+9</div>
+          <div>
+            <div class="meta">Senses</div>
+            <div class="meta v">Low-Light Vision · Scent 30 ft</div>
+          </div>
+          <button class="roll-btn">Roll</button>
+        </div>
+        <div class="breakdown">
+          <div class="br-row"><div class="k">Wisdom</div><div class="src">attribute</div><div class="v pos">+2</div></div>
+          <div class="br-row"><div class="k">Proficiency · Expert</div><div class="src">class + lvl</div><div class="v pos">+5</div></div>
+          <div class="br-row"><div class="k">Eyes of the Eagle</div><div class="src">item bonus</div><div class="v pos">+2</div></div>
+          <div class="br-row total"><div class="k">Total</div><div class="src"></div><div class="v">+9</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C7: StatResistWeakDrawer -->
+    <div class="card-frame">
+      <span class="label">C7 — StatResistWeakDrawer</span>
+      <div class="drawer">
+        <div class="dr-head">
+          <div class="title-cluster"><span class="eyebrow">Defense · Resistances</span><span class="title">Resist · Weak · Immune</span></div>
+          <div class="nav-cluster">← →</div>
+        </div>
+        <div class="dr-body">
+          <div class="indented" style="font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.14em; font-size: 10.5px; color: var(--ink-3); margin: 4px 0 6px;">Resistances</div>
+          <div class="rw-row">
+            <span class="rw-chip r">Cold 5</span>
+            <span class="rw-chip r">Fire 5</span>
+            <span class="rw-chip r">Physical 3</span>
+          </div>
+          <div class="divider"></div>
+          <div class="indented" style="font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.14em; font-size: 10.5px; color: var(--ink-3); margin: 4px 0 6px;">Weaknesses</div>
+          <div class="rw-row">
+            <span class="rw-chip w">Silver 5</span>
+            <span class="rw-chip w">Good 10</span>
+          </div>
+          <div class="divider"></div>
+          <div class="indented" style="font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.14em; font-size: 10.5px; color: var(--ink-3); margin: 4px 0 6px;">Immunities</div>
+          <div class="rw-row">
+            <span class="rw-chip i">Disease</span>
+            <span class="rw-chip i">Poison</span>
+            <span class="rw-chip i">Sleep</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  ADD COMPANION POPOVER (small, anchored)                     -->
+  <!-- ============================================================ -->
+  <div class="section-hd"><span class="num-tag">Section D · Inline Popover</span><span class="title">Add Companion</span></div>
+  <p class="section-sub">Triggered from the "+ Add Companion" pill in the Companions tab switcher row above.</p>
+
+  <div class="card-frame" style="max-width: 360px;">
+    <span class="label">D1 — Add Companion popover</span>
+    <div class="drawer" style="padding: 14px;">
+      <div style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-4); font-weight: 600; margin-bottom: 8px;">Add Companion</div>
+      <div style="display: flex; gap: 6px;">
+        <select style="flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--r-2); background: var(--surface); font-size: 12px; color: var(--ink-2);">
+          <option>Animal Companion</option>
+          <option>Familiar</option>
+          <option>Eidolon</option>
+          <option>Bonded Creature</option>
+          <option>— or pick any creature —</option>
+        </select>
+        <select style="flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--r-2); background: var(--surface); font-size: 12px; color: var(--ink-2);" disabled>
+          <option>Type…</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

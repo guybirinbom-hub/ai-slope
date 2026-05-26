@@ -19,6 +19,10 @@ import './index.css';
 // pages we've migrated to the codex design language.
 import './css/codex.css';
 import './css/codex-panels.css';
+// wg4 minimalist parchment redesign. Loaded after codex.css so wg4
+// surfaces (opted in via className='wg4') override codex chrome with
+// the parchment palette + Geist fonts. See css/wg4.css comment.
+import './css/wg4.css';
 // Codex shell for the character builder Home tab (Sources step).
 // Loaded before codex-bridge.css so the bridge can still override
 // individual Mantine selectors that bleed through.
