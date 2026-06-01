@@ -1,10 +1,7 @@
-import { getContentDataFromHref } from '@common/rich_text_input/ContentLinkExtension';
-import { convertContentLink } from '@drawers/drawer-utils';
-import { Loader } from '@mantine/core';
 import { makeRequest } from '@requests/request-manager';
-import { removeQueryParam, setPageTitle } from '@utils/document-change';
+import { setPageTitle } from '@utils/document-change';
 import { useEffect, useRef } from 'react';
-import { useLoaderData, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLoaderData, useLocation, useSearchParams } from 'react-router-dom';
 
 export function Component() {
   setPageTitle(`Redirecting...`);
@@ -33,15 +30,25 @@ export function Component() {
   }, [location]);
 
   return (
-    <Loader
-      size='lg'
-      type='bars'
+    <div
+      className='wg4 wg4-screen wg4-page-root'
       style={{
-        position: 'absolute',
-        top: '30%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100dvh',
       }}
-    />
+    >
+      <div className='wg4-bars'>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div className='muted' style={{ fontStyle: 'italic' }}>
+        Taking you there…
+      </div>
+    </div>
   );
 }

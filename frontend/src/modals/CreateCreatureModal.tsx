@@ -334,8 +334,8 @@ export function CreateCreatureModal(props: {
                         scrollbars='y'
                         px='sm'
                         style={{
-                          backgroundColor: theme.colors.dark[6],
-                          border: `1px solid ${theme.colors.dark[4]}`,
+                          backgroundColor: 'var(--wg4-surface-2)',
+                          border: `1px solid var(--wg4-border-soft)`,
                           borderRadius: theme.radius.md,
                         }}
                       >
@@ -362,8 +362,8 @@ export function CreateCreatureModal(props: {
                       scrollbars='y'
                       p='sm'
                       style={{
-                        backgroundColor: theme.colors.dark[6],
-                        border: `1px solid ${theme.colors.dark[4]}`,
+                        backgroundColor: 'var(--wg4-surface-2)',
+                        border: `1px solid var(--wg4-border-soft)`,
                         borderRadius: theme.radius.md,
                       }}
                     >

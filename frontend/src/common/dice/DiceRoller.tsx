@@ -256,7 +256,7 @@ export default function DiceRoller(props: {
             .filter((group) => groupedRolls[group].length > 0)
             .sort((a, b) => groupedRolls[b][0].timestamp - groupedRolls[a][0].timestamp)
             .map((group, i) => (
-              <Paper key={i} withBorder p={3} style={{ backgroundColor: theme.colors.dark[6] + '77' }}>
+              <Paper key={i} withBorder p={3} style={{ backgroundColor: 'var(--wg4-surface-2)' }}>
                 <Group justify='space-between' align='start' wrap='nowrap' pl={5} pr={10}>
                   <Box>{getRollEntry(groupedRolls[group])}</Box>
                   <Box>
@@ -310,7 +310,7 @@ export default function DiceRoller(props: {
   const getPresetList = () => {
     const getPresetEntry = (preset: { id: string; name: string; dice: Dice[] }, includeDelete: boolean) => {
       return (
-        <Paper withBorder p={3} style={{ backgroundColor: theme.colors.dark[6] + '77' }}>
+        <Paper withBorder p={3} style={{ backgroundColor: 'var(--wg4-surface-2)' }}>
           <Group justify='space-between' align='center' wrap='nowrap' px={5}>
             <Group wrap='nowrap' gap={10}>
               <Text fz='sm'>{preset.name}</Text>

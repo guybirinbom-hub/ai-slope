@@ -738,26 +738,25 @@
    sheet to exactly viewport-minus-titlebar height, scrolling only
    happens inside the cols where it belongs. */
 .codex-sheet-root {
-  /* Pin the sheet to exactly viewport height. The `-32px` we had
-     here was an old reservation for the native Electron title bar
-     overlay — but the codex sheet renders its own .winbar in-page
-     now, and titleBarStyle: 'hidden' means there's no native chrome
-     reserved at all. Subtracting that 32px left a strip of empty
-     space at the bottom of every sheet tab that the user could
-     scroll into — fixed by just using the full viewport height. */
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
+  /* User asked for the whole main page to scroll instead of having
+     each column scroll on its own. min-height instead of height +
+     overflow: visible lets the document own the scroll — the page
+     grows tall enough to hold all content and the browser scrollbar
+     drives the view. .winbar / .topbar still pin to the top via
+     position: sticky so the chrome stays visible while scrolling. */
+  min-height: 100dvh;
+  overflow: visible;
 }
 .codex-sheet-page {
-  height: 100%;
-  min-height: 0;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
 .codex-sheet-page > .winbar,
 .codex-sheet-page > .topbar { flex: 0 0 auto; }
 .codex-sheet-page > .body { flex: 1; min-height: 0; }
+.codex-sheet-page > .winbar { position: sticky; top: 0; z-index: 30; background: var(--page); }
+.codex-sheet-page > .topbar { position: sticky; top: 36px; z-index: 29; background: var(--surface); }
 
 /* Sidebar action dock — visually integrated as another sidebar
    section. Renders as the last block in the vitals column with the

@@ -106,7 +106,7 @@ export default function TraitsDisplay(props: {
                   // @ts-ignore
                   '--badge-dot-size': trait.meta_data?.important ? undefined : 0,
                   textTransform: 'initial',
-                  color: theme.colors.dark[1],
+                  color: 'var(--wg4-ink-2)',
                   cursor: props.interactable ? 'pointer' : undefined,
                 },
               }}
@@ -161,7 +161,6 @@ export function RarityDisplay(props: {
 }
 
 export function SkillDisplay(props: { skill: string | string[]; interactable?: boolean; size?: MantineSize }) {
-  const theme = useMantineTheme();
   const skills = Array.isArray(props.skill) ? props.skill : [props.skill];
 
   return (
@@ -177,7 +176,7 @@ export function SkillDisplay(props: { skill: string | string[]; interactable?: b
               // @ts-ignore
               '--badge-dot-size': 0,
               textTransform: 'initial',
-              color: theme.colors.dark[2],
+              color: 'var(--wg4-ink-2)',
             },
           }}
         >
@@ -437,8 +436,6 @@ export function SizeDisplay(props: { pfSize: Size; interactable?: boolean; size?
 }
 
 export function TraitOverview(props: { name: string; description: string; important: boolean }) {
-  const theme = useMantineTheme();
-
   return (
     <Stack gap={5}>
       <Badge
@@ -450,7 +447,7 @@ export function TraitOverview(props: { name: string; description: string; import
             // @ts-ignore
             '--badge-dot-size': props.important ? undefined : 0,
             textTransform: 'initial',
-            color: theme.colors.dark[0],
+            color: 'var(--wg4-ink-2)',
           },
         }}
       >

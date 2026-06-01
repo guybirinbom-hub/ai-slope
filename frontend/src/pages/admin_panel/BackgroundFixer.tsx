@@ -1,6 +1,5 @@
 import { fixBackgroundContent } from '@ai/open-ai-handler';
 import { queryByName } from '@ai/vector-db/vector-manager';
-import BlurBox from '@common/BlurBox';
 import { upsertBackground } from '@content/content-creation';
 import { fetchContentSources, defineDefaultSources, fetchContent } from '@content/content-store';
 import { Center, Group, Title, Select } from '@mantine/core';
@@ -24,7 +23,7 @@ export default function BackgroundFixer() {
 
   return (
     <>
-      <BlurBox p='sm'>
+      <div className='card' style={{ padding: 12 }}>
         <Center p='sm'>
           <Group>
             <Title order={3}>Background Fixer</Title>
@@ -44,7 +43,7 @@ export default function BackgroundFixer() {
             />
           </Group>
         </Center>
-      </BlurBox>
+      </div>
     </>
   );
 }

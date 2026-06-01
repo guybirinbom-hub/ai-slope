@@ -1,5 +1,3 @@
-import { Title, Text, Button, Container, Group, Box, Textarea, Code, ScrollArea } from '@mantine/core';
-import classes from '@css/ErrorPage.module.css';
 import { setPageTitle } from '@utils/document-change';
 import { IconBrandGithub } from '@tabler/icons-react';
 import { useRouteError } from 'react-router-dom';
@@ -11,41 +9,49 @@ export function ErrorPage() {
   console.error(error);
 
   return (
-    <Box className={classes.root} h={'100dvh'}>
-      <Container>
-        <div className={classes.label}>500</div>
-        <Title className={classes.title}>We just rolled a Nat 1...</Title>
-        <Text size='lg' ta='center' className={classes.description}>
+    <div
+      className='wg4 wg4-screen wg4-page-root'
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100dvh',
+      }}
+    >
+      <div className='hero'>
+        <div className='big'>500</div>
+        <div className='ttl'>We just rolled a Nat 1...</div>
+        <p>
           Our servers could not handle your request. Please submit an issue on our GitHub repository and refresh the
           page.
-          <ScrollArea h={80} bg='#fff' mt='xs' style={{ borderRadius: '5px' }}>
-            <Text
-              size='lg'
-              ta='center'
-              p='xs'
-              style={{
-                wordBreak: 'break-all',
-              }}
-            >
-              <Code c='blue.8' bg='#fff'>
-                {error?.stack || String(error)}
-              </Code>
-            </Text>
-          </ScrollArea>
-        </Text>
-        <Group justify='center'>
-          <Button
-            leftSection={<IconBrandGithub size='1.4rem' />}
-            variant='white'
-            size='md'
-            component='a'
-            href='https://github.com/wanderers-guide/wanderers-guide/issues'
-            target='_blank'
-          >
-            GitHub Issues
-          </Button>
-        </Group>
-      </Container>
-    </Box>
+        </p>
+        <div
+          className='card'
+          style={{
+            maxWidth: 440,
+            margin: '0 auto 18px',
+            padding: '12px 14px',
+            maxHeight: 120,
+            overflowY: 'auto',
+            textAlign: 'left',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 12,
+            wordBreak: 'break-all',
+            whiteSpace: 'pre-wrap',
+          }}
+        >
+          {error?.stack || String(error)}
+        </div>
+        <a
+          className='btn'
+          href='https://github.com/wanderers-guide/wanderers-guide/issues'
+          target='_blank'
+          rel='noreferrer'
+        >
+          <IconBrandGithub size='1.1rem' />
+          GitHub Issues
+        </a>
+      </div>
+    </div>
   );
 }

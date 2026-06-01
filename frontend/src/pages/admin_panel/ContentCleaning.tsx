@@ -1,5 +1,4 @@
 // import { runItemAgent } from '@ai/agent/manager';
-import BlurBox from '@common/BlurBox';
 import { Center, Group, Title, Textarea, Button, Stack } from '@mantine/core';
 
 const ENABLED = true;
@@ -9,7 +8,7 @@ export default function ContentCleaning() {
 
   return (
     <>
-      <BlurBox p='sm'>
+      <div className='card' style={{ padding: 12 }}>
         <Center p='sm'>
           <Stack>
             <Group>
@@ -25,7 +24,7 @@ export default function ContentCleaning() {
             </Group>
           </Stack>
         </Center>
-      </BlurBox>
+      </div>
     </>
   );
 }

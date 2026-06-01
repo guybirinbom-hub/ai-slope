@@ -1,4 +1,3 @@
-import BlurBox from '@common/BlurBox';
 import { defineDefaultSources, fetchContentSources } from '@content/content-store';
 import { Center, Group, Select, Title } from '@mantine/core';
 import { CreateContentSourceModal } from '@modals/CreateContentSourceModal';
@@ -18,7 +17,7 @@ export default function EditContent() {
 
   return (
     <>
-      <BlurBox p='sm'>
+      <div className='card' style={{ padding: 12 }}>
         <Center p='sm'>
           <Group>
             <Title order={3}>Edit Content</Title>
@@ -37,7 +36,7 @@ export default function EditContent() {
             />
           </Group>
         </Center>
-      </BlurBox>
+      </div>
       {sourceId && (
         <CreateContentSourceModal opened={true} sourceId={sourceId} onClose={() => setSourceId(undefined)} />
       )}

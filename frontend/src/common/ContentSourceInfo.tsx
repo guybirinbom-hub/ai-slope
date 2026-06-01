@@ -11,7 +11,6 @@ import {
   RingProgress,
   Stack,
   Text,
-  useMantineTheme,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { makeRequest } from '@requests/request-manager';
@@ -48,8 +47,6 @@ const NOTABILITY_MAP: Record<ContentType | AbilityBlockType, number> = {
 };
 
 export function ContentSourceInfo(props: { source: ContentSource; nameCutOff?: number }) {
-  const theme = useMantineTheme();
-
   const [icon, setIcon] = useState<string>();
   useEffect(() => {
     if (icon) return;
@@ -126,7 +123,7 @@ export function ContentSourceInfo(props: { source: ContentSource; nameCutOff?: n
               radius={55}
               variant='transparent'
               color='dark.3'
-              bg={theme.colors.dark[6]}
+              bg='var(--wg4-surface-2)'
             />
           </Box>
 

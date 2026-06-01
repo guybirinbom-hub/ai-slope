@@ -1,7 +1,6 @@
 import { characterState } from '@atoms/characterAtoms';
 import { drawerState } from '@atoms/navAtoms';
 import {
-  useMantineTheme,
   Group,
   Paper,
   Stack,
@@ -62,7 +61,6 @@ export default function CreatureDetailsPanel(props: {
   panelHeight: number;
   panelWidth: number;
 }) {
-  const theme = useMantineTheme();
   const isPhone = isPhoneSized(props.panelWidth);
   const [_drawer, openDrawer] = useAtom(drawerState);
 
@@ -142,8 +140,8 @@ export default function CreatureDetailsPanel(props: {
                         cursor: 'pointer',
                       },
                       root: {
-                        border: `1px solid ${theme.colors.dark[4]}`,
-                        backgroundColor: theme.colors.dark[6],
+                        border: `1px solid var(--wg4-border-soft)`,
+                        backgroundColor: 'var(--wg4-surface-2)',
                       },
                     }}
                     onClick={() => {
@@ -181,8 +179,8 @@ export default function CreatureDetailsPanel(props: {
                         cursor: 'pointer',
                       },
                       root: {
-                        border: `1px solid ${theme.colors.dark[4]}`,
-                        backgroundColor: theme.colors.dark[6],
+                        border: `1px solid var(--wg4-border-soft)`,
+                        backgroundColor: 'var(--wg4-surface-2)',
                       },
                     }}
                     onClick={() => {

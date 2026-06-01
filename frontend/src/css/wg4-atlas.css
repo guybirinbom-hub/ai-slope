@@ -1,0 +1,887 @@
+/* wg4-atlas.css — Characters page (Codex Atlas) wg4 redesign.
+ *
+ * THIS FILE IS A PORT OF THE CANONICAL MOCKUP
+ * `D:\Inst\Characters (2).html` <style> block. Every selector is
+ * prefixed with `.wg4 ` so the rules are scoped to the Characters
+ * page (the outer wrapper is `<div className='codex-root wg4'>`) and
+ * don't bleed into other surfaces.
+ *
+ * Why the mockup tokens are re-declared at the top: the mockup expects
+ * --page, --surface, --ink, --border, etc. (un-prefixed). The wg4
+ * codex token system uses --wg4-page etc., so we declare the unprefixed
+ * aliases inside `.wg4` so the rules below resolve correctly without
+ * having to edit the entire ported block. The wg4-codex-overrides.css
+ * still provides the original --wg4-* vars on `.wg4`, so both worlds
+ * coexist.
+ *
+ * Critical compatibility note — wg4-codex-overrides.css has a catch-
+ * all rule
+ *
+ *   .wg4 [class*="-card"] { background: var(--wg4-surface) !important; }
+ *
+ * which fires on every `.ch-card`, `.ch-portrait` (no), and any descendant
+ * whose class contains "-card". To stop the catch-all painting
+ * surface bg on `.ch-info`, `.ch-foot`, `.ch-stats`, `.ch-hp-bar`,
+ * `.ch-hp-mini`, etc., we add explicit `background: transparent
+ * !important` overrides on each inner container. The outer `.ch-card`
+ * (which IS supposed to carry surface bg) and the `.ch-card.add` tile
+ * still get their backgrounds from the ported rules below.
+ */
+
+/* ────────── Mockup token aliases ──────────
+ * The mockup CSS references `var(--page)`, `var(--surface)`, etc.
+ * Redeclare them inside `.wg4` so the ported selectors below work
+ * without rewriting every var() call. Values match the mockup. */
+.wg4 {
+  --page: #e8e4d8;
+  --surface: #f6f3eb;
+  --surface-2: #efebe1;
+  --surface-hover: #ece8dd;
+  --border: #d8d3c4;
+  --border-strong: #c2bdac;
+  --border-soft: #e0dbcd;
+  --ink: #1a1a1a;
+  --ink-2: #3a3a37;
+  --ink-3: #6b6962;
+  --ink-4: #91897c;
+  --ink-5: #aea69a;
+  --accent: #b0542f;
+  --accent-soft: #ebd9cb;
+  --accent-ink: #8a3f1f;
+  --shadow-card: 0 1px 0 rgba(20,20,20,.02), 0 1px 2px rgba(20,20,20,.03);
+  --r-1: 4px;
+  --r-2: 6px;
+  --r-3: 8px;
+  --r-pill: 999px;
+  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+  --font-serif: 'Newsreader', ui-serif, Georgia, serif;
+}
+
+/* ────────── Page chrome ──────────
+ * .codex-root.wg4 paints the warm paper background. The codex.css
+ * .codex-root rule paints a dark gradient — override here so we get
+ * the parchment look. */
+.wg4.codex-root,
+.codex-root.wg4 {
+  background: var(--page) !important;
+  background-image: none !important;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+  min-height: 100vh;
+}
+
+/* ============================== SHELL ============================== */
+.wg4 .app {
+  max-width: 1680px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--page);
+}
+
+/* Winbar — top strip with brand on the left, italic subtitle center,
+ * and 3 dot buttons on the right (Electron min/max/close). */
+.wg4 .winbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 8px 18px !important;
+  font-size: 11px !important;
+  color: var(--ink-4) !important;
+  background: transparent !important;
+  border-bottom: 0 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  height: auto !important;
+  grid-template-columns: none !important;
+}
+.wg4 .winbar .brand {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 8px !important;
+}
+.wg4 .winbar .brand .mark {
+  width: 6px !important;
+  height: 6px !important;
+  background: var(--accent) !important;
+  border-radius: 2px !important;
+  transform: translateY(1px) !important;
+  box-shadow: none !important;
+  display: inline-block !important;
+}
+.wg4 .winbar .brand .name {
+  color: var(--ink-2) !important;
+  font-weight: 500 !important;
+  font-family: var(--font-sans) !important;
+}
+.wg4 .winbar .brand .name em {
+  font-family: var(--font-serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  color: var(--ink) !important;
+}
+.wg4 .winbar .center {
+  font-family: var(--font-serif) !important;
+  font-style: italic !important;
+  font-size: 12px !important;
+  color: var(--ink-3) !important;
+  letter-spacing: 0 !important;
+  text-align: center !important;
+}
+.wg4 .winbar .wbtns {
+  display: flex !important;
+  gap: 4px !important;
+  align-items: center !important;
+}
+.wg4 .winbar .wbtn {
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 50% !important;
+  background: var(--border) !important;
+  border: 0 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  color: transparent !important;
+}
+.wg4 .winbar .wbtn svg {
+  display: none !important;
+}
+.wg4 .winbar .wbtn:hover {
+  background: var(--border-strong) !important;
+}
+
+/* App header — sigil + brand name on left, hamburger on right. */
+.wg4 .app-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 24px !important;
+  border-top: 1px solid var(--border-soft) !important;
+  border-bottom: 1px solid var(--border-soft) !important;
+  background: var(--surface) !important;
+  background-image: none !important;
+  height: auto !important;
+  position: static !important;
+}
+.wg4 .app-header::after {
+  display: none !important;
+}
+.wg4 .brand-line {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 12px !important;
+  font-family: var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--ink) !important;
+  font-weight: normal !important;
+}
+.wg4 .brand-line .sigil {
+  width: 28px !important;
+  height: 28px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-radius: var(--r-1) !important;
+  font-family: var(--font-serif) !important;
+  font-style: italic !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+}
+.wg4 .brand-line .bn {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--ink) !important;
+}
+.wg4 .nav-menu {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  color: var(--ink-3);
+  cursor: pointer;
+  padding: 0;
+}
+.wg4 .nav-menu:hover { color: var(--ink); }
+.wg4 .nav-menu svg { width: 16px; height: 16px; }
+
+/* Hero strip — eyebrow + big italic title + lede. */
+.wg4 .hero {
+  padding: 48px 32px 16px !important;
+  background: transparent !important;
+  border: 0 !important;
+  position: relative !important;
+}
+.wg4 .hero::after {
+  display: none !important;
+}
+.wg4 .hero .eyebrow {
+  font-family: var(--font-sans) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.2em !important;
+  text-transform: uppercase !important;
+  color: var(--accent) !important;
+  font-weight: 600 !important;
+  margin-bottom: 10px !important;
+}
+.wg4 .hero h1 {
+  font-family: var(--font-serif) !important;
+  font-style: italic !important;
+  font-size: 64px !important;
+  font-weight: 500 !important;
+  color: var(--ink) !important;
+  margin: 0 0 12px !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1 !important;
+  text-transform: none !important;
+}
+.wg4 .hero .lede {
+  font-size: 14px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--ink-3);
+  max-width: 600px;
+  margin: 0;
+}
+
+/* Toolbar — search + segmented filter + add button. */
+.wg4 .toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 0 32px 24px;
+}
+.wg4 .toolbar .search-strip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-2);
+}
+.wg4 .toolbar .search-strip .ico {
+  color: var(--ink-4);
+  display: inline-flex;
+}
+.wg4 .toolbar .search-strip .ico svg { width: 14px; height: 14px; }
+.wg4 .toolbar .search-strip input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+  font-family: var(--font-sans);
+}
+.wg4 .toolbar .search-strip input::placeholder {
+  color: var(--ink-5);
+  font-style: italic;
+  font-family: var(--font-serif);
+}
+.wg4 .toolbar .search-strip .kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+  background: var(--surface-2);
+}
+
+.wg4 .seg {
+  display: flex;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-2);
+  overflow: hidden;
+}
+.wg4 .seg span {
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+.wg4 .seg span + span { border-left: 1px solid var(--border-soft); }
+.wg4 .seg span:hover { color: var(--ink); }
+.wg4 .seg span.on { background: var(--surface-2); color: var(--ink); }
+
+.wg4 .iconbtn {
+  min-width: 40px;
+  height: auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--r-2);
+  cursor: pointer;
+  padding: 0 14px;
+}
+.wg4 .iconbtn:hover {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+}
+.wg4 .iconbtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.wg4 .iconbtn svg { width: 14px; height: 14px; }
+
+/* ============================== GRID ============================== */
+.wg4 .grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 0 32px 60px;
+}
+@media (max-width: 1100px) {
+  .wg4 .grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 720px) {
+  .wg4 .grid { grid-template-columns: 1fr; }
+}
+
+/* ============================== CARD ============================== */
+.wg4 .ch-card {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 18px;
+  padding: 18px;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-3);
+  position: relative;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, transform .12s;
+  box-shadow: var(--shadow-card);
+}
+.wg4 .ch-card:hover {
+  background: var(--surface-2) !important;
+  border-color: var(--border-strong) !important;
+  transform: translateY(-1px);
+}
+
+/* Decorative L-corner marks (top-right and bottom-left). */
+.wg4 .ch-card .corners-tr,
+.wg4 .ch-card .corners-bl {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--accent);
+  opacity: 0.5;
+  pointer-events: none;
+  background: transparent !important;
+}
+.wg4 .ch-card .corners-tr { top: 6px; right: 6px; border-left: 0; border-bottom: 0; }
+.wg4 .ch-card .corners-bl { bottom: 6px; left: 6px; border-right: 0; border-top: 0; }
+
+/* Status ribbon. */
+.wg4 .ch-card .ribbon {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 2px 9px;
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  border-radius: 3px;
+  background: #dde6d4;
+  color: #4a6240;
+  border: 1px solid #c5d4ba;
+  line-height: 1.4;
+}
+.wg4 .ch-card .ribbon.archived {
+  background: var(--surface-2);
+  color: var(--ink-4);
+  border-color: var(--border-soft);
+}
+.wg4 .ch-card .ribbon.unfinished {
+  background: #f4e3cf;
+  color: #946431;
+  border-color: #e1c8a4;
+}
+
+/* Portrait tile — left column of the card. The catch-all
+ * `.wg4 [class*="-card"]` selector won't match because the class is
+ * `.ch-portrait` (no `-card`), but we still force `background-image`
+ * to allow the tier gradient. */
+.wg4 .ch-portrait {
+  width: 100px;
+  min-height: 130px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-2);
+  color: rgba(20,20,20,0.55);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 56px;
+  font-weight: 500;
+  position: relative;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+.wg4 .ch-portrait > span {
+  background: transparent !important;
+  color: rgba(20,20,20,0.78);
+  font-family: var(--font-serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 56px !important;
+  line-height: 1 !important;
+  padding: 0;
+  border: 0;
+}
+/* Tiered portrait colors — muted warm hues. */
+.wg4 .ch-portrait.t1 { background: linear-gradient(135deg, #e3bfb0, #cf9c8a); }
+.wg4 .ch-portrait.t2 { background: linear-gradient(135deg, #cdd3b6, #adb78d); }
+.wg4 .ch-portrait.t3 { background: linear-gradient(135deg, #d1bfd0, #b39bb2); }
+.wg4 .ch-portrait.t4 { background: linear-gradient(135deg, #b9c8d0, #93a7b3); }
+.wg4 .ch-portrait.t5 { background: linear-gradient(135deg, #c1d3c1, #9bb59c); }
+/* Level badge — circle below the portrait. */
+.wg4 .ch-portrait .level {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 26px;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  border: 2px solid var(--surface);
+}
+
+/* ────────── Right column body ──────────
+ *
+ * The wg4 catch-all `.wg4 [class*="-card"]` would paint surface bg
+ * onto .ch-card (good) but also on anything else whose class contains
+ * "-card" (we don't have any). To be safe + defeat any descendant
+ * styling from the codex.css cascade, we force transparent backgrounds
+ * on every inner container that should NOT show its own surface. */
+.wg4 .ch-info,
+.wg4 .ch-info .nm,
+.wg4 .ch-info .nm em,
+.wg4 .ch-info .descriptor,
+.wg4 .ch-info .descriptor i,
+.wg4 .ch-foot,
+.wg4 .ch-foot .l,
+.wg4 .ch-foot .r,
+.wg4 .ch-foot .l .ch-hp-mini,
+.wg4 .ch-foot .l .ch-hp-mini .pip,
+.wg4 .ch-stats .k,
+.wg4 .ch-stats .v,
+.wg4 .ch-stats .v small,
+.wg4 .ch-stats .ch-hp-bar {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.wg4 .ch-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding-right: 50px;
+}
+.wg4 .ch-info .nm {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wg4 .ch-info .nm em {
+  font-style: italic;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: -0.005em;
+  text-transform: none;
+  color: var(--ink-4);
+  margin-left: 4px;
+}
+.wg4 .ch-info .descriptor {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-4);
+  font-weight: 500;
+}
+.wg4 .ch-info .descriptor i {
+  font-style: normal;
+  color: var(--ink-5);
+  margin: 0 6px;
+}
+
+/* 3-cell stat strip — HP / Lvl / Class. Cells share a hairline border
+ * via the grid gap technique. Each cell does carry surface bg (so the
+ * "boxed in" effect appears), which is correct here — different from
+ * the rest of .ch-info. */
+.wg4 .ch-stats {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1.2fr;
+  gap: 1px;
+  background: var(--border-soft) !important;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  overflow: hidden;
+  margin-top: auto;
+}
+.wg4 .ch-stats > div {
+  background: var(--surface) !important;
+  padding: 8px 12px 10px;
+}
+.wg4 .ch-stats .k {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-4);
+  font-weight: 600;
+}
+.wg4 .ch-stats .v {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 2px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.wg4 .ch-stats .v.crim { color: var(--accent); }
+.wg4 .ch-stats .v small {
+  font-size: 11px;
+  color: var(--ink-4);
+  font-weight: 400;
+}
+.wg4 .ch-stats .v.gold {
+  color: var(--accent-ink);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.wg4 .ch-stats .ch-hp-bar {
+  margin-top: 5px;
+  height: 2px;
+  background: var(--border-soft) !important;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.wg4 .ch-stats .ch-hp-bar .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--ink-3);
+  border-radius: 999px;
+}
+.wg4 .ch-stats .ch-hp-bar .fill.full { background: var(--ink-2); }
+.wg4 .ch-stats .ch-hp-bar .fill.warn { background: var(--accent); }
+
+/* Foot row — spans both columns. Hero pips on the left, ⋯ + OPEN on
+ * the right. */
+.wg4 .ch-foot {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+.wg4 .ch-foot .l {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.wg4 .ch-foot .l .ch-hp-mini {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 2px;
+}
+.wg4 .ch-foot .l .pip {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--ink-4);
+  border-radius: 2px;
+  transform: rotate(45deg);
+  display: inline-block;
+  background: transparent;
+}
+.wg4 .ch-foot .l .pip.full {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.wg4 .ch-foot .r {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.wg4 .ch-foot .more {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--r-1);
+  cursor: pointer;
+  letter-spacing: 0;
+  padding: 0;
+}
+.wg4 .ch-foot .more:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.wg4 .ch-foot .open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-pill);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.wg4 .ch-foot .open-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.wg4 .ch-foot .open-btn .arrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* ============================== ADD CARD ============================== */
+.wg4 .ch-card.add {
+  background: transparent !important;
+  border: 1px dashed var(--border-strong) !important;
+  box-shadow: none !important;
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  text-align: center;
+  padding: 24px 24px 22px;
+  gap: 0;
+}
+.wg4 .ch-card.add:hover {
+  border-color: var(--accent) !important;
+  background: var(--surface) !important;
+  transform: translateY(-1px);
+}
+.wg4 .ch-card.add .plus {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--r-2);
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 300;
+  margin-bottom: 12px;
+  background: transparent;
+  line-height: 1;
+}
+.wg4 .ch-card.add .t {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.wg4 .ch-card.add .s {
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--ink-3);
+  margin-bottom: 16px;
+  max-width: 280px;
+}
+.wg4 .ch-card.add .actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.wg4 .ch-card.add .mini-btn {
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-pill);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.wg4 .ch-card.add .mini-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
+.wg4 ::selection {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* ────────── Empty state ──────────
+ * Shown when search yields nothing, or while loading. */
+.wg4 .grid .empty {
+  grid-column: 1 / -1;
+  padding: 60px 0;
+  text-align: center;
+  color: var(--ink-3);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 16px;
+}
+
+/* ────────── Nav menu dropdown (hamburger) ──────────
+ * Reused from the old design — sits absolutely positioned relative to
+ * the nav-menu button. */
+.wg4 .nav-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.wg4 .nav-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06);
+  z-index: 9999;
+  padding: 4px 0;
+}
+.wg4 .nav-menu-item {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.wg4 .nav-menu-item:hover {
+  background: rgba(176, 84, 47, 0.08);
+  color: var(--accent);
+}
+
+/* ────────── Right-click context menu (portaled) ──────────
+ * Portaled to <body> but the JSX wraps it in `<div className='wg4'>`
+ * so the tokens above resolve. Hex fallbacks for safety. */
+.wg4 .ch-ctxmenu,
+.ch-ctxmenu {
+  min-width: 180px;
+  background: #f6f3eb;
+  background: var(--surface, #f6f3eb);
+  border: 1px solid #d8d3c4;
+  border: 1px solid var(--border, #d8d3c4);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06);
+  padding: 4px 0;
+  z-index: 10000;
+  font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  color: #1a1a1a;
+  color: var(--ink, #1a1a1a);
+  font-size: 13px;
+}
+.wg4 .ch-ctxmenu-item,
+.ch-ctxmenu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.wg4 .ch-ctxmenu-item:hover,
+.ch-ctxmenu-item:hover {
+  background: rgba(176, 84, 47, 0.08);
+  color: var(--accent-ink);
+}
+.wg4 .ch-ctxmenu-item.danger,
+.ch-ctxmenu-item.danger {
+  color: #a83a25;
+}
+.wg4 .ch-ctxmenu-item.danger:hover,
+.ch-ctxmenu-item.danger:hover {
+  background: rgba(168, 58, 37, 0.10);
+  color: #a83a25;
+}
+.wg4 .ch-ctxmenu-divider,
+.ch-ctxmenu-divider {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 4px 0;
+}

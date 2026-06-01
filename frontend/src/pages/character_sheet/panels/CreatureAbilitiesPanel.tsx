@@ -2,7 +2,6 @@ import { drawerState } from '@atoms/navAtoms';
 import { FeatSelectionOption } from '@common/select/SelectContent';
 import {
   useMantineTheme,
-  useMantineColorScheme,
   Stack,
   Group,
   TextInput,
@@ -36,7 +35,6 @@ export default function CreatureAbilitiesPanel(props: {
 }) {
   const isPhone = useMediaQuery(phoneQuery());
   const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQueryDebounced] = useDebouncedValue(searchQuery, 200);
   const [_drawer, openDrawer] = useAtom(drawerState);
@@ -103,7 +101,7 @@ export default function CreatureAbilitiesPanel(props: {
             onChange={(event) => setSearchQuery(event.target.value)}
             styles={{
               input: {
-                backgroundColor: colorScheme === 'dark' ? theme.colors.dark[7] : theme.colors.gray[1],
+                backgroundColor: 'var(--wg4-surface-2)',
                 borderColor: searchQuery.trim().length > 0 ? theme.colors['guide'][8] : undefined,
               },
             }}
@@ -148,7 +146,7 @@ export default function CreatureAbilitiesPanel(props: {
                   }}
                 >
                   <Stack gap={0}>
-                    <Divider color='dark.6' />
+                    <Divider color='var(--wg4-border-soft)' />
                     {data.baseAbilities.map((ability, index) => (
                       <FeatSelectionOption
                         key={index}
@@ -183,7 +181,7 @@ export default function CreatureAbilitiesPanel(props: {
                   }}
                 >
                   <Stack gap={0}>
-                    <Divider color='dark.6' />
+                    <Divider color='var(--wg4-border-soft)' />
                     {data.addedAbilities.map((ability, index) => (
                       <FeatSelectionOption
                         key={index}
@@ -218,7 +216,7 @@ export default function CreatureAbilitiesPanel(props: {
                   }}
                 >
                   <Stack gap={0}>
-                    <Divider color='dark.6' />
+                    <Divider color='var(--wg4-border-soft)' />
                     {data.otherAbilities.map((ability, index) => (
                       <FeatSelectionOption
                         key={index}

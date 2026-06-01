@@ -121,6 +121,9 @@ export default function InventoryPanel(props: {
     openContextModal({
       modal: 'addItems',
       size: 1500,
+      // Near-opaque overlay — keeps the inventory page underneath
+      // from bleeding through. Matches Manage Spells.
+      overlayProps: { backgroundOpacity: 0.85, blur: 3 },
       title: (
         <Group wrap='nowrap' gap={20} justify='space-between'>
           <Title order={3}>Add Items</Title>
@@ -190,7 +193,7 @@ export default function InventoryPanel(props: {
           }
         },
       },
-      zIndex: props.zIndex ?? 499,
+      zIndex: props.zIndex ?? 1100,
       styles: {
         title: {
           width: '100%',

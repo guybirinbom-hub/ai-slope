@@ -44,6 +44,46 @@ import './css/wg4.css';
 // gold glow in codex.css + codex-panels.css that the var remap can't
 // reach. Loaded last so these rules always win on .wg4 surfaces.
 import './css/wg4-codex-overrides.css';
+// Design CSS extracted from D:/Inst/Character Sheet.html — the canonical
+// wg4 mockup. Wrapped in @scope (.codex-root.wg4) so it only applies on
+// the character-sheet surface and inherits the CSS variables from the
+// scope root rather than :root.
+import './css/wg4-character-sheet.css';
+// Additional wg4 styles (act-card aliases, panel-specific tweaks).
+// Loaded LAST so it can fine-tune anything from the design CSS.
+import './css/wg4-sheet.css';
+// Drawer styling extracted from D:/Inst/Drawer Designs.html — applies
+// the design's drawer chrome, stat-hero, breakdown, hero-tile,
+// item-hero, coin-row, creature-stats, strike-row styles. Spell slot
+// picker (.slot-row) is excluded per request.
+import './css/wg4-drawers.css';
+// Modal styling extracted from D:/Inst/wg4/modals.jsx (the modalStyles
+// template literal). Applies design styling to confirm modals, picker
+// modals, the addItems modal, manage-spells modal, encounter generator,
+// operations editor, etc. — everything that opens as a Mantine Modal.
+import './css/wg4-modals.css';
+// Character Builder + Home redesign — ported verbatim from
+// D:/Inst/Character Builder.html. Scoped to .codex-home-page /
+// .codex-builder-page surfaces; tokens are aliased from --wg4-* so
+// the entire builder/home flow lives in the wg4 parchment vocabulary.
+import './css/wg4-builder.css';
+// Create / Edit Item modal redesign — ported from D:/Inst/Edit Item.html.
+// Scoped to .codex-edit-item; tokens come from the wg4 root.
+import './css/wg4-edit-item.css';
+// Characters page (Codex Atlas) wg4 redesign — parchment landing
+// page with the big italic Newsreader title block, search/filter
+// toolbar, 3-column character card grid, and the "Forge a New Hero"
+// tile at the end of the grid. Scoped under `.codex-atlas`.
+import './css/wg4-atlas.css';
+// Companion sheet wg4 redesign — single-page PF2e stat block ("Version
+// B") followed by the heavier interactive panels inline (no
+// collapsibles). Scoped under `.codex-companion`.
+import './css/wg4-companion.css';
+// wg4 reskin of the previously-dark screens (Account, Homebrew, Stat-Block
+// viewer, Content tools, Admin, OAuth, Error/404/401, redirects, window
+// bar, Spotlight) + dark-patch components. Component styles ported
+// verbatim from proposals/wg4-redesigns.html, scoped under `.wg4-screen`.
+import './css/wg4-screens.css';
 import { ErrorPage } from './pages/ErrorPage.tsx';
 import { MantineProvider } from '@mantine/core';
 

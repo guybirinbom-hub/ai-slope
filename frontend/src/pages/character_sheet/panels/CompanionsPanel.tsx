@@ -22,26 +22,43 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 import { confirmHealth } from '../entity-handler';
 import { DisplayIcon } from '@common/IconDisplay';
-import { IconChevronDown, IconPlus, IconTrash } from '@tabler/icons-react';
-import { cloneDeep } from 'lodash-es';
+import { IconPlus, IconTrash, IconPencil, IconLayoutList } from '@tabler/icons-react';
+import { cloneDeep, flattenDeep } from 'lodash-es';
 import { executeOperations } from '@operations/operations.main';
+import { collectEntityAbilityBlocks } from '@content/collect-content';
+import RichText from '@common/RichText';
+import { Wg4 } from '@common/wg4/primitives';
 import { addExtraItems, checkBulkLimit } from '@items/inv-handlers';
-import { applyEquipmentPenalties, getBestArmor } from '@items/inv-utils';
+import {
+  applyEquipmentPenalties,
+  getBestArmor,
+  isItemWeapon,
+  isItemRangedWeapon,
+  isHandwrapsOfMightyBlows,
+  getEquippedHandwrapsRunes,
+  applyHandwrapsToUnarmed,
+} from '@items/inv-utils';
+import { getWeaponStats, parseOtherDamage } from '@items/weapon-handler';
 import { applyConditions } from '@conditions/condition-handler';
 import { modals } from '@mantine/modals';
 import { selectContent } from '@common/select/SelectContent';
 import { getEntityLevel } from '@utils/entity-utils';
-import { IMPRINT_BG_COLOR, IMPRINT_BG_COLOR_HOVER, IMPRINT_BORDER_COLOR } from '@constants/data';
+import { IMPRINT_BG_COLOR, IMPRINT_BORDER_COLOR } from '@constants/data';
 import { convertToSetEntity } from '@utils/type-fixing';
 import { getFinalAcValue, getFinalHealthValue, getFinalProfValue } from '@variables/variable-helpers';
-import { getAllSpeedVariables, getVariable } from '@variables/variable-manager';
-import { labelToVariable } from '@variables/variable-utils';
-import { getCachedContent } from '@content/content-store';
+import { getAllSkillVariables, getAllSpeedVariables, getVariable } from '@variables/variable-manager';
+import { compileProficiencyType, labelToVariable, variableToLabel } from '@variables/variable-utils';
+import { getCachedContent, getContentFast } from '@content/content-store';
 import { drawerState } from '@atoms/navAtoms';
 import type { VariableAttr, VariableListStr } from '@schemas/variables';
 import { sign } from '@utils/numbers';
 
 import { ConditionPills } from '../sections/ConditionSection';
+// Configuration panels — rendered only in the companion's "Edit" mode
+// (see CompanionSheet). The default view is the clean Version B stat
+// block; Edit swaps in these full editors so the player can actually
+// configure the companion (attacks/inventory, spells, abilities,
+// details, notes).
 import SkillsActionsPanel from './SkillsActionsPanel';
 import CreatureAbilitiesPanel from './CreatureAbilitiesPanel';
 import InventoryPanel from './InventoryPanel';
@@ -53,20 +70,41 @@ import CreatureDetailsPanel from './CreatureDetailsPanel';
  *  CompanionsPanel
  *  - 0 companions: centered Add Companion picker only
  *  - 1+ companions: pill switcher + outline "+ Add Companion" button
- *    on top, full sheet for the selected companion below. Every
- *    section of the sheet is its own custom collapsible (gold caret +
- *    caps label + optional hint text). Top stat sections render as
- *    cube grids matching the approved mockup. Heavier panels (Skills,
- *    Abilities, Inventory, Spells, Description, Notes) render the
- *    existing rich Mantine panel components inside the collapsible
- *    body so all the functionality keeps working.
+ *    on top, then the selected companion as a single PF2e-style stat
+ *    block ("Version B" — proposals/companion-mockup.html #view-b).
+ *    One parchment card: header, trait ribbon, then reading-flow stat
+ *    lines (Perception/senses, trained Skills, attribute strip,
+ *    AC/saves, HP, Speed, Conditions), Melee/Ranged strikes, and a
+ *    compact Abilities list. Abilities are paragraph cards (name +
+ *    action glyph + serif description) that open the standard action
+ *    drawer on click. No heavy interactive sub-panels — the whole
+ *    companion reads at a glance like a bestiary entry.
  *
  *  Sheet is NOT wrapped in its own scroll container — the parent
  *  `.codex-tab-body` already does overflow-y:auto with min-height:0,
- *  so we just lay out children and let that scroll. (The previous
- *  pass wrapped everything in a fixed-height ScrollArea which left a
- *  big black gap below the content.)
+ *  so we just lay out children and let that scroll.
  * ─────────────────────────────────────────────────────────────────── */
+
+// Generic companion "build scaffolding" — auto-granted chassis features
+// whose only effect is to plumb stats the stat block already shows as
+// numbers (proficiencies, attributes, skills). They're build-time
+// bookkeeping ("things the player chooses for the companion"), not
+// abilities the creature *does*, so the stat block hides them.
+//
+// Attribute Boosts / Skill Increase / feat slots are class-features that
+// collectEntityAbilityBlocks' `filterBasicClassFeatures` already drops;
+// the entries below are the FEAT-type plumbing it doesn't reach, shared
+// across companion types (eidolon chassis + animal-companion advancement).
+// Anything literally named "… Advancement" is also treated as scaffolding
+// via a regex at the call site, which covers Mature/Nimble/Savage/
+// Specialized advancement and any homebrew advancement line.
+const COMPANION_SCAFFOLDING_NAMES = new Set([
+  'eidolon skills',
+  'eidolon advancement',
+  'attribute boosts',
+  'ability boosts',
+  'skill increase',
+]);
 
 export default function CompanionsPanel(props: { panelHeight: number; panelWidth: number }) {
   const [character, setCharacter] = useAtom(characterState);
@@ -135,18 +173,11 @@ export default function CompanionsPanel(props: { panelHeight: number; panelWidth
   };
 
   return (
-    <Stack gap={12} style={{ flex: 1, minHeight: 0 }}>
-      {/* Switcher row — pills + Add button (matches mockup Option A) */}
-      <Group
-        wrap='nowrap'
-        gap={8}
-        px={4}
-        py={4}
-        style={{
-          borderBottom: `1px solid ${IMPRINT_BORDER_COLOR}`,
-          background: 'linear-gradient(180deg, rgba(176,84,47,.04) 0%, transparent 100%)',
-        }}
-      >
+    <Stack className='codex-companion-tab' gap={12} style={{ flex: 1, minHeight: 0 }}>
+      {/* Sticky management bar — switch between companions + add a new
+          one. Sticky to the top of the scrolling tab body so it stays
+          reachable while the stat block scrolls under it. */}
+      <div className='cmp-switchbar'>
         <ScrollArea scrollbars='x' style={{ flex: 1, minWidth: 0 }} type='never'>
           <Group gap={6} wrap='nowrap'>
             {companions.map((c, i) => (
@@ -160,7 +191,7 @@ export default function CompanionsPanel(props: { panelHeight: number; panelWidth
           </Group>
         </ScrollArea>
         <AddCompanionButton />
-      </Group>
+      </div>
 
       <CompanionSheet
         key={`companion-sheet-${selectedIndex}-${selected.id}`}
@@ -178,45 +209,22 @@ export default function CompanionsPanel(props: { panelHeight: number; panelWidth
 /* ─── Switcher pill ──────────────────────────────────────────────── */
 
 function CompanionPill(props: { companion: Creature; active: boolean; onClick: () => void }) {
-  const [hovered, setHovered] = useState(false);
   return (
-    <Box
+    <button
+      type='button'
+      className={props.active ? 'cmp-pill active' : 'cmp-pill'}
       onClick={props.onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '4px 12px 4px 4px',
-        borderRadius: 999,
-        background: props.active
-          ? 'rgba(176,84,47,.10)'
-          : hovered
-            ? IMPRINT_BG_COLOR_HOVER
-            : IMPRINT_BG_COLOR,
-        border: `1px solid ${props.active ? 'var(--gold-deep, #8a6f25)' : IMPRINT_BORDER_COLOR}`,
-        boxShadow: props.active ? '0 0 0 1px var(--gold-deep, #8a6f25)' : 'none',
-        color: props.active ? 'var(--ink, #ede4ce)' : 'var(--ink-dim, #c3b69a)',
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-        transition: 'all .15s',
-      }}
     >
-      <Box style={{ width: 26, height: 26, flex: '0 0 26px' }}>
+      <span className='cmp-pill-av'>
         <DisplayIcon
           strValue={props.companion.details?.image_url ?? 'icon|||avatar|||#373A40'}
-          width={26}
-          iconStyles={{ objectFit: 'contain', height: 26 }}
+          width={24}
+          iconStyles={{ objectFit: 'contain', height: 24 }}
         />
-      </Box>
-      <Text fz='sm' fw={500} span>
-        {props.companion.name}
-      </Text>
-      <Text fz='xs' c='dimmed' span>
-        · Lv {getEntityLevel(props.companion)}
-      </Text>
-    </Box>
+      </span>
+      <span className='cmp-pill-nm'>{props.companion.name}</span>
+      <span className='cmp-pill-lv'>Lv {getEntityLevel(props.companion)}</span>
+    </button>
   );
 }
 
@@ -224,7 +232,6 @@ function CompanionPill(props: { companion: Creature; active: boolean; onClick: (
 
 function AddCompanionButton() {
   const [opened, setOpened] = useState(false);
-  const [hovered, setHovered] = useState(false);
   return (
     <Popover
       opened={opened}
@@ -235,162 +242,18 @@ function AddCompanionButton() {
       zIndex={400}
     >
       <Popover.Target>
-        <Box
-          onClick={() => setOpened((o) => !o)}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '6px 14px',
-            borderRadius: 999,
-            background: hovered ? 'rgba(176,84,47,.08)' : 'transparent',
-            border: `1px solid var(--gold-deep, #8a6f25)`,
-            color: 'var(--gold-bright, #e8c557)',
-            cursor: 'pointer',
-            fontSize: 13,
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            transition: 'all .15s',
-          }}
-        >
-          <IconPlus size='1rem' stroke={2} />
+        <button type='button' className='cmp-add' onClick={() => setOpened((o) => !o)}>
+          <IconPlus size='1rem' stroke={2.2} />
           <span>Add Companion</span>
-        </Box>
+        </button>
       </Popover.Target>
-      <Popover.Dropdown p={6} style={{ background: 'var(--bg-2, #1c1710)', border: `1px solid ${IMPRINT_BORDER_COLOR}` }}>
+      <Popover.Dropdown
+        className='cmp-add-pop'
+        p={8}
+      >
         <AddCompanionSection compact onAdded={() => setOpened(false)} />
       </Popover.Dropdown>
     </Popover>
-  );
-}
-
-/* ─── Custom collapsible section — gold caret + caps title + hint ── */
-
-function CollapsibleSection(props: {
-  title: string;
-  hint?: React.ReactNode;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(props.defaultOpen ?? false);
-
-  return (
-    <Box
-      style={{
-        borderTop: `1px solid ${IMPRINT_BORDER_COLOR}`,
-      }}
-    >
-      <Box
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '10px 4px',
-          cursor: 'pointer',
-          color: 'var(--ink, #ede4ce)',
-          fontSize: 13,
-          fontWeight: 600,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          userSelect: 'none',
-        }}
-      >
-        <IconChevronDown
-          size='0.85rem'
-          stroke={2.5}
-          style={{
-            color: 'var(--gold-bright, #e8c557)',
-            transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
-            transition: 'transform .15s',
-          }}
-        />
-        <Box style={{ flex: 1 }}>{props.title}</Box>
-        {props.hint && (
-          <Text
-            fz='xs'
-            c='dimmed'
-            style={{
-              fontWeight: 400,
-              textTransform: 'none',
-              letterSpacing: 0,
-            }}
-          >
-            {props.hint}
-          </Text>
-        )}
-      </Box>
-      {open && <Box style={{ padding: '4px 4px 14px' }}>{props.children}</Box>}
-    </Box>
-  );
-}
-
-/* ─── Cube cells ─────────────────────────────────────────────────── */
-
-function Cube(props: { label: string; value: React.ReactNode; gold?: boolean; small?: boolean }) {
-  return (
-    <Box
-      style={{
-        background: IMPRINT_BG_COLOR,
-        border: `1px solid ${IMPRINT_BORDER_COLOR}`,
-        borderRadius: 8,
-        padding: '8px 10px',
-        textAlign: 'center',
-      }}
-    >
-      <Text
-        fz='10px'
-        c='dimmed'
-        style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}
-      >
-        {props.label}
-      </Text>
-      <Text
-        c={props.gold ? 'var(--gold-bright, #e8c557)' : 'var(--ink, #ede4ce)'}
-        fw={700}
-        ff='Cinzel, serif'
-        style={{
-          fontSize: props.small ? 14 : 18,
-          lineHeight: 1.1,
-          marginTop: 2,
-        }}
-      >
-        {props.value}
-      </Text>
-    </Box>
-  );
-}
-
-function AttrCube(props: { label: string; value: number; partial?: boolean }) {
-  return (
-    <Box
-      style={{
-        background: IMPRINT_BG_COLOR,
-        border: `1px solid ${IMPRINT_BORDER_COLOR}`,
-        borderRadius: 6,
-        padding: '6px 4px',
-        textAlign: 'center',
-      }}
-    >
-      <Text
-        fz='9px'
-        c='dimmed'
-        style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}
-      >
-        {props.label}
-      </Text>
-      <Text
-        c='var(--ink, #ede4ce)'
-        fw={700}
-        ff='Cinzel, serif'
-        td={props.partial ? 'underline' : undefined}
-        style={{ fontSize: 16, lineHeight: 1.1, marginTop: 2 }}
-      >
-        {sign(props.value)}
-      </Text>
-    </Box>
   );
 }
 
@@ -409,6 +272,10 @@ function CompanionSheet(props: {
   const [creature, setCreature] = useState<Creature | null>(() => cloneDeep(props.companion));
   const [loading, setLoading] = useState(true);
   const [_drawer, openDrawer] = useAtom(drawerState);
+  // View vs configure. Default = the clean Version B stat block; Edit
+  // swaps in the full configuration panels so the player can choose the
+  // companion's attacks/inventory, spells, abilities, details and notes.
+  const [editMode, setEditMode] = useState(false);
 
   // Debounced upstream push so HP / conditions / inventory edits land
   // in character.companions.list.
@@ -488,7 +355,18 @@ function CompanionSheet(props: {
   const maxHp = getFinalHealthValue(STORE_ID);
   const currentHp = creature.hp_current ?? maxHp;
   const tempHp = creature.hp_temp ?? 0;
-  const hpFrac = maxHp > 0 ? Math.max(0, Math.min(1, currentHp / maxHp)) : 0;
+
+  // ── Companion type → adaptive display flags ───────────────────────
+  // determineCompanionType returns the companion-type trait name
+  // verbatim ("Animal Companion", "Familiar", "Eidolon", "Construct")
+  // or "Creature" as a fallback. Match case-insensitively since the
+  // exact casing comes from content rows that may vary by bundle.
+  // These flags only gate DISPLAY — the stat-computation pipeline
+  // (executeOperations / the variable store) is untouched.
+  const companionType = determineCompanionType(creature) || 'Creature';
+  const companionTypeLc = companionType.toLowerCase();
+  const isFamiliar = companionTypeLc.includes('familiar');
+  const isEidolon = companionTypeLc.includes('eidolon');
 
   // Attributes (mockup order: Str/Dex/Con/Int/Wis/Cha)
   const attrs: { label: string; value: number; partial: boolean }[] = (
@@ -556,256 +434,469 @@ function CompanionSheet(props: {
     }
   };
 
-  // Helpers (parses "+9" / "-2" / "0" → number for cube display)
-  const profNum = (s: string | number | undefined) => {
-    if (typeof s === 'number') return s;
-    const n = parseInt(String(s ?? '').replace(/^\+/, ''));
-    return isNaN(n) ? 0 : n;
+  // ── Trait ribbon ──────────────────────────────────────────────────
+  // Resolve the creature's giveTrait operations to Trait rows so the
+  // ribbon shows real names. The size trait (Tiny..Gargantuan) is
+  // highlighted with `.size`; everything else renders plain.
+  const SIZE_TRAIT_NAMES = new Set([
+    'tiny',
+    'small',
+    'medium',
+    'large',
+    'huge',
+    'gargantuan',
+  ]);
+  const traitRows = getContentFast<Trait>('trait', findCreatureTraits(creature)).sort((a, b) => {
+    // Size first (so the highlighted chip leads, matching the mockup).
+    const aSize = SIZE_TRAIT_NAMES.has(a.name.toLowerCase());
+    const bSize = SIZE_TRAIT_NAMES.has(b.name.toLowerCase());
+    if (aSize !== bSize) return aSize ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  // ── Inline trained skills ─────────────────────────────────────────
+  // Same source the SkillsActionsPanel uses (getAllSkillVariables),
+  // limited to skills the creature is actually trained in (proficiency
+  // above Untrained) so the line stays compact. getFinalProfValue gives
+  // the plain "+N" string for inline display.
+  const skillRows = getAllSkillVariables(STORE_ID)
+    .filter((skill) => skill.name !== 'SKILL_LORE____')
+    .filter((skill) => compileProficiencyType(skill.value) !== 'U')
+    .map((skill) => ({
+      name: variableToLabel(skill),
+      mod: getFinalProfValue(STORE_ID, skill.name),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // ── Strikes ───────────────────────────────────────────────────────
+  // Mirror SkillsActionsPanel.weaponAttacks: equipped weapons, with
+  // Handwraps of Mighty Blows folded into unarmed attacks, run through
+  // getWeaponStats. Split into Melee / Ranged for the stat-block subs.
+  const wrapsRunes = getEquippedHandwrapsRunes(creature.inventory);
+  const strikeItems = (creature.inventory?.items ?? [])
+    .filter(
+      (invItem) =>
+        invItem.is_equipped &&
+        isItemWeapon(invItem.item) &&
+        !isHandwrapsOfMightyBlows(invItem.item)
+    )
+    .map((invItem) => applyHandwrapsToUnarmed(invItem.item, wrapsRunes))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((item) => {
+      const stats = getWeaponStats(STORE_ID, item);
+      const traitNames = getContentFast<Trait>('trait', item.traits ?? [])
+        .map((t) => t.name.toLowerCase())
+        .filter((n) => n.length > 0);
+      if (isItemRangedWeapon(item)) {
+        if (item.meta_data?.range) traitNames.push(`range ${item.meta_data.range} ft`);
+        if (item.meta_data?.reload)
+          traitNames.push(`reload ${String(item.meta_data.reload).replace(/reload/i, '').trim()}`);
+      }
+      const bonus = stats.damage.bonus.total > 0 ? ` + ${stats.damage.bonus.total}` : '';
+      const damage = `${stats.damage.dice}${stats.damage.die}${bonus}`;
+      return {
+        ranged: isItemRangedWeapon(item),
+        name: item.name,
+        toHit: stats.attack_bonus.total[0],
+        traits: traitNames,
+        damageDice: damage,
+        damageType: stats.damage.damageType,
+        damageOther: parseOtherDamage(stats.damage.other).join(''),
+        damageExtra: stats.damage.extra ? ` + ${stats.damage.extra}` : '',
+      };
+    });
+  const meleeStrikes = strikeItems.filter((s) => !s.ranged);
+  const rangedStrikes = strikeItems.filter((s) => s.ranged);
+
+  // ── Abilities (compact) ───────────────────────────────────────────
+  // Every ability block the creature has, flattened across the collected
+  // buckets (base + added + any feats/features granted via operations),
+  // deduped by id, then sorted by level → name for clean stat-block
+  // reading order.
+  //
+  // We deliberately DROP the companion "build scaffolding" — the generic
+  // chassis features that only plumb stats the block already shows (see
+  // COMPANION_SCAFFOLDING_NAMES). `filterBasicClassFeatures` removes the
+  // class-feature plumbing (Attribute Boosts, Skill Increase, feat slots);
+  // the name/`Advancement` predicate removes the feat-type plumbing
+  // (Eidolon Advancement/Skills, Mature/Nimble/Savage/Specialized
+  // Advancement). Real granted abilities — Spirit Touch, Hidden Watcher,
+  // Support, a familiar's chosen abilities — all survive.
+  const isBuildScaffolding = (ab: AbilityBlock) => {
+    const n = ab.name.trim().toLowerCase();
+    return /\badvancement\b/.test(n) || COMPANION_SCAFFOLDING_NAMES.has(n);
   };
+  const abilityBlocks = (() => {
+    const all = flattenDeep(
+      Object.values(
+        collectEntityAbilityBlocks(STORE_ID, creature, content.abilityBlocks, {
+          filterBasicClassFeatures: true,
+        })
+      )
+    ) as AbilityBlock[];
+    const seen = new Set<number>();
+    const out: AbilityBlock[] = [];
+    for (const ab of all) {
+      if (!ab || seen.has(ab.id) || isBuildScaffolding(ab)) continue;
+      seen.add(ab.id);
+      out.push(ab);
+    }
+    return out.sort(
+      (a, b) => (a.level ?? 0) - (b.level ?? 0) || a.name.localeCompare(b.name)
+    );
+  })();
+
+  const renderStrike = (s: (typeof strikeItems)[number], i: number) => (
+    <div className='cmp-strike' key={`${s.name}-${i}`}>
+      <span className='lab'>{'◆'} {s.name}</span> <span className='acc'>{sign(s.toHit)}</span>{' '}
+      {s.traits.length > 0 && <span className='traits'>({s.traits.join(', ')})</span>}
+      {s.traits.length > 0 ? ', ' : ' '}
+      <b>Damage</b> <span className='mono'>{s.damageDice}</span> {s.damageType}
+      {s.damageOther}
+      {s.damageExtra}
+    </div>
+  );
 
   return (
-    <Stack gap={0} style={{ flex: 1, minHeight: 0 }}>
-      {/* Header row */}
-      <Group
-        justify='space-between'
-        wrap='nowrap'
-        py={8}
-        px={4}
-        style={{ borderBottom: `1px solid ${IMPRINT_BORDER_COLOR}` }}
-      >
-        <Group wrap='nowrap' gap={12}>
-          <Box style={{ width: 58, height: 58 }}>
-            <DisplayIcon
-              strValue={creature.details?.image_url ?? 'icon|||avatar|||#373A40'}
-              width={58}
-              iconStyles={{ objectFit: 'contain', height: 58 }}
-            />
-          </Box>
-          <Box>
-            <Title order={3} style={{ fontFamily: 'Cinzel, serif' }}>
-              {creature.name}
-            </Title>
-            <Text c='dimmed' fz='xs' style={{ letterSpacing: '0.04em' }}>
-              {determineCompanionType(creature) || 'Creature'}{' '}
-              <span style={{ color: 'var(--gold, #c9a13b)' }}>·</span> Level{' '}
-              {getEntityLevel(creature)}
-            </Text>
-          </Box>
-        </Group>
-        <Tooltip label='Delete Companion'>
-          <ActionIcon variant='subtle' color='red' onClick={props.onRemove} aria-label='Delete Companion'>
-            <IconTrash size='1.1rem' />
-          </ActionIcon>
-        </Tooltip>
-      </Group>
-
-      {/* Health & Conditions */}
-      <CollapsibleSection
-        title='Health & Conditions'
-        defaultOpen
-        hint={`${currentHp} / ${maxHp} HP${tempHp > 0 ? `  +${tempHp} temp` : ''}`}
-      >
-        <Stack gap={8}>
-          {/* HP bar */}
-          <Group
-            wrap='nowrap'
-            gap={10}
-            style={{
-              background: IMPRINT_BG_COLOR,
-              border: `1px solid ${IMPRINT_BORDER_COLOR}`,
-              borderRadius: 8,
-              padding: '8px 12px',
-            }}
-          >
-            <Text fz='11px' c='dimmed' style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              HP
-            </Text>
-            <Text fw={700} ff='Cinzel, serif' fz='md' c='var(--ink, #ede4ce)'>
-              {currentHp}
-            </Text>
-            <Box
-              style={{
-                flex: 1,
-                height: 8,
-                background: 'rgba(0,0,0,.4)',
-                borderRadius: 4,
-                overflow: 'hidden',
-                border: `1px solid ${IMPRINT_BORDER_COLOR}`,
-              }}
-            >
-              <Box
-                style={{
-                  height: '100%',
-                  width: `${hpFrac * 100}%`,
-                  background: 'linear-gradient(90deg, #6b8e23, #94a85b)',
-                  transition: 'width .25s',
-                }}
+    <div className='codex-companion'>
+      {/* ═══ PF2e-style stat block ═══ */}
+      <div className='cmp-block'>
+        {/* Header — portrait + italic name + rust level tag + delete */}
+        <div className='cmp-head'>
+          <div className='cmp-head-l'>
+            <div className='cmp-portrait'>
+              <DisplayIcon
+                strValue={creature.details?.image_url ?? 'icon|||avatar|||#373A40'}
+                width={46}
+                iconStyles={{ objectFit: 'contain', height: 46 }}
               />
-            </Box>
-            <Text fw={700} ff='Cinzel, serif' fz='md' c='var(--ink-dim, #c3b69a)'>
-              {maxHp}
-            </Text>
-          </Group>
-          {/* Conditions row */}
-          <Box>
-            <ConditionPills id={STORE_ID} entity={creature} setEntity={setEntity} />
-          </Box>
-        </Stack>
-      </CollapsibleSection>
+            </div>
+            <h2 className='cmp-name'>{creature.name}</h2>
+          </div>
+          <div className='cmp-head-r'>
+            <span className='cmp-lvtag'>
+              {companionType} · Level {getEntityLevel(creature)}
+            </span>
+            <Tooltip label={editMode ? 'Back to stat block' : 'Edit / configure companion'}>
+              <button
+                type='button'
+                className={editMode ? 'cmp-edit active' : 'cmp-edit'}
+                onClick={() => setEditMode((e) => !e)}
+                aria-label={editMode ? 'Back to stat block' : 'Edit companion'}
+              >
+                {editMode ? <IconLayoutList size='0.85rem' /> : <IconPencil size='0.85rem' />}
+                <span>{editMode ? 'Done' : 'Edit'}</span>
+              </button>
+            </Tooltip>
+            <Tooltip label='Delete Companion'>
+              <ActionIcon
+                className='cmp-del'
+                variant='transparent'
+                onClick={props.onRemove}
+                aria-label='Delete Companion'
+              >
+                <IconTrash size='1rem' />
+              </ActionIcon>
+            </Tooltip>
+          </div>
+        </div>
 
-      {/* Defenses — 6-cube grid */}
-      <CollapsibleSection
-        title='Defenses'
-        defaultOpen
-        hint={`AC ${ac} · Fort ${fort} · Ref ${ref} · Will ${will}`}
-      >
-        <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-          <Cube label='AC' value={ac} gold />
-          <Cube label='Fortitude' value={sign(profNum(fort))} />
-          <Cube label='Reflex' value={sign(profNum(ref))} />
-          <Cube label='Will' value={sign(profNum(will))} />
-          <Cube label='Perception' value={sign(profNum(perception))} />
-          <Cube
-            label='Speed'
-            value={speeds.length > 0 ? `${speeds[0].value} ft` : '—'}
-            small
-          />
-        </Box>
-      </CollapsibleSection>
+        {/* ── Stat-block view (default) ──────────────────────────── */}
+        {!editMode && (
+          <>
+        {/* Trait ribbon — size highlighted */}
+        {traitRows.length > 0 && (
+          <div className='cmp-traits'>
+            {traitRows.map((t) => (
+              <span
+                key={t.id}
+                className={
+                  SIZE_TRAIT_NAMES.has(t.name.toLowerCase()) ? 'cmp-trait size' : 'cmp-trait'
+                }
+              >
+                {t.name}
+              </span>
+            ))}
+          </div>
+        )}
 
-      {/* Attributes — 6-cube grid */}
-      <CollapsibleSection title='Attributes' defaultOpen>
-        <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
-          {attrs.map((a) => (
-            <AttrCube key={a.label} label={a.label} value={a.value} partial={a.partial} />
-          ))}
-        </Box>
-      </CollapsibleSection>
-
-      {/* Senses & Speed */}
-      <CollapsibleSection title='Senses & Speed' defaultOpen>
-        <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <Box>
-            <Text fz='11px' c='dimmed' mb={4} style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Senses
-            </Text>
-            {allSenses.length === 0 ? (
-              <Text fz='xs' c='dimmed'>
-                —
-              </Text>
-            ) : (
-              <Group gap={6} wrap='wrap'>
-                {allSenses.map((s) => (
-                  <Text
-                    key={s}
-                    fz='xs'
-                    span
-                    onClick={() => openSense(s)}
-                    style={{
-                      cursor: 'pointer',
-                      color: 'var(--ink, #ede4ce)',
-                      borderBottom: '1px dotted var(--gold-deep, #8a6f25)',
-                      paddingBottom: 1,
-                    }}
-                    title={`Open ${formatSense(s)} description`}
-                  >
-                    {formatSense(s)}
-                  </Text>
+        {/* Reading-flow stat lines */}
+        <div className='cmp-body'>
+          {/* Perception + senses */}
+          <div className='cmp-line'>
+            <span className='key'>Perception</span>
+            <span className='acc'>{getFinalProfValue(STORE_ID, 'PERCEPTION')}</span>
+            {allSenses.length > 0 && (
+              <>
+                <span className='sep'>·</span>
+                {allSenses.map((s, i) => (
+                  <span key={s}>
+                    {i > 0 && ', '}
+                    <span
+                      className='cmp-sense'
+                      onClick={() => openSense(s)}
+                      title={`Open ${formatSense(s)} description`}
+                    >
+                      {formatSense(s)}
+                    </span>
+                  </span>
                 ))}
-              </Group>
+              </>
             )}
-          </Box>
-          <Box>
-            <Text fz='11px' c='dimmed' mb={4} style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Speeds
-            </Text>
-            {speeds.length === 0 ? (
-              <Text fz='xs' c='dimmed'>
-                —
-              </Text>
+          </div>
+
+          {/* Skills (trained), inline mods */}
+          {skillRows.length > 0 && (
+            <div className='cmp-line'>
+              <span className='key'>Skills</span>
+              {skillRows.map((sk, i) => (
+                <span key={sk.name} className='cmp-skill'>
+                  {i > 0 && <span className='sep'>·</span>}
+                  {sk.name} <span className='acc'>{sk.mod}</span>{' '}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* 6-attribute strip — hidden when every modifier reads +0
+              (familiars have no ability mods; eidolons share the
+              summoner's and compute to 0 in this per-companion store).
+              Showing six "+0" cubes for those reads as broken. */}
+          {attrs.some((a) => a.value !== 0) && (
+            <div className='cmp-attrs'>
+              {attrs.map((a) => (
+                <div className='cmp-attr' key={a.label}>
+                  <div className='k'>{a.label}</div>
+                  <div className={a.partial ? 'v partial' : 'v'}>{sign(a.value)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* AC / Fort / Ref / Will. Saves always render (meaningful for
+              every type). AC only renders when > 0 — a familiar with no
+              armor proficiency computes AC 0, and "AC 0" reads as broken. */}
+          <div className='cmp-line'>
+            {ac > 0 && (
+              <>
+                <span className='key'>AC</span>
+                <span className='num'>{ac}</span>
+                <span className='sep'>·</span>
+              </>
+            )}
+            <span className={ac > 0 ? 'key inline' : 'key'}>Fort</span>
+            <span className='acc'>{fort}</span>
+            <span className='sep'>·</span>
+            <span className='key inline'>Ref</span>
+            <span className='acc'>{ref}</span>
+            <span className='sep'>·</span>
+            <span className='key inline'>Will</span>
+            <span className='acc'>{will}</span>
+          </div>
+
+          {/* HP — editable current + / max when the creature has its
+              own pool. When maxHp <= 0, "0 / 0" reads as broken, so:
+                • Eidolon → italic note that it shares the summoner's HP
+                • anything else → "HP —" (no editable input). */}
+          <div className='cmp-line'>
+            <span className='key'>HP</span>
+            {maxHp > 0 ? (
+              <>
+                <input
+                  className='cmp-hp-input'
+                  type='number'
+                  value={currentHp}
+                  aria-label='Current HP'
+                  onChange={(e) => confirmHealth(e.currentTarget.value, maxHp, creature, setEntity)}
+                />
+                <span className='num'> / {maxHp}</span>
+                {tempHp > 0 && (
+                  <>
+                    <span className='sep'>·</span>
+                    <span className='num'>{tempHp}</span> <span className='muted'>temp</span>
+                  </>
+                )}
+              </>
+            ) : isEidolon ? (
+              <>
+                <span className='num'>—</span>
+                <span className='sep'>·</span>
+                <span className='muted' style={{ fontStyle: 'italic' }}>
+                  shares summoner's Hit Points
+                </span>
+              </>
             ) : (
-              <Stack gap={2}>
-                {speeds.map((sp) => (
-                  <Group key={sp.name} justify='space-between' gap={6}>
-                    <Text fz='xs' c='var(--ink-dim, #c3b69a)'>
-                      {labelize(sp.name)}
-                    </Text>
-                    <Text fz='xs' c='var(--ink, #ede4ce)' fw={600}>
-                      {sp.value} ft
-                    </Text>
-                  </Group>
-                ))}
-              </Stack>
+              <span className='num'>—</span>
             )}
-          </Box>
-        </Box>
-      </CollapsibleSection>
+          </div>
 
-      {/* Heavier panels — wrapped in custom collapsibles so the user can
-          fold them away. Default closed for the rich panels to keep
-          the initial view focused on stats. */}
-      <CollapsibleSection title='Skills & Actions'>
-        <SkillsActionsPanel
-          id={STORE_ID}
-          entity={creature}
-          setEntity={setEntity}
-          content={content}
-          panelHeight={600}
-          panelWidth={props.panelWidth}
-        />
-      </CollapsibleSection>
+          {/* Speed — land + extras. Only rendered when the creature has
+              at least one speed > 0 (speeds is pre-filtered to > 0). */}
+          {speeds.length > 0 && (
+            <div className='cmp-line'>
+              <span className='key'>Speed</span>
+              {speeds.map((sp, i) => (
+                <span key={sp.name}>
+                  {i > 0 && <span className='sep'>·</span>}
+                  {labelize(sp.name) !== 'Land' && (
+                    <span className='muted'>{labelize(sp.name)} </span>
+                  )}
+                  <span className='num'>{sp.value} feet</span>{' '}
+                </span>
+              ))}
+            </div>
+          )}
 
-      <CollapsibleSection title='Abilities'>
-        <CreatureAbilitiesPanel
-          id={STORE_ID}
-          content={content}
-          panelHeight={600}
-          panelWidth={props.panelWidth}
-          creature={creature}
-          setCreature={setCreature}
-        />
-      </CollapsibleSection>
+          {/* Conditions — kept editable on its own line */}
+          <div className='cmp-line'>
+            <span className='key'>Conditions</span>
+            <span className='cmp-cond-wrap'>
+              <ConditionPills id={STORE_ID} entity={creature} setEntity={setEntity} />
+            </span>
+          </div>
 
-      <CollapsibleSection title='Inventory'>
-        <InventoryPanel
-          id={STORE_ID}
-          entity={creature}
-          setEntity={setEntity}
-          content={content}
-          panelHeight={600}
-          panelWidth={props.panelWidth}
-        />
-      </CollapsibleSection>
+          {/* Strikes — equipped weapons + unarmed (Handwraps runes
+              folded in), split Melee / Ranged. */}
+          {meleeStrikes.length > 0 && (
+            <>
+              <div className='cmp-sub'>Melee</div>
+              {meleeStrikes.map(renderStrike)}
+            </>
+          )}
+          {rangedStrikes.length > 0 && (
+            <>
+              <div className='cmp-sub'>Ranged</div>
+              {rangedStrikes.map(renderStrike)}
+            </>
+          )}
 
-      <CollapsibleSection title='Spells'>
-        <SpellsPanel
-          id={STORE_ID}
-          entity={creature}
-          setEntity={setEntity}
-          panelHeight={600}
-          panelWidth={props.panelWidth}
-        />
-      </CollapsibleSection>
+          {/* Abilities — compact paragraph cards. Click opens the
+              standard action drawer (full text, traits, links). */}
+          {abilityBlocks.length > 0 && (
+            <>
+              <div className='cmp-sub'>Abilities</div>
+              {abilityBlocks.map((ability, i) => (
+                <div
+                  className='cmp-ability'
+                  key={`${ability.id}-${i}`}
+                  onClick={() =>
+                    openDrawer({
+                      type: 'action',
+                      data: { action: ability },
+                      extra: { addToHistory: true },
+                    })
+                  }
+                >
+                  <div className='nm'>
+                    <span>{ability.name}</span>
+                    {ability.actions && (
+                      <span className='act'>
+                        <Wg4.ActionGlyph cost={ability.actions} size={16} />
+                      </span>
+                    )}
+                  </div>
+                  {ability.description && (
+                    <div className='txt'>
+                      <RichText store={STORE_ID} fz={13} c='var(--wg4-ink-2)'>
+                        {ability.description}
+                      </RichText>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+          </>
+        )}
 
-      <CollapsibleSection title='Description & Details'>
-        <CreatureDetailsPanel
-          id={STORE_ID}
-          creature={creature}
-          content={content}
-          panelHeight={600}
-          panelWidth={props.panelWidth}
-        />
-      </CollapsibleSection>
+        {/* ── Configure view ─────────────────────────────────────────
+            The full editors, shown only on demand. This is where the
+            player chooses the companion's attacks/inventory, spells,
+            abilities, details and notes (and resolves any build
+            choices). Kept out of the default view so the stat block
+            stays clean. */}
+        {editMode && (
+          <div className='cmp-edit-body'>
+            <CompanionSection label='Skills & Actions'>
+              <SkillsActionsPanel
+                id={STORE_ID}
+                entity={creature}
+                setEntity={setEntity}
+                content={content}
+                panelHeight={600}
+                panelWidth={props.panelWidth}
+              />
+            </CompanionSection>
 
-      <CollapsibleSection title='Notes'>
-        <NotesPanel
-          panelHeight={600}
-          panelWidth={props.panelWidth}
-          entity={creature}
-          setEntity={setEntity}
-        />
-      </CollapsibleSection>
-    </Stack>
+            <CompanionSection label='Abilities'>
+              <CreatureAbilitiesPanel
+                id={STORE_ID}
+                content={content}
+                panelHeight={600}
+                panelWidth={props.panelWidth}
+                creature={creature}
+                setCreature={setCreature}
+              />
+            </CompanionSection>
+
+            <CompanionSection label='Inventory & Attacks'>
+              <InventoryPanel
+                id={STORE_ID}
+                entity={creature}
+                setEntity={setEntity}
+                content={content}
+                panelHeight={600}
+                panelWidth={props.panelWidth}
+              />
+            </CompanionSection>
+
+            <CompanionSection label='Spells'>
+              <SpellsPanel
+                id={STORE_ID}
+                entity={creature}
+                setEntity={setEntity}
+                panelHeight={600}
+                panelWidth={props.panelWidth}
+              />
+            </CompanionSection>
+
+            <CompanionSection label='Description & Details'>
+              <CreatureDetailsPanel
+                id={STORE_ID}
+                creature={creature}
+                content={content}
+                panelHeight={600}
+                panelWidth={props.panelWidth}
+              />
+            </CompanionSection>
+
+            <CompanionSection label='Notes'>
+              <NotesPanel
+                panelHeight={600}
+                panelWidth={props.panelWidth}
+                entity={creature}
+                setEntity={setEntity}
+              />
+            </CompanionSection>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Edit-mode section divider — italic-serif label + hairline rule,
+       matching the wg4 stat-block look. Wraps each configuration panel. */
+function CompanionSection(props: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <div className='cmp-section-h'>
+        <span className='lbl'>{props.label}</span>
+        <span className='rule' />
+      </div>
+      <div className='cmp-section-body'>{props.children}</div>
+    </>
   );
 }
 

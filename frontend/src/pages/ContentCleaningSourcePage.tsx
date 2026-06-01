@@ -11,7 +11,6 @@ import BlurBox from '@common/BlurBox';
 import { fetchContentSources, defineDefaultSources } from '@content/content-store';
 import { makeRequest } from '@requests/request-manager';
 import {
-  Badge,
   Box,
   Button,
   Center,
@@ -21,7 +20,6 @@ import {
   ScrollArea,
   Select,
   Stack,
-  Table,
   Text,
   Title,
   Tooltip,
@@ -71,23 +69,32 @@ function StatusCell({ entry }: { entry: CleaningEntry | undefined }) {
     );
   if (entry.status === 'running')
     return (
-      <Group gap={4}>
-        <Loader size='xs' color='yellow' />
-        <Badge color='yellow' variant='light' size='xs'>
-          Running
-        </Badge>
+      <Group gap={6}>
+        <Loader size='xs' color='var(--wg4-accent)' />
+        <span className='badge warn'>cleaning</span>
       </Group>
     );
   if (entry.status === 'done')
     return (
-      <Badge color='green' variant='light' size='xs' leftSection={<IconCheck size='0.65rem' />}>
-        Done
-      </Badge>
+      <span className='badge ok' style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <IconCheck size='0.65rem' />
+        done
+      </span>
     );
   return (
-    <Badge color='red' variant='light' size='xs' leftSection={<IconAlertCircle size='0.65rem' />}>
-      Error
-    </Badge>
+    <span
+      className='badge'
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        background: 'var(--danger-soft, #f0dcd6)',
+        color: 'var(--danger, #9b3b2f)',
+      }}
+    >
+      <IconAlertCircle size='0.65rem' />
+      error
+    </span>
   );
 }
 
@@ -224,8 +231,9 @@ export function Component() {
   }
 
   return (
-    <Center py='xl'>
-      <Box w='100%' maw={960} px='md'>
+    <div className='wg4 wg4-screen wg4-page-root' style={{ minHeight: '100%' }}>
+      <Center py='xl'>
+        <Box w='100%' maw={960} px='md'>
         <Stack gap='md'>
           {/* Controls */}
           <BlurBox p='md'>
@@ -268,13 +276,13 @@ export function Component() {
                   <Group gap='xs'>
                     <Text fw={600}>{records.length} records</Text>
                     {completedCount > 0 && (
-                      <Badge color='green' variant='light'>
+                      <span className='badge ok'>
                         {completedCount} / {records.length} done
-                      </Badge>
+                      </span>
                     )}
                     {runningEntry && (
                       <Group gap={4}>
-                        <Loader size='xs' color='yellow' />
+                        <Loader size='xs' color='var(--wg4-accent)' />
                         <Text size='xs' c='dimmed'>
                           {records[currentIdx]?.name}
                         </Text>
@@ -314,40 +322,40 @@ export function Component() {
                 </Group>
 
                 <ScrollArea h={480} scrollbarSize={6}>
-                  <Table striped highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th style={{ width: 60 }}>ID</Table.Th>
-                        <Table.Th>Name</Table.Th>
-                        <Table.Th style={{ width: 120 }}>Status</Table.Th>
-                        <Table.Th style={{ width: 80 }}></Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
+                  <table className='tbl'>
+                    <thead>
+                      <tr>
+                        <th style={{ width: 60 }}>ID</th>
+                        <th>Name</th>
+                        <th style={{ width: 120 }}>Status</th>
+                        <th style={{ width: 80 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {records.map((record) => {
                         const entry = cleaningMap.get(record.id);
                         const isRunning = entry?.status === 'running';
                         return (
-                          <Table.Tr key={record.id}>
-                            <Table.Td>
+                          <tr key={record.id}>
+                            <td>
                               <Text size='xs' c='dimmed'>
                                 {record.id}
                               </Text>
-                            </Table.Td>
-                            <Table.Td>
+                            </td>
+                            <td>
                               <Group gap={6} wrap='nowrap'>
                                 <Text size='sm'>{record.name}</Text>
                                 {updatedIds.has(record.id) && (
                                   <Tooltip label='Update submitted'>
-                                    <IconCheck size='0.85rem' color='var(--mantine-color-green-5)' />
+                                    <IconCheck size='0.85rem' color='var(--wg4-accent)' />
                                   </Tooltip>
                                 )}
                               </Group>
-                            </Table.Td>
-                            <Table.Td>
+                            </td>
+                            <td>
                               <StatusCell entry={entry} />
-                            </Table.Td>
-                            <Table.Td>
+                            </td>
+                            <td>
                               <Group gap={4} wrap='nowrap'>
                                 {!entry ? (
                                   <Button
@@ -380,12 +388,12 @@ export function Component() {
                                   </>
                                 )}
                               </Group>
-                            </Table.Td>
-                          </Table.Tr>
+                            </td>
+                          </tr>
                         );
                       })}
-                    </Table.Tbody>
-                  </Table>
+                    </tbody>
+                  </table>
                 </ScrollArea>
               </Stack>
             </BlurBox>
@@ -411,6 +419,7 @@ export function Component() {
           />
         )}
       </Modal>
-    </Center>
+      </Center>
+    </div>
   );
 }

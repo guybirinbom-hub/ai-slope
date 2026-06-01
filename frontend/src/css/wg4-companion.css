@@ -1,0 +1,524 @@
+/* wg4-companion.css — Companion sheet "Version B — Stat Block".
+ *
+ * Ported from proposals/companion-mockup.html (#view-b). One cohesive
+ * parchment page led by a PF2e-style stat block, with the heavier
+ * interactive panels flowing inline below under simple section
+ * dividers (no collapsibles).
+ *
+ * Scoped under `.wg4 .codex-companion`. The companion panel renders
+ * inside the character sheet (`.codex-root.wg4`), so `.codex-companion`
+ * always sits within a `.wg4` ancestor and the `--wg4-*` tokens
+ * resolve. The `.wg4` prefix is kept for specificity safety.
+ *
+ * Mockup token → wg4 token mapping:
+ *   --surface       → --wg4-surface
+ *   --surface-2     → --wg4-surface-2
+ *   --border        → --wg4-border
+ *   --border-soft   → --wg4-border-soft
+ *   --ink / -2/-4/-5→ --wg4-ink / -2 / -4 / -5
+ *   --accent        → --wg4-accent
+ *   --accent-soft   → --wg4-accent-soft
+ *   --accent-ink    → --wg4-accent-ink
+ *   --r-1/-2/-3     → --wg4-r-1/-2/-3
+ *   --r-pill        → --wg4-r-pill
+ *   --font-sans/mono/serif → --wg4-font-sans/mono/serif
+ */
+
+/* ── Page wrapper — centered narrow column like the bestiary block. ── */
+.wg4 .codex-companion {
+  max-width: 920px;
+  margin: 0 auto;
+  width: 100%;
+  color: var(--wg4-ink);
+  font-family: var(--wg4-font-sans);
+}
+
+/* ── Stat-block frame ─────────────────────────────────────────────── */
+.wg4 .codex-companion .cmp-block {
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  border-radius: var(--wg4-r-3);
+  box-shadow: var(--wg4-shadow-card);
+  overflow: hidden;
+}
+
+/* ── Header — italic serif name + rust level tag + delete. ────────── */
+.wg4 .codex-companion .cmp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 22px 14px;
+  border-bottom: 2px solid var(--wg4-accent);
+  background: var(--wg4-surface);
+}
+.wg4 .codex-companion .cmp-head-l {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.wg4 .codex-companion .cmp-portrait {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: var(--wg4-r-2);
+  overflow: hidden;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  display: grid;
+  place-items: center;
+}
+.wg4 .codex-companion .cmp-name {
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--wg4-ink);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin: 0;
+}
+.wg4 .codex-companion .cmp-head-r {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.wg4 .codex-companion .cmp-lvtag {
+  font-family: var(--wg4-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--wg4-accent);
+  padding: 3px 12px;
+  border-radius: var(--wg4-r-pill);
+  white-space: nowrap;
+}
+/* Subtle delete button so it fits the parchment header. */
+.wg4 .codex-companion .cmp-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--wg4-r-1);
+  color: var(--wg4-ink-4);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.wg4 .codex-companion .cmp-del:hover {
+  color: var(--wg4-accent-ink);
+  background: var(--wg4-accent-soft);
+  border-color: #d8b9a4;
+}
+
+/* ── Trait ribbon ─────────────────────────────────────────────────── */
+.wg4 .codex-companion .cmp-traits {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding: 12px 22px;
+  background: var(--wg4-surface-2);
+  border-bottom: 1px solid var(--wg4-border-soft);
+}
+.wg4 .codex-companion .cmp-trait {
+  font-family: var(--wg4-font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-2);
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border-soft);
+  padding: 3px 8px;
+  border-radius: var(--wg4-r-1);
+}
+.wg4 .codex-companion .cmp-trait.size {
+  background: var(--wg4-accent-soft);
+  color: var(--wg4-accent-ink);
+  border-color: #d8b9a4;
+}
+
+/* ── Body + reading-flow stat lines ───────────────────────────────── */
+.wg4 .codex-companion .cmp-body {
+  padding: 16px 22px 20px;
+}
+.wg4 .codex-companion .cmp-line {
+  padding: 7px 0;
+  border-bottom: 1px dotted var(--wg4-border-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.wg4 .codex-companion .cmp-line:last-child {
+  border-bottom: 0;
+}
+.wg4 .codex-companion .cmp-line .key {
+  font-weight: 700;
+  color: var(--wg4-ink);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-right: 8px;
+}
+.wg4 .codex-companion .cmp-line .key.inline {
+  margin-left: 0;
+}
+.wg4 .codex-companion .cmp-line .num {
+  font-family: var(--wg4-font-mono);
+  color: var(--wg4-ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.wg4 .codex-companion .cmp-line .acc {
+  color: var(--wg4-accent);
+  font-family: var(--wg4-font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.wg4 .codex-companion .cmp-line .sep {
+  color: var(--wg4-ink-5);
+  margin: 0 6px;
+}
+.wg4 .codex-companion .cmp-line .muted {
+  color: var(--wg4-ink-4);
+}
+/* Clickable senses — dotted underline, rust on hover. */
+.wg4 .codex-companion .cmp-sense {
+  cursor: pointer;
+  color: var(--wg4-ink-2);
+  border-bottom: 1px dotted var(--wg4-border-strong);
+  padding-bottom: 1px;
+  transition: color 0.12s, border-color 0.12s;
+}
+.wg4 .codex-companion .cmp-sense:hover {
+  color: var(--wg4-accent-ink);
+  border-bottom-color: var(--wg4-accent);
+}
+/* Inline skill name + mod. */
+.wg4 .codex-companion .cmp-skill {
+  white-space: nowrap;
+}
+
+/* ── 6-attribute strip ────────────────────────────────────────────── */
+.wg4 .codex-companion .cmp-attrs {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  padding: 12px 0;
+}
+.wg4 .codex-companion .cmp-attr {
+  text-align: center;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-2);
+  padding: 7px 4px;
+}
+.wg4 .codex-companion .cmp-attr .k {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--wg4-ink-4);
+  font-weight: 600;
+}
+.wg4 .codex-companion .cmp-attr .v {
+  font-family: var(--wg4-font-mono);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--wg4-ink);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.wg4 .codex-companion .cmp-attr .v.partial {
+  text-decoration: underline;
+  text-decoration-color: var(--wg4-ink-5);
+  text-underline-offset: 2px;
+}
+
+/* ── HP inline edit — a small parchment number input. ─────────────── */
+.wg4 .codex-companion .cmp-hp-input {
+  font-family: var(--wg4-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--wg4-ink);
+  width: 3.2em;
+  text-align: right;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-1);
+  padding: 1px 5px;
+  outline: none;
+  transition: border-color 0.12s;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.wg4 .codex-companion .cmp-hp-input::-webkit-outer-spin-button,
+.wg4 .codex-companion .cmp-hp-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.wg4 .codex-companion .cmp-hp-input:focus {
+  border-color: var(--wg4-accent);
+}
+
+/* Conditions line wrapper — keep ConditionPills aligned to the row. */
+.wg4 .codex-companion .cmp-line .cmp-cond-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  vertical-align: middle;
+}
+
+/* ── Strikes ──────────────────────────────────────────────────────── */
+.wg4 .codex-companion .cmp-sub {
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--wg4-ink-4);
+  margin: 14px 0 6px;
+}
+.wg4 .codex-companion .cmp-strike {
+  padding: 6px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.wg4 .codex-companion .cmp-strike .lab {
+  font-weight: 700;
+  color: var(--wg4-accent-ink);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.wg4 .codex-companion .cmp-strike .acc {
+  color: var(--wg4-accent);
+  font-family: var(--wg4-font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.wg4 .codex-companion .cmp-strike .traits {
+  color: var(--wg4-ink-4);
+}
+.wg4 .codex-companion .cmp-strike .mono {
+  font-family: var(--wg4-font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ── Abilities — compact paragraph cards (Version B mockup .b-ability) ─
+ *   Ability name (+ inline action glyph) over a serif description.
+ *   Each card is clickable and opens the standard action drawer, so a
+ *   soft hover tint signals interactivity. Lives inside `.cmp-body`,
+ *   right after the strikes, under a `.cmp-sub` "Abilities" header. */
+.wg4 .codex-companion .cmp-ability {
+  padding: 9px 8px;
+  margin: 0 -8px;
+  border-top: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-1);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.wg4 .codex-companion .cmp-ability:first-of-type {
+  border-top: 0;
+}
+.wg4 .codex-companion .cmp-ability:hover {
+  background: var(--wg4-surface-hover);
+}
+.wg4 .codex-companion .cmp-ability .nm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--wg4-ink);
+  font-size: 13px;
+}
+/* Action glyph sits snug after the name in the accent color. */
+.wg4 .codex-companion .cmp-ability .nm .act {
+  display: inline-flex;
+  align-items: center;
+  color: var(--wg4-accent);
+  line-height: 1;
+}
+.wg4 .codex-companion .cmp-ability .txt {
+  font-family: var(--wg4-font-serif);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--wg4-ink-2);
+  margin-top: 2px;
+}
+/* RichText renders the description as Mantine <Text> paragraphs inside
+ * .txt — keep them tight and force the parchment serif color (Mantine's
+ * forced-dark theme would otherwise paint them light). */
+.wg4 .codex-companion .cmp-ability .txt p {
+  margin: 0 0 4px;
+  color: var(--wg4-ink-2);
+  font-family: var(--wg4-font-serif);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.wg4 .codex-companion .cmp-ability .txt p:last-child {
+  margin-bottom: 0;
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ *  Companion management bar — sticky switcher + Add Companion button.
+ *  Lives at the top of the companions tab, OUTSIDE .codex-companion,
+ *  so it's scoped to .codex-companion-tab. Sticky to the top of the
+ *  scrolling tab body so switching / adding / (and the per-companion
+ *  Edit + Delete in the stat-block header) stay reachable while the
+ *  block scrolls under it.
+ * ─────────────────────────────────────────────────────────────────── */
+.wg4 .codex-companion-tab {
+  width: 100%;
+}
+.wg4 .codex-companion-tab .cmp-switchbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--wg4-page);
+  border-bottom: 1px solid var(--wg4-border);
+}
+/* Switcher pill — one per companion; the active one reads rust. */
+.wg4 .codex-companion-tab .cmp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 5px;
+  border-radius: var(--wg4-r-pill);
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border-strong);
+  color: var(--wg4-ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--wg4-font-sans);
+  transition: all 0.15s;
+}
+.wg4 .codex-companion-tab .cmp-pill:hover {
+  background: var(--wg4-surface-hover);
+}
+.wg4 .codex-companion-tab .cmp-pill.active {
+  background: var(--wg4-accent-soft);
+  border-color: #d8b9a4;
+  color: var(--wg4-accent-ink);
+  box-shadow: inset 0 0 0 1px #d8b9a4;
+}
+.wg4 .codex-companion-tab .cmp-pill-av {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--wg4-surface-2);
+  display: grid;
+  place-items: center;
+}
+.wg4 .codex-companion-tab .cmp-pill-nm {
+  font-size: 13px;
+  font-weight: 600;
+}
+.wg4 .codex-companion-tab .cmp-pill-lv {
+  font-family: var(--wg4-font-mono);
+  font-size: 10.5px;
+  color: var(--wg4-ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.wg4 .codex-companion-tab .cmp-pill.active .cmp-pill-lv {
+  color: var(--wg4-accent-ink);
+}
+/* Add Companion button — solid rust call-to-action. */
+.wg4 .codex-companion-tab .cmp-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  border-radius: var(--wg4-r-pill);
+  background: var(--wg4-accent);
+  border: 1px solid var(--wg4-accent);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--wg4-font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.wg4 .codex-companion-tab .cmp-add:hover {
+  background: var(--wg4-accent-ink);
+  border-color: var(--wg4-accent-ink);
+}
+/* Add-companion popover dropdown. Mantine portals it to <body> (outside
+ * .wg4), so --wg4-* tokens don't resolve here — use literal parchment
+ * values matching --wg4-surface / --wg4-border. */
+.cmp-add-pop.mantine-Popover-dropdown {
+  background: #f6f3eb;
+  border: 1px solid #d8d3c4;
+}
+
+/* ── Stat-block header: Edit / configure toggle ───────────────────── */
+.wg4 .codex-companion .cmp-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--wg4-r-1);
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-strong);
+  color: var(--wg4-ink-2);
+  cursor: pointer;
+  font-family: var(--wg4-font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+.wg4 .codex-companion .cmp-edit:hover {
+  background: var(--wg4-accent-soft);
+  border-color: #d8b9a4;
+  color: var(--wg4-accent-ink);
+}
+.wg4 .codex-companion .cmp-edit.active {
+  background: var(--wg4-accent);
+  border-color: var(--wg4-accent);
+  color: #fff;
+}
+
+/* ── Edit-mode body — the configuration panels under section dividers ─ */
+.wg4 .codex-companion .cmp-edit-body {
+  padding: 10px 22px 20px;
+}
+.wg4 .codex-companion .cmp-section-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 10px;
+}
+.wg4 .codex-companion .cmp-section-h:first-child {
+  margin-top: 4px;
+}
+.wg4 .codex-companion .cmp-section-h .lbl {
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--wg4-ink);
+  letter-spacing: -0.01em;
+  flex: 0 0 auto;
+}
+.wg4 .codex-companion .cmp-section-h .rule {
+  flex: 1;
+  height: 1px;
+  background: var(--wg4-border);
+}
+.wg4 .codex-companion .cmp-section-body {
+  padding: 0 2px;
+}

@@ -1,24 +1,27 @@
 /**
- * CodexDetailsPanel — replacement for the Mantine DetailsPanel inside
- * the codex character sheet. Renders the layout from
- * D:\Inst\codex-details.html:
+ * CodexDetailsPanel — Details tab content for the codex character
+ * sheet. Renders the dossier layout described in the wg4 reference
+ * (D:\Inst\wg4\01-details1.png, 02-details1.png, 03-details1.png):
  *
- *   .col.main.details-main  — dossier hero, vital statistics field
- *                              grid, dossier-text blocks (Appearance,
- *                              Personality, Beliefs, Alignment),
- *                              optional Organized Play tile grid.
- *   .col.right.details-right — origin cards (ancestry/heritage/
- *                              background/class), proficiency groups
- *                              (Attacks/Defenses/Spellcasting), trait
- *                              pills + size strip.
- *
- * Wired to the same character.details.info structure the legacy panel
- * used — every input writes back through a debounced setCharacter, so
- * saves keep going through the existing schema unchanged.
+ *   .col.main.codex-details        — Dossier hero (portrait + name +
+ *                                    ELF · ROGUE · LEVEL 5 + chip
+ *                                    pills), Vital Statistics field
+ *                                    grid, Appearance, Personality,
+ *                                    and Beliefs & Bonds (creed cell
+ *                                    with rust left border).
+ *   .col.right.codex-details-rail  — Origins (ancestry / background /
+ *                                    class cards with sigil + label
+ *                                    + value), Proficiencies (Attacks
+ *                                    / Defenses / Spellcasting /
+ *                                    Class with prof-letter badges),
+ *                                    Traits & Size (trait pills row
+ *                                    + size strip).
  *
  * Returns a React fragment with the two columns as siblings — the
  * parent CodexSheet body provides the .col.left rail and sets the
- * body--details grid override.
+ * body--details 3-col grid. All field inputs write back through a
+ * 200ms-debounced setCharacter so saves continue to flow through the
+ * same character.details.info shape the legacy panel used.
  */
 
 import { Character, ContentPackage, LivingEntity } from '@schemas/content';
@@ -43,6 +46,7 @@ import {
 import { pluralize } from '@utils/strings';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import { useMemo } from 'react';
+import { useCollapsedSections } from './useCollapsedSections';
 
 type DetailsInfo = NonNullable<NonNullable<Character['details']>['info']>;
 
@@ -53,6 +57,9 @@ export function CodexDetailsPanel(props: {
 }) {
   const { character, setCharacter, content } = props;
   const [_drawer, openDrawer] = useAtom(drawerState);
+  // Collapsible dossier sections — every <section className='sec'> with
+  // a cd-sec-title header is toggled via this hook.
+  const { isCollapsed, toggle: toggleCollapsed } = useCollapsedSections();
 
   const info = (character?.details?.info ?? {}) as DetailsInfo;
 
@@ -75,7 +82,7 @@ export function CodexDetailsPanel(props: {
   };
 
   // ============================================================
-  // Identity helpers
+  // Identity helpers — name, ancestry/background/class labels.
   // ============================================================
   const ancestryName = character?.details?.ancestry?.name ?? '';
   const backgroundName = character?.details?.background?.name ?? '';
@@ -83,8 +90,21 @@ export function CodexDetailsPanel(props: {
   const level = character?.level ?? 1;
   const initial = (character?.name?.trim() || 'W')[0].toUpperCase();
 
+  // Heritage name is stored in the HERITAGE_NAMES list variable
+  // (populated by operation-runner when the player picks a heritage
+  // from the ancestry). We display the first entry as a sub-line on
+  // the ancestry card in the right rail.
+  const heritageNames =
+    getVariable<VariableListStr>('CHARACTER', 'HERITAGE_NAMES')?.value ?? [];
+  const heritageLabel = heritageNames[0]
+    ? heritageNames[0]
+        .split(' ')
+        .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+        .join(' ')
+    : '';
+
   // ============================================================
-  // Languages, ancestry traits, size — for the right rail
+  // Languages, ancestry traits, size — for the right rail.
   // ============================================================
   const languages = useMemo(() => {
     const ids = getVariable<VariableListStr>('CHARACTER', 'LANGUAGE_IDS')?.value ?? [];
@@ -101,9 +121,23 @@ export function CodexDetailsPanel(props: {
 
   const size = (getVariable<VariableStr>('CHARACTER', 'SIZE')?.value ?? 'MEDIUM').toString();
   const sizeLabel = size.charAt(0).toUpperCase() + size.slice(1).toLowerCase();
+  const sizeFoot =
+    sizeLabel === 'Medium'
+      ? '5 ft × 5 ft · 1-square reach'
+      : sizeLabel === 'Small'
+        ? '5 ft × 5 ft · 1-square reach'
+        : sizeLabel === 'Large'
+          ? '10 ft × 10 ft · 2-square reach'
+          : sizeLabel === 'Huge'
+            ? '15 ft × 15 ft · 3-square reach'
+            : sizeLabel === 'Tiny'
+              ? '2.5 ft × 2.5 ft · 0-square reach'
+              : '';
 
   // ============================================================
-  // Proficiency groups
+  // Proficiency tier resolver — returns the T/E/M/L/U letter for a
+  // CHARACTER variable. Used by the right-rail prof rows so each one
+  // can light its prof-letter badge.
   // ============================================================
   const profType = (variableName: string): 'T' | 'E' | 'M' | 'L' | 'U' => {
     const v = getVariable<VariableProf>('CHARACTER', variableName)?.value;
@@ -141,56 +175,37 @@ export function CodexDetailsPanel(props: {
     []
   );
 
-  // Detect whether the character has any spellcasting tradition with
-  // a non-U proficiency. If not, we hide the entire Spellcasting prof
-  // group to avoid showing a row of U pips on martial-only chars.
+  // Spellcasting only shows when the character actually has at least
+  // one non-Untrained spell attack or DC proficiency.
   const hasSpellcasting =
     profType('SPELL_DC') !== 'U' || profType('SPELL_ATTACK') !== 'U';
 
   // ============================================================
-  // Rendering helpers
+  // Inline render helpers
   // ============================================================
-  // A small row in a .field cell — gold label above editable input.
+  // A single vital-stats field — uppercase letter-spaced label on
+  // top, italic Newsreader input below with hairline underline.
   const Field = (p: {
     label: string;
     value: string | undefined;
     onChange: (v: string) => void;
     placeholder?: string;
   }) => (
-    <div className='field'>
-      <div className='field-lbl'>{p.label}</div>
-      <div className='field-val'>
-        <input
-          type='text'
-          value={p.value ?? ''}
-          placeholder={p.placeholder ?? p.label}
-          onChange={(e) => p.onChange(e.target.value)}
-        />
-      </div>
+    <div className='cd-field'>
+      <label className='cd-field-lbl'>{p.label}</label>
+      <input
+        className='cd-field-input'
+        type='text'
+        value={p.value ?? ''}
+        placeholder={p.placeholder ?? '—'}
+        onChange={(e) => p.onChange(e.target.value)}
+      />
     </div>
   );
 
-  // A multi-line dossier-text card — used for Appearance, Personality,
-  // Beliefs, Alignment. Textarea uses the .dossier-text class so it
-  // picks up the parchment-style background + gold focus border.
-  const DossierText = (p: {
-    value: string | undefined;
-    onChange: (v: string) => void;
-    placeholder: string;
-    long?: boolean;
-  }) => (
-    <textarea
-      className={`dossier-text${p.long ? ' long' : ''}`}
-      value={p.value ?? ''}
-      placeholder={p.placeholder}
-      onChange={(e) => p.onChange(e.target.value)}
-      spellCheck={false}
-    />
-  );
-
-  // A row in the proficiency group — name on the left, dotted leader,
-  // T/E/M/L/U tier chip, optional numeric value. Clicking opens the
-  // stat-prof drawer so the user can audit the breakdown.
+  // A row in a proficiency group — name on the left, tier badge on
+  // the right, optional numeric value. Clicking opens the stat-prof
+  // drawer so the user can audit the breakdown.
   const ProfRow = (p: {
     label: string;
     em?: string;
@@ -202,7 +217,7 @@ export function CodexDetailsPanel(props: {
     const val = p.showVal ? displayFinalProfValue('CHARACTER', p.variableName, p.isDC) : null;
     return (
       <div
-        className='prof-row'
+        className='cd-prof-row'
         onClick={() =>
           openDrawer({
             type: 'stat-prof',
@@ -211,7 +226,7 @@ export function CodexDetailsPanel(props: {
           })
         }
       >
-        <span className='prof-k'>
+        <span className='cd-prof-k'>
           {p.label}
           {p.em && (
             <>
@@ -220,61 +235,61 @@ export function CodexDetailsPanel(props: {
             </>
           )}
         </span>
-        <span className='prof-leader'></span>
-        <span className={`pf-tier ${tier}`}>{tier}</span>
-        {val != null && <span className='pf-v'>{val}</span>}
+        {val != null && <span className='cd-prof-v num'>{val}</span>}
+        <span className='prof' data-r={tier}>{tier}</span>
       </div>
     );
   };
 
   return (
     <>
-      {/* ============ MAIN — dossier ============ */}
-      <div className='col main details-main'>
-        {/* IDENTITY HERO */}
-        <section className='sec dossier-hero'>
-          <div className='dh-grid'>
-            <div className='dh-portrait'>
+      {/* ============ CENTER — Dossier ============ */}
+      <div className='col main codex-details'>
+        {/* IDENTITY HERO — portrait card + name + sub-line + chip pills */}
+        <section className='sec cd-hero'>
+          <div className='cd-hero-grid'>
+            <div className='cd-portrait'>
               {character?.details?.image_url ? (
-                <img src={character.details.image_url} alt={character?.name ?? ''} />
+                <img
+                  className='cd-portrait-img'
+                  src={character.details.image_url}
+                  alt={character?.name ?? ''}
+                />
               ) : (
-                <div className='dh-portrait-inner'>
-                  <span className='dh-monogram'>{initial}</span>
-                  <span className='dh-pose'>portrait</span>
-                </div>
+                <span className='cd-portrait-mono'>{initial}</span>
               )}
+              <span className='cd-portrait-pose'>Portrait</span>
             </div>
-            <div className='dh-id'>
-              <div className='dh-eyebrow'>✦ Wanderer's Dossier ✦</div>
-              <h2 className='dh-name'>{character?.name || 'Unnamed'}</h2>
-              <div className='dh-sub'>
-                {ancestryName || '—'} <i>·</i> {className || '—'}
-                {' '}
-                <i>·</i> Level <b>{level}</b>
+            <div className='cd-id'>
+              <div className='cd-eyebrow'>+ Wanderer's Dossier</div>
+              <h2 className='cd-name'>{character?.name || 'Unnamed'}</h2>
+              <div className='cd-sub'>
+                {(ancestryName || '—').toUpperCase()}
+                <i> · </i>
+                {(className || '—').toUpperCase()}
+                <i> · </i>
+                LEVEL {level}
               </div>
-              <div className='dh-meta'>
-                {info.pronouns && <span className='dh-pill'>{info.pronouns}</span>}
-                {info.alignment && <span className='dh-pill'>{info.alignment}</span>}
-                {info.faction && (
-                  <span className='dh-pill'>
-                    Faction · <b>{info.faction}</b>
-                  </span>
-                )}
-                {info.ethnicity && <span className='dh-pill'>{info.ethnicity}</span>}
+              <div className='cd-chips'>
+                {info.pronouns && <span className='cd-chip'>{info.pronouns}</span>}
+                {info.alignment && <span className='cd-chip'>{info.alignment}</span>}
+                {heritageLabel && <span className='cd-chip'>{heritageLabel}</span>}
               </div>
             </div>
           </div>
         </section>
 
         {/* VITAL STATISTICS */}
-        <section className='sec'>
-          <div className='sec-title'>
-            <span className='lozenge'>❡</span>
-            <span className='label'>Vital Statistics</span>
-            <span className='sub'>edit any field</span>
+        <section className={`sec${isCollapsed('details-vital') ? ' collapsed' : ''}`}>
+          <div className='sec-title cd-sec-title' onClick={() => toggleCollapsed('details-vital')}>
+            <div className='label'>
+              <span className='lz'>§</span>Vital Statistics
+              <span className='sec-chevron'>▾</span>
+            </div>
+            <span className='cd-sec-sub' onClick={(e) => e.stopPropagation()}>edit any field</span>
           </div>
-          <div className='sec-body'>
-            <div className='field-grid'>
+          <div className='sec-body cd-sec-body'>
+            <div className='cd-field-grid'>
               <Field
                 label='Age'
                 value={info.age}
@@ -334,192 +349,156 @@ export function CodexDetailsPanel(props: {
         </section>
 
         {/* APPEARANCE */}
-        <section className='sec'>
-          <div className='sec-title'>
-            <span className='lozenge'>✦</span>
-            <span className='label'>Appearance</span>
-            <span className='sub'>portrait in prose</span>
+        <section className={`sec${isCollapsed('details-appearance') ? ' collapsed' : ''}`}>
+          <div className='sec-title cd-sec-title' onClick={() => toggleCollapsed('details-appearance')}>
+            <div className='label'>
+              <span className='lz'>✦</span>Appearance
+              <span className='sec-chevron'>▾</span>
+            </div>
+            <span className='cd-sec-sub' onClick={(e) => e.stopPropagation()}>portrait in prose</span>
           </div>
-          <div className='sec-body'>
-            <DossierText
-              value={info.appearance}
-              onChange={(v) => updateInfo({ appearance: v })}
+          <div className='sec-body cd-sec-body'>
+            <textarea
+              className='cd-prose'
+              value={info.appearance ?? ''}
               placeholder='Describe how your character looks — coat, hair, the marks of the road.'
+              onChange={(e) => updateInfo({ appearance: e.target.value })}
+              spellCheck={false}
             />
           </div>
         </section>
 
         {/* PERSONALITY */}
-        <section className='sec'>
-          <div className='sec-title'>
-            <span className='lozenge'>❤</span>
-            <span className='label'>Personality</span>
-            <span className='sub'>disposition &amp; manners</span>
+        <section className={`sec${isCollapsed('details-personality') ? ' collapsed' : ''}`}>
+          <div className='sec-title cd-sec-title' onClick={() => toggleCollapsed('details-personality')}>
+            <div className='label'>
+              <span className='lz'>❤</span>Personality
+              <span className='sec-chevron'>▾</span>
+            </div>
+            <span className='cd-sec-sub' onClick={(e) => e.stopPropagation()}>disposition &amp; manners</span>
           </div>
-          <div className='sec-body'>
-            <DossierText
-              value={info.personality}
-              onChange={(v) => updateInfo({ personality: v })}
+          <div className='sec-body cd-sec-body'>
+            <textarea
+              className='cd-prose'
+              value={info.personality ?? ''}
               placeholder='Quick to listen, slower to speak? Mock the gods at her peril? Capture the shape of how they move through the world.'
+              onChange={(e) => updateInfo({ personality: e.target.value })}
+              spellCheck={false}
             />
           </div>
         </section>
 
-        {/* BELIEFS & BONDS */}
-        <section className='sec'>
-          <div className='sec-title'>
-            <span className='lozenge'>✠</span>
-            <span className='label'>Beliefs &amp; Bonds</span>
-            <span className='sub'>what they live by</span>
+        {/* BELIEFS & BONDS — creed cell with rust left border */}
+        <section className={`sec${isCollapsed('details-beliefs') ? ' collapsed' : ''}`}>
+          <div className='sec-title cd-sec-title' onClick={() => toggleCollapsed('details-beliefs')}>
+            <div className='label'>
+              <span className='lz'>✠</span>Beliefs &amp; Bonds
+              <span className='sec-chevron'>▾</span>
+            </div>
+            <span className='cd-sec-sub' onClick={(e) => e.stopPropagation()}>what they live by</span>
           </div>
-          <div className='sec-body'>
-            <div className='creeds'>
-              <div className='creed'>
-                <div className='creed-k'>Creed</div>
-                <textarea
-                  className='creed-v'
-                  value={info.beliefs ?? ''}
-                  placeholder='No song unfinished. No debt unpaid.'
-                  onChange={(e) => updateInfo({ beliefs: e.target.value })}
-                  spellCheck={false}
-                />
-              </div>
+          <div className='sec-body cd-sec-body'>
+            <div className='cd-creed'>
+              <div className='cd-creed-k'>Creed</div>
+              <textarea
+                className='cd-creed-v'
+                value={info.beliefs ?? ''}
+                placeholder='No song unfinished. No debt unpaid.'
+                onChange={(e) => updateInfo({ beliefs: e.target.value })}
+                spellCheck={false}
+              />
             </div>
           </div>
         </section>
-
-        {/* ORGANIZED PLAY — only show if the character actually has an
-            organized play id or has logged at least one adventure. */}
-        {(info.organized_play_id || (info.organized_play_adventures?.length ?? 0) > 0) && (
-          <section className='sec'>
-            <div className='sec-title'>
-              <span className='lozenge'>⚙</span>
-              <span className='label'>Organized Play</span>
-              <span className='sub'>society number, faction, fame</span>
-            </div>
-            <div className='sec-body'>
-              <div className='op-grid'>
-                <div className='op-cell'>
-                  <div className='op-k'>Society #</div>
-                  <div className='op-v'>
-                    <input
-                      type='text'
-                      value={info.organized_play_id ?? ''}
-                      placeholder='12345-2000'
-                      onChange={(e) => updateInfo({ organized_play_id: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className='op-cell'>
-                  <div className='op-k'>Faction</div>
-                  <div className='op-v'>
-                    <input
-                      type='text'
-                      value={info.faction ?? ''}
-                      placeholder='—'
-                      onChange={(e) => updateInfo({ faction: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className='op-cell'>
-                  <div className='op-k'>Fame</div>
-                  <div className='op-v'>
-                    {info.reputation ?? 0} <em>· reputation</em>
-                  </div>
-                </div>
-                <div className='op-cell'>
-                  <div className='op-k'>Adventures</div>
-                  <div className='op-v'>
-                    {info.organized_play_adventures?.length ?? 0}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
       </div>
 
-      {/* ============ RIGHT — Origins, Proficiencies, Traits ============ */}
-      <div className='col right details-right'>
+      {/* ============ RIGHT RAIL — Origins / Proficiencies / Traits ============ */}
+      <aside className='col right codex-details-rail'>
         {/* ORIGINS */}
-        <section className='sec'>
-          <div className='sec-title'>
-            <span className='lozenge'>✦</span>
-            <span className='label'>Origins</span>
-            <span className='sub'>three threads</span>
+        <section className={`sec${isCollapsed('details-origins') ? ' collapsed' : ''}`}>
+          <div className='sec-title cd-sec-title' onClick={() => toggleCollapsed('details-origins')}>
+            <div className='label'>
+              <span className='lz'>+</span>Origins
+              <span className='sec-chevron'>▾</span>
+            </div>
+            <span className='cd-sec-sub' onClick={(e) => e.stopPropagation()}>three threads</span>
           </div>
-          <div className='sec-body'>
-            {character?.details?.ancestry && (
+          <div className='sec-body cd-sec-body'>
+            <div className='cd-origin-list'>
               <div
-                className='origin-card'
+                className='cd-origin-card'
                 onClick={() =>
+                  character?.details?.ancestry &&
                   openDrawer({
                     type: 'ancestry',
-                    data: { id: character.details?.ancestry?.id },
+                    data: { id: character.details.ancestry.id },
                     extra: { addToHistory: true },
                   })
                 }
               >
-                <div className='origin-sigil'>⚘</div>
-                <div className='origin-body'>
-                  <div className='origin-k'>Ancestry</div>
-                  <div className='origin-v'>{ancestryName || '—'}</div>
+                <div className='cd-origin-icon'>⚓</div>
+                <div className='cd-origin-body'>
+                  <div className='cd-origin-k'>Ancestry</div>
+                  <div className='cd-origin-v'>{ancestryName || '—'}</div>
+                  {heritageLabel && (
+                    <div className='cd-origin-sub'>heritage · {heritageLabel}</div>
+                  )}
                 </div>
               </div>
-            )}
-            {character?.details?.background && (
               <div
-                className='origin-card'
+                className='cd-origin-card'
                 onClick={() =>
+                  character?.details?.background &&
                   openDrawer({
                     type: 'background',
-                    data: { id: character.details?.background?.id },
+                    data: { id: character.details.background.id },
                     extra: { addToHistory: true },
                   })
                 }
               >
-                <div className='origin-sigil'>♪</div>
-                <div className='origin-body'>
-                  <div className='origin-k'>Background</div>
-                  <div className='origin-v'>{backgroundName || '—'}</div>
+                <div className='cd-origin-icon'>♪</div>
+                <div className='cd-origin-body'>
+                  <div className='cd-origin-k'>Background</div>
+                  <div className='cd-origin-v'>{backgroundName || '—'}</div>
                 </div>
               </div>
-            )}
-            {character?.details?.class && (
               <div
-                className='origin-card'
+                className='cd-origin-card'
                 onClick={() =>
+                  character?.details?.class &&
                   openDrawer({
                     type: 'class',
-                    data: { id: character.details?.class?.id },
+                    data: { id: character.details.class.id },
                     extra: { addToHistory: true },
                   })
                 }
               >
-                <div className='origin-sigil'>✜</div>
-                <div className='origin-body'>
-                  <div className='origin-k'>Class</div>
-                  <div className='origin-v'>{className || '—'}</div>
+                <div className='cd-origin-icon'>❖</div>
+                <div className='cd-origin-body'>
+                  <div className='cd-origin-k'>Class</div>
+                  <div className='cd-origin-v'>{className || '—'}</div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </section>
 
         {/* PROFICIENCIES */}
-        <section className='sec'>
-          <div className='sec-title'>
-            <span className='lozenge'>⚔</span>
-            <span className='label'>Proficiencies</span>
-            <span className='sub'>T · E · M · L</span>
+        <section className={`sec${isCollapsed('details-prof') ? ' collapsed' : ''}`}>
+          <div className='sec-title cd-sec-title' onClick={() => toggleCollapsed('details-prof')}>
+            <div className='label'>
+              <span className='lz'>✕</span>Proficiencies
+              <span className='sec-chevron'>▾</span>
+            </div>
+            <span className='cd-sec-sub' onClick={(e) => e.stopPropagation()}>T · E · M · L</span>
           </div>
-          <div className='sec-body'>
-            <div className='prof-group'>
-              <div className='prof-group-h'>Attacks</div>
+          <div className='sec-body cd-sec-body'>
+            <div className='cd-prof-group'>
+              <div className='cd-prof-group-h'>Attacks</div>
               <ProfRow label='Simple Weapons' variableName='SIMPLE_WEAPONS' />
               <ProfRow label='Martial Weapons' variableName='MARTIAL_WEAPONS' />
               <ProfRow label='Advanced Weapons' variableName='ADVANCED_WEAPONS' />
-              <ProfRow label='Unarmed' variableName='UNARMED_ATTACKS' />
+              <ProfRow label='Unarmed Attacks' variableName='UNARMED_ATTACKS' />
               {weaponProfs.map((w) => (
                 <ProfRow
                   key={w.name}
@@ -535,8 +514,8 @@ export function CodexDetailsPanel(props: {
                 />
               ))}
             </div>
-            <div className='prof-group'>
-              <div className='prof-group-h'>Defenses</div>
+            <div className='cd-prof-group'>
+              <div className='cd-prof-group-h'>Defenses</div>
               <ProfRow label='Unarmored' variableName='UNARMORED_DEFENSE' />
               <ProfRow label='Light Armor' variableName='LIGHT_ARMOR' />
               <ProfRow label='Medium Armor' variableName='MEDIUM_ARMOR' />
@@ -557,23 +536,14 @@ export function CodexDetailsPanel(props: {
               ))}
             </div>
             {hasSpellcasting && (
-              <div className='prof-group'>
-                <div className='prof-group-h'>Spellcasting</div>
-                <ProfRow
-                  label='Spell Attack'
-                  variableName='SPELL_ATTACK'
-                  showVal
-                />
-                <ProfRow
-                  label='Spell DC'
-                  variableName='SPELL_DC'
-                  showVal
-                  isDC
-                />
+              <div className='cd-prof-group'>
+                <div className='cd-prof-group-h'>Spellcasting</div>
+                <ProfRow label='Spell Attack' variableName='SPELL_ATTACK' showVal />
+                <ProfRow label='Spell DC' variableName='SPELL_DC' showVal isDC />
               </div>
             )}
-            <div className='prof-group'>
-              <div className='prof-group-h'>Class</div>
+            <div className='cd-prof-group'>
+              <div className='cd-prof-group-h'>Class</div>
               <ProfRow label='Class DC' variableName='CLASS_DC' showVal isDC />
               <ProfRow label='Perception' variableName='PERCEPTION' showVal />
             </div>
@@ -581,17 +551,19 @@ export function CodexDetailsPanel(props: {
         </section>
 
         {/* TRAITS & SIZE */}
-        <section className='sec'>
-          <div className='sec-title'>
-            <span className='lozenge'>✤</span>
-            <span className='label'>Traits &amp; Size</span>
+        <section className={`sec${isCollapsed('details-traits') ? ' collapsed' : ''}`}>
+          <div className='sec-title cd-sec-title' onClick={() => toggleCollapsed('details-traits')}>
+            <div className='label'>
+              <span className='lz'>+</span>Traits &amp; Size
+              <span className='sec-chevron'>▾</span>
+            </div>
           </div>
-          <div className='sec-body'>
-            <div className='details-trait-grid'>
+          <div className='sec-body cd-sec-body'>
+            <div className='cd-trait-row'>
               {ancestryTraits.map((t) => (
                 <span
-                  key={t?.id}
-                  className='details-trait-pill'
+                  key={`trait-${t?.id}`}
+                  className='cd-trait-pill'
                   onClick={() =>
                     openDrawer({
                       type: 'trait',
@@ -606,7 +578,7 @@ export function CodexDetailsPanel(props: {
               {languages.map((l) => (
                 <span
                   key={`lang-${l?.id}`}
-                  className='details-trait-pill'
+                  className='cd-trait-pill'
                   onClick={() =>
                     openDrawer({
                       type: 'language',
@@ -619,24 +591,14 @@ export function CodexDetailsPanel(props: {
                 </span>
               ))}
             </div>
-            <div className='size-strip'>
-              <div className='size-box'>
-                <div className='size-k'>Size</div>
-                <div className='size-v'>{sizeLabel}</div>
-                <div className='size-foot'>
-                  {sizeLabel === 'Medium'
-                    ? '5 ft × 5 ft · 1-square reach'
-                    : sizeLabel === 'Small'
-                      ? '5 ft × 5 ft · 1-square reach'
-                      : sizeLabel === 'Large'
-                        ? '10 ft × 10 ft · 2-square reach'
-                        : ''}
-                </div>
-              </div>
+            <div className='cd-size'>
+              <div className='cd-size-k'>Size</div>
+              <div className='cd-size-v'>{sizeLabel}</div>
+              {sizeFoot && <div className='cd-size-foot'>{sizeFoot}</div>}
             </div>
           </div>
         </section>
-      </div>
+      </aside>
     </>
   );
 }

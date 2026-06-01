@@ -1,5 +1,5 @@
 import RichText from '@common/RichText';
-import { Title, Text, Group, Box, HoverCard, Table, useMantineTheme } from '@mantine/core';
+import { Title, Text, Group, Box, HoverCard, Table } from '@mantine/core';
 import { AttributeValue, StoreID } from '@schemas/variables';
 import { sign } from '@utils/numbers';
 import { toLabel } from '@utils/strings';
@@ -25,7 +25,6 @@ export function StatAttrDrawerTitle(props: { data: { id: StoreID; attributeName?
 
 export function StatAttrDrawerContent(props: { data: { id: StoreID; attributeName?: string } }) {
   const attributes = getAllAttributeVariables(props.data.id);
-  const theme = useMantineTheme();
 
   // Change structure to be an array by source
   // const sourceRecords = [];
@@ -110,7 +109,7 @@ export function StatAttrDrawerContent(props: { data: { id: StoreID; attributeNam
       <Table highlightOnHover withTableBorder withColumnBorders withRowBorders={false}>
         <Table.Thead
           style={{
-            borderBottom: '1px solid ' + theme.colors.dark[6],
+            borderBottom: '1px solid ' + 'var(--wg4-border-soft)',
           }}
         >
           {ths}
@@ -118,7 +117,7 @@ export function StatAttrDrawerContent(props: { data: { id: StoreID; attributeNam
         <Table.Tbody>{rows}</Table.Tbody>
         <Table.Tfoot
           style={{
-            borderTop: '1px solid ' + theme.colors.dark[6],
+            borderTop: '1px solid ' + 'var(--wg4-border-soft)',
           }}
         >
           {tfs}

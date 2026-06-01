@@ -378,7 +378,7 @@ export function AdvancedSearchModal<C = Record<string, any>>(props: {
           <Pill
             key={index}
             size='sm'
-            c='dark.1'
+            c='var(--wg4-ink-2)'
             withRemoveButton={props.presetFilters?.[record.key] === undefined}
             onRemove={() => {
               if (record.key.endsWith('_min')) {
@@ -1082,7 +1082,7 @@ export function AdvancedSearchModal<C = Record<string, any>>(props: {
                         — None —
                       </Text>
                     ) : (
-                      <Pill c='dark.1' size='md'>
+                      <Pill c='var(--wg4-ink-2)' size='md'>
                         {results.length.toLocaleString()}
                         {isOverMaxResults ? '+' : ''}
                       </Pill>
@@ -1092,7 +1092,7 @@ export function AdvancedSearchModal<C = Record<string, any>>(props: {
                   <Pill size='md'>
                     <ActionIcon
                       variant='transparent'
-                      c='dark.1'
+                      c='var(--wg4-ink-2)'
                       size='md'
                       style={{
                         pointerEvents: 'none',

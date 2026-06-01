@@ -21,7 +21,6 @@ import {
   Title,
   UnstyledButton,
   useMantineTheme,
-  useMantineColorScheme,
 } from '@mantine/core';
 import { ContextModalProps, modals } from '@mantine/modals';
 import { useState } from 'react';
@@ -47,8 +46,6 @@ export default function GenerateEncounterModal({
   partyLevel?: number;
   onComplete: (encounter: Encounter) => void;
 }>) {
-  const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
   const [partySize, setPartySize] = useState(innerProps.partySize);
   const [partyLevel, setPartyLevel] = useState(innerProps.partyLevel);
   const [description, setDescription] = useState('');
@@ -126,8 +123,8 @@ export default function GenerateEncounterModal({
           py={15}
           pr={5}
           style={{
-            backgroundColor: colorScheme === 'dark' ? theme.colors.dark[7] : theme.colors.gray[1],
-            borderColor: theme.colors['dark'][8],
+            backgroundColor: 'var(--wg4-surface-2)',
+            borderColor: 'var(--wg4-border-soft)',
           }}
         >
           <ScrollArea h={315} scrollbars='y' pr={10}>
@@ -173,8 +170,8 @@ function EncounterCard(props: { encounter: Encounter; onClick: () => void }) {
   return (
     <Box
       style={{
-        backgroundColor: theme.colors.dark[7],
-        border: `2px solid ${theme.colors.dark[7]}`,
+        backgroundColor: 'var(--wg4-surface-2)',
+        border: `2px solid var(--wg4-border-soft)`,
         borderRadius: theme.radius.md,
       }}
       p='xs'
@@ -206,8 +203,8 @@ function EncounterCard(props: { encounter: Encounter; onClick: () => void }) {
                   cursor: 'pointer',
                 },
                 root: {
-                  border: `1px solid ${theme.colors.dark[4]}`,
-                  backgroundColor: theme.colors.dark[6],
+                  border: `1px solid var(--wg4-border-soft)`,
+                  backgroundColor: 'var(--wg4-surface-2)',
                 },
               }}
               onClick={() => {

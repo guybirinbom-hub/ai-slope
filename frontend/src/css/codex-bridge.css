@@ -30,6 +30,271 @@
  */
 
 /* ============================================================
+   0. Mantine portal escape hatch — wg4 tokens at modal-class scope
+   ============================================================
+
+   Mantine Modal renders to a portal inside `document.body`, OUTSIDE
+   the `.wg4` ancestor chain. That means tokens defined under
+   `.wg4 { --wg4-surface: ... }` in wg4.css don't resolve inside the
+   portal — `background: var(--wg4-surface)` silently falls back to
+   `transparent`, which is what made the new spell + items modals
+   look "old design but transparent" through the Mantine overlay.
+
+   Re-declare the wg4 token palette directly on every modal-shell
+   class so resolution works regardless of whether the modal is
+   portaled inside a `.wg4` element or not. Hardcoded hex values
+   stay in sync with the canonical block in wg4.css.                */
+.codex-add-items,
+.codex-manage-spells,
+.codex-spell-picker,
+.codex-select-content,
+.codex-confirm-modal,
+.codex-operations-modal,
+.codex-select-image-modal,
+.codex-edit-item {
+  --wg4-page: #e8e4d8;
+  --wg4-surface: #f6f3eb;
+  --wg4-surface-2: #efebe1;
+  --wg4-surface-hover: #ece8dd;
+  --wg4-border: #d8d3c4;
+  --wg4-border-soft: #e0dbcd;
+  --wg4-border-strong: #c2bdac;
+  --wg4-ink: #1a1a1a;
+  --wg4-ink-2: #3a3a37;
+  --wg4-ink-3: #6b6962;
+  --wg4-ink-4: #91897c;
+  --wg4-ink-5: #aea69a;
+  --wg4-accent: #b0542f;
+  --wg4-accent-ink: #8a3f1f;
+  --wg4-accent-soft: #ebd9cb;
+  --wg4-font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --wg4-font-serif: 'Newsreader', ui-serif, Georgia, serif;
+  --wg4-font-mono: 'Geist Mono', ui-monospace, monospace;
+
+  /* Bridge the legacy codex tokens to wg4 inside the portal too —
+     otherwise the Mantine Slider + TextInput global rules in this
+     file still resolve to codex gold/dark surfaces because they
+     use var(--gold) / var(--bg-3) etc. and those bridge mappings
+     live under `.wg4` in wg4.css (out of scope for our portal). */
+  --gold: var(--wg4-accent);
+  --gold-bright: var(--wg4-accent);
+  --gold-deep: var(--wg4-accent-ink);
+  --ink: var(--wg4-ink);
+  --ink-dim: var(--wg4-ink-2);
+  --ink-muted: var(--wg4-ink-3);
+  --ink-deep: var(--wg4-ink-4);
+  --bg: var(--wg4-surface);
+  --bg-2: var(--wg4-surface-2);
+  --bg-3: var(--wg4-border-soft);
+  --bg-card: var(--wg4-surface);
+  --rule: var(--wg4-border);
+  --rule-soft: var(--wg4-border-soft);
+  --paper: var(--wg4-surface);
+}
+
+/* Ensure the Mantine overlay behind these modals is near-opaque so
+   the character sheet beneath doesn't bleed through the parchment
+   frame. `overlayProps={{ backgroundOpacity: 0.85 }}` was being
+   ignored / overridden by Mantine's own .mantine-Modal-overlay
+   default in some builds — pin via CSS to be safe.                 */
+.mantine-Modal-root:has(.codex-add-items) .mantine-Modal-overlay,
+.mantine-Modal-root:has(.codex-manage-spells) .mantine-Modal-overlay,
+.mantine-Modal-root:has(.codex-spell-picker) .mantine-Modal-overlay,
+.mantine-Modal-root:has(.codex-select-content-body) .mantine-Modal-overlay,
+.mantine-Modal-root:has(.codex-confirm-modal) .mantine-Modal-overlay,
+.mantine-Modal-root:has(.codex-operations-modal) .mantine-Modal-overlay,
+.mantine-Modal-root:has(.codex-select-image-modal) .mantine-Modal-overlay,
+.mantine-Modal-root:has(.codex-edit-item) .mantine-Modal-overlay {
+  background-color: rgba(0, 0, 0, 0.92) !important;
+  backdrop-filter: blur(2px);
+}
+
+/* SegmentedControl inside wg4 modals — the "Met (or none) / Not met /
+   Show all" prereq filter (and the skill any/all toggle) renders as a
+   Mantine SegmentedControl which defaults to a dark indicator + light
+   labels. Paint it parchment with rust active background instead.   */
+.codex-add-items .mantine-SegmentedControl-root,
+.codex-manage-spells .mantine-SegmentedControl-root,
+.codex-spell-picker .mantine-SegmentedControl-root,
+.codex-select-content-body .mantine-SegmentedControl-root {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  border-radius: 6px !important;
+  padding: 2px !important;
+}
+.codex-add-items .mantine-SegmentedControl-indicator,
+.codex-manage-spells .mantine-SegmentedControl-indicator,
+.codex-spell-picker .mantine-SegmentedControl-indicator,
+.codex-select-content-body .mantine-SegmentedControl-indicator {
+  background: var(--wg4-accent) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12) !important;
+}
+.codex-add-items .mantine-SegmentedControl-label,
+.codex-manage-spells .mantine-SegmentedControl-label,
+.codex-spell-picker .mantine-SegmentedControl-label,
+.codex-select-content-body .mantine-SegmentedControl-label {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink-3) !important;
+  letter-spacing: 0.02em !important;
+  padding: 4px 12px !important;
+  transition: color .12s !important;
+}
+.codex-add-items .mantine-SegmentedControl-label[data-active],
+.codex-manage-spells .mantine-SegmentedControl-label[data-active],
+.codex-spell-picker .mantine-SegmentedControl-label[data-active],
+.codex-select-content-body .mantine-SegmentedControl-label[data-active] {
+  color: #fff !important;
+}
+.codex-add-items .mantine-SegmentedControl-label:hover,
+.codex-manage-spells .mantine-SegmentedControl-label:hover,
+.codex-spell-picker .mantine-SegmentedControl-label:hover,
+.codex-select-content-body .mantine-SegmentedControl-label:hover {
+  color: var(--wg4-ink) !important;
+}
+
+/* Inside wg4 modals: paint sliders rust, paint slider tick labels in
+   readable ink (Mantine's default mark-label color comes from
+   --mantine-color-dimmed which is too faded over parchment), and force
+   text inputs to a parchment fill (the global codex-bridge rule above
+   uses the legacy Cormorant Garamond font — explicitly override font
+   stack too so labels match the rest of the wg4 vocabulary).         */
+.codex-add-items .mantine-Slider-bar,
+.codex-add-items .mantine-RangeSlider-bar,
+.codex-manage-spells .mantine-Slider-bar,
+.codex-manage-spells .mantine-RangeSlider-bar,
+.codex-spell-picker .mantine-Slider-bar,
+.codex-spell-picker .mantine-RangeSlider-bar,
+.codex-select-content .mantine-Slider-bar,
+.codex-select-content .mantine-RangeSlider-bar {
+  background: var(--wg4-accent) !important;
+}
+.codex-add-items .mantine-Slider-track,
+.codex-add-items .mantine-RangeSlider-track,
+.codex-manage-spells .mantine-Slider-track,
+.codex-manage-spells .mantine-RangeSlider-track,
+.codex-spell-picker .mantine-Slider-track,
+.codex-spell-picker .mantine-RangeSlider-track,
+.codex-select-content .mantine-Slider-track,
+.codex-select-content .mantine-RangeSlider-track {
+  background-color: var(--wg4-border-soft) !important;
+}
+.codex-add-items .mantine-Slider-thumb,
+.codex-add-items .mantine-RangeSlider-thumb,
+.codex-manage-spells .mantine-Slider-thumb,
+.codex-manage-spells .mantine-RangeSlider-thumb,
+.codex-spell-picker .mantine-Slider-thumb,
+.codex-spell-picker .mantine-RangeSlider-thumb,
+.codex-select-content .mantine-Slider-thumb,
+.codex-select-content .mantine-RangeSlider-thumb {
+  background-color: var(--wg4-accent) !important;
+  border: 2px solid var(--wg4-surface) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.18) !important;
+}
+.codex-add-items .mantine-Slider-mark,
+.codex-add-items .mantine-RangeSlider-mark,
+.codex-manage-spells .mantine-Slider-mark,
+.codex-manage-spells .mantine-RangeSlider-mark,
+.codex-spell-picker .mantine-Slider-mark,
+.codex-spell-picker .mantine-RangeSlider-mark,
+.codex-select-content .mantine-Slider-mark,
+.codex-select-content .mantine-RangeSlider-mark {
+  background-color: var(--wg4-border-strong) !important;
+  border: 1px solid var(--wg4-border) !important;
+}
+.codex-add-items .mantine-Slider-markFilled,
+.codex-add-items .mantine-RangeSlider-markFilled,
+.codex-manage-spells .mantine-Slider-markFilled,
+.codex-manage-spells .mantine-RangeSlider-markFilled,
+.codex-spell-picker .mantine-Slider-markFilled,
+.codex-spell-picker .mantine-RangeSlider-markFilled,
+.codex-select-content .mantine-Slider-markFilled,
+.codex-select-content .mantine-RangeSlider-markFilled {
+  background-color: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+}
+.codex-add-items .mantine-Slider-markLabel,
+.codex-add-items .mantine-RangeSlider-markLabel,
+.codex-manage-spells .mantine-Slider-markLabel,
+.codex-manage-spells .mantine-RangeSlider-markLabel,
+.codex-spell-picker .mantine-Slider-markLabel,
+.codex-spell-picker .mantine-RangeSlider-markLabel,
+.codex-select-content .mantine-Slider-markLabel,
+.codex-select-content .mantine-RangeSlider-markLabel {
+  color: var(--wg4-ink-3) !important;
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* Text inputs in modal filter blocks — defeat the legacy Cormorant
+   Garamond + dark surface global rule. Background is already bridged
+   via --bg-2 → --wg4-surface-2 on the wrapper, but Cormorant Garamond
+   would still leak through; force Geist + parchment explicitly.       */
+.codex-add-items .mantine-TextInput-input,
+.codex-add-items .mantine-Autocomplete-input,
+.codex-manage-spells .mantine-TextInput-input,
+.codex-manage-spells .mantine-Autocomplete-input,
+.codex-spell-picker .mantine-TextInput-input,
+.codex-spell-picker .mantine-Autocomplete-input,
+.codex-select-content .mantine-TextInput-input,
+.codex-select-content .mantine-Autocomplete-input {
+  background-color: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  color: var(--wg4-ink) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.005em !important;
+  border-radius: 6px !important;
+  font-style: normal !important;
+}
+.codex-add-items .mantine-TextInput-input:focus,
+.codex-add-items .mantine-Autocomplete-input:focus,
+.codex-manage-spells .mantine-TextInput-input:focus,
+.codex-manage-spells .mantine-Autocomplete-input:focus,
+.codex-spell-picker .mantine-TextInput-input:focus,
+.codex-spell-picker .mantine-Autocomplete-input:focus,
+.codex-select-content .mantine-TextInput-input:focus,
+.codex-select-content .mantine-Autocomplete-input:focus,
+.codex-add-items .mantine-TextInput-input:focus-within,
+.codex-manage-spells .mantine-TextInput-input:focus-within,
+.codex-spell-picker .mantine-TextInput-input:focus-within,
+.codex-select-content .mantine-TextInput-input:focus-within {
+  border-color: var(--wg4-border-strong) !important;
+  background-color: var(--wg4-surface) !important;
+}
+.codex-add-items .mantine-TextInput-input::placeholder,
+.codex-add-items .mantine-Autocomplete-input::placeholder,
+.codex-manage-spells .mantine-TextInput-input::placeholder,
+.codex-manage-spells .mantine-Autocomplete-input::placeholder,
+.codex-spell-picker .mantine-TextInput-input::placeholder,
+.codex-spell-picker .mantine-Autocomplete-input::placeholder,
+.codex-select-content .mantine-TextInput-input::placeholder,
+.codex-select-content .mantine-Autocomplete-input::placeholder {
+  color: var(--wg4-ink-4) !important;
+  font-style: normal !important;
+}
+
+/* RangeSlider "title" (the `Rank: 0–10` / `Range: 5 F–500 F` strings
+   above each slider) — these render as the FilterBlock's title, which
+   the wg4 .codex-filter-block-title rule already handles. But the
+   Mantine RangeSlider's own label-on-hover bubble should also be
+   parchment, not codex dark. */
+.codex-add-items .mantine-Slider-label,
+.codex-manage-spells .mantine-Slider-label,
+.codex-spell-picker .mantine-Slider-label,
+.codex-select-content .mantine-Slider-label {
+  background-color: var(--wg4-ink) !important;
+  color: var(--wg4-surface) !important;
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10px !important;
+}
+
+/* ============================================================
    1. Body / page chrome
    ============================================================ */
 
@@ -761,10 +1026,31 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
  * Uses :has() (Chromium-supported, which Electron is). Also forces
  * the modal frame to a wide+tall footprint regardless of Mantine's
  * default size cap. */
+/* Add Items modal — wg4 parchment design
+ * ==========================================
+ * Ports D:\Inst\8 _ SelectContent picker.html (the new content picker)
+ * onto the existing .cai-* class names — no JSX/structure changes, only
+ * colors / fonts / spacing.
+ *
+ * Tokens come from wg4.css via the global codex→wg4 bridge: --bg-card,
+ * --rule, --gold, --ink-*, etc. resolve to their parchment equivalents
+ * when the .wg4 root class is in scope (which covers every Mantine
+ * modal portal via wg4 mounting in main.tsx).
+ *
+ * Height: user-requested 75vh ("3/4 of the app size"). Width is the
+ * pre-existing 1500px cap — kept on purpose ("keep the current pop up
+ * width"). The popup keeps the same ratio when the window is resized;
+ * the table rows / pager / etc. reflow inside.                       */
 .mantine-Modal-content:has(.codex-add-items) {
   width: min(1500px, calc(100vw - 60px)) !important;
   max-width: min(1500px, calc(100vw - 60px)) !important;
-  min-height: 85vh !important;
+  height: 75vh !important;
+  min-height: 75vh !important;
+  max-height: 75vh !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
 }
 .mantine-Modal-content:has(.codex-add-items) .mantine-Modal-header {
   display: none !important;
@@ -777,401 +1063,504 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 85vh;
-  font-family: 'Cormorant Garamond', serif;
-  color: var(--ink);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  color: var(--wg4-ink);
+  background: var(--wg4-surface);
 }
+
+/* ── Header ───────────────────────────────────────────────────────── */
 .cai-header {
   display: flex;
   align-items: center;
-  padding: 14px 18px 12px;
-  border-bottom: 1px solid var(--rule);
-  position: relative;
+  padding: 16px 22px 14px;
+  flex-shrink: 0;
 }
-.cai-header::after {
-  content: '';
-  position: absolute;
-  left: 10%;
-  right: 10%;
-  bottom: -3px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--rule), transparent);
-}
+.cai-header::after { display: none; }
 .cai-title {
-  font-family: 'Cinzel', serif;
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.18em;
-  color: var(--gold);
-  text-transform: uppercase;
-  line-height: 1;
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--wg4-ink);
+  text-transform: none;
+  line-height: 1.15;
 }
 .cai-header-actions {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
+
+/* Header chip buttons (+ Custom Item, Bulk Add) — wg4 ghost-sm spec
+ * from the mockup .btn-ghost-sm: transparent surface, hairline border,
+ * 11px Geist sans, 24px tall.                                      */
 .cai-chip-btn {
-  padding: 5px 12px;
-  border: 1px solid var(--rule-soft);
-  background: var(--bg-2);
-  color: var(--ink-dim);
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  padding: 4px 12px;
+  height: 24px;
+  border: 1px solid var(--wg4-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--wg4-ink-2);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  line-height: 1;
   cursor: pointer;
-  transition: color 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .cai-chip-btn:hover {
-  color: var(--gold);
-  border-color: var(--gold-deep);
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
 }
+
+/* Close X — borderless, ink-3 glyph, hover tints rust accent.       */
 .cai-x {
   width: 28px;
   height: 28px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--rule-soft);
+  border: 0;
   background: transparent;
-  color: var(--ink-muted);
+  color: var(--wg4-ink-3);
   cursor: pointer;
-  transition: color 0.12s, background 0.12s, border-color 0.12s;
-  font-size: 14px;
+  transition: color 0.12s, background 0.12s;
+  font-size: 18px;
+  font-weight: 300;
   line-height: 1;
+  border-radius: 6px;
+  margin-left: 4px;
 }
 .cai-x:hover {
-  color: #ffb89a;
-  background: rgba(168, 58, 37, 0.15);
-  border-color: var(--crimson);
+  color: var(--wg4-accent);
+  background: var(--wg4-surface-2);
 }
 
+/* ── Search row ───────────────────────────────────────────────────── */
 .cai-search-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  padding: 14px 18px 6px;
-}
-.cai-search {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
-  background: var(--bg-2);
-  border: 1px solid var(--rule-soft);
-  transition: border-color 0.12s;
+  gap: 8px;
+  padding: 0 22px 12px;
+  flex-shrink: 0;
+}
+.cai-search {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: 6px;
+  transition: border-color 0.12s, background 0.12s;
 }
 .cai-search:focus-within {
-  border-color: var(--gold);
+  border-color: var(--wg4-border-strong);
+  background: var(--wg4-surface);
 }
 .cai-search-icon {
-  width: 10px;
-  height: 10px;
-  border: 1.4px solid var(--gold);
+  width: 12px;
+  height: 12px;
+  border: 1.2px solid var(--wg4-ink-4);
   border-radius: 50%;
-  box-shadow: 3px 3px 0 -2px var(--gold);
+  box-shadow: 3px 3px 0 -1.5px var(--wg4-ink-4);
   flex-shrink: 0;
+  margin-right: 2px;
 }
 .cai-search input {
   background: transparent;
   border: 0;
   outline: 0;
-  color: var(--ink);
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 14px;
+  color: var(--wg4-ink);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
   width: 100%;
   padding: 0;
 }
 .cai-search input::placeholder {
-  color: var(--ink-muted);
-  font-style: italic;
+  color: var(--wg4-ink-4);
+  font-style: normal;
 }
+
+/* Filters button — ghost button with chevron caret. */
 .cai-filters-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  background: var(--bg-2);
-  color: var(--ink);
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  font-weight: 700;
-  border: 1px solid var(--gold-deep);
+  gap: 6px;
+  padding: 6px 14px;
+  height: 33px;
+  background: var(--wg4-surface);
+  color: var(--wg4-ink-2);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: 600;
+  border: 1px solid var(--wg4-border);
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
 }
 .cai-filters-btn:hover {
-  background: rgba(201, 161, 59, 0.1);
-  border-color: var(--gold);
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+}
+.cai-filters-btn.on {
+  background: var(--wg4-accent);
+  border-color: var(--wg4-accent);
+  color: #fff;
+}
+.cai-filters-caret {
+  font-size: 9px;
+  opacity: 0.8;
+  margin-left: 2px;
 }
 
+/* ── Table ────────────────────────────────────────────────────────── */
 .cai-table {
-  padding: 6px 18px 0;
+  padding: 0 22px;
   flex: 1 1 auto;
   overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-border-strong) transparent;
 }
-.cai-table::-webkit-scrollbar { width: 4px; }
-.cai-table::-webkit-scrollbar-thumb { background: var(--gold-deep); }
+.cai-table::-webkit-scrollbar { width: 6px; }
+.cai-table::-webkit-scrollbar-thumb {
+  background: var(--wg4-border-strong);
+  border-radius: 3px;
+}
+.cai-table::-webkit-scrollbar-thumb:hover { background: var(--wg4-ink-4); }
+
 .cai-thead {
   display: grid;
-  grid-template-columns: 60px 1fr 110px 180px;
+  grid-template-columns: 56px 1fr 110px 130px;
   align-items: center;
   gap: 12px;
-  padding: 8px 14px 6px;
-  font-family: 'Cinzel', serif;
+  padding: 4px 14px 6px;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
   font-size: 10px;
-  letter-spacing: 0.2em;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ink-muted);
-  border-bottom: 1px solid var(--rule-soft);
+  color: var(--wg4-ink-3);
+  border-bottom: 0;
+  position: sticky;
+  top: 0;
+  background: var(--wg4-surface);
+  z-index: 1;
 }
 .cai-col-lvl { text-align: left; }
+.cai-col-item { text-align: left; }
 .cai-col-price { text-align: right; }
 .cai-col-action { text-align: right; }
 .cai-tbody {
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
+
 .cai-row {
   display: grid;
-  grid-template-columns: 60px 1fr 110px 180px;
+  grid-template-columns: 56px 1fr 110px 130px;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--rule-soft);
+  padding: 9px 14px;
+  border: 1px solid var(--wg4-border);
+  border-radius: 6px;
+  background: var(--wg4-surface);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.12s, border-color 0.12s;
 }
 .cai-row:hover {
-  background: linear-gradient(180deg, rgba(201, 161, 59, 0.06), transparent);
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
 }
+
 .cai-lvl {
-  font-family: 'Cinzel', serif;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--gold);
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--wg4-ink-2);
+  letter-spacing: -0.01em;
 }
 .cai-name {
-  font-family: 'Cinzel', serif;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--ink);
-  letter-spacing: 0.04em;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--wg4-ink);
+  letter-spacing: -0.005em;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
 .cai-sub {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
   font-style: italic;
-  font-weight: 500;
-  color: var(--ink-muted);
+  font-weight: 400;
+  color: var(--wg4-ink-4);
   font-size: 11px;
-  letter-spacing: 0.02em;
-  margin-left: 6px;
-  text-transform: capitalize;
+  letter-spacing: 0;
+  margin-left: 0;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cai-price {
-  font-family: 'Cinzel', serif;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--gold);
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--wg4-ink);
+  letter-spacing: -0.01em;
   text-align: right;
+  text-transform: uppercase;
 }
 .cai-price .cai-unit {
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
   font-size: 9px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-muted);
+  color: var(--wg4-ink-4);
   font-weight: 500;
-  margin-left: 2px;
+  margin-left: 4px;
 }
 .cai-action {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
 }
+
+/* In-row Buy / Give buttons — primary-sm + ghost-sm from mockup. */
 .cai-btn {
-  padding: 6px 18px;
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  padding: 4px 14px;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  text-transform: none;
   font-weight: 600;
   background: transparent;
-  border: 1px solid var(--rule-soft);
-  color: var(--ink-dim);
+  border: 1px solid var(--wg4-border);
+  border-radius: 6px;
+  color: var(--wg4-ink-2);
   cursor: pointer;
-  transition: color 0.12s, background 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  height: 26px;
+  line-height: 1;
 }
 .cai-btn:hover {
-  color: var(--gold);
-  border-color: var(--gold-deep);
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
 }
 .cai-buy {
-  border-color: var(--rule);
-  color: var(--ink);
+  background: var(--wg4-accent);
+  border-color: var(--wg4-accent);
+  color: #fff;
 }
 .cai-buy:hover {
-  background: rgba(201, 161, 59, 0.06);
+  background: var(--wg4-accent-ink);
+  border-color: var(--wg4-accent-ink);
+  color: #fff;
 }
 .cai-give {
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
-  border-color: var(--gold-deep);
-  color: #1a140c;
-  font-weight: 700;
+  background: transparent;
+  border-color: var(--wg4-border);
+  color: var(--wg4-ink-2);
+  font-weight: 600;
 }
 .cai-give:hover {
-  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
-  border-color: var(--gold);
-}
-.cai-empty {
-  padding: 30px 14px;
-  text-align: center;
-  font-style: italic;
-  color: var(--ink-muted);
-  font-family: 'Cormorant Garamond', serif;
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
 }
 
+.cai-empty {
+  padding: 32px 14px;
+  text-align: center;
+  font-style: italic;
+  color: var(--wg4-ink-4);
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-size: 13px;
+}
+
+/* ── Pager ────────────────────────────────────────────────────────── */
 .cai-pager {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 4px;
-  padding: 14px 18px 4px;
+  padding: 12px 22px 6px;
+  flex-shrink: 0;
 }
 .cai-pg, .cai-pg-nav {
   min-width: 28px;
   height: 28px;
   display: grid;
   place-items: center;
-  padding: 0 8px;
-  border: 1px solid var(--rule-soft);
-  background: transparent;
-  color: var(--ink-dim);
-  font-family: 'Cinzel', serif;
+  padding: 1px 6px;
+  border: 1px solid var(--wg4-border);
+  background: var(--wg4-surface);
+  color: var(--wg4-ink-2);
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
   font-size: 11px;
-  letter-spacing: 0.12em;
+  font-weight: 500;
+  letter-spacing: 0;
+  border-radius: 4px;
   cursor: pointer;
-  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.cai-pg-nav {
+  color: var(--wg4-ink-3);
 }
 .cai-pg:hover, .cai-pg-nav:hover:not(:disabled) {
-  color: var(--gold);
-  border-color: var(--gold-deep);
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
 }
 .cai-pg-nav:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 .cai-pg.on {
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
-  color: #1a140c;
-  border-color: var(--gold-deep);
-  font-weight: 700;
+  background: var(--wg4-ink);
+  color: var(--wg4-surface);
+  border-color: var(--wg4-ink);
+  font-weight: 500;
 }
 .cai-pg-gap {
-  min-width: 28px;
+  min-width: 20px;
   text-align: center;
-  color: var(--ink-muted);
-  font-family: 'Cinzel', serif;
+  color: var(--wg4-ink-4);
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
   font-size: 11px;
+  letter-spacing: 0;
 }
 .cai-count {
-  padding: 4px 18px 14px;
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 12px;
-  color: var(--ink-muted);
+  padding: 0 22px 12px;
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--wg4-ink-4);
   text-align: center;
   letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
 }
 .cai-count b {
-  color: var(--gold);
+  color: var(--wg4-ink-2);
   font-style: normal;
+  font-weight: 600;
 }
 
+/* ── Footer ───────────────────────────────────────────────────────── */
 .cai-footer {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 18px;
-  border-top: 1px solid var(--rule);
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.2));
+  padding: 14px 22px;
+  border-top: 1px solid var(--wg4-border);
+  background: var(--wg4-surface-2);
   position: relative;
+  flex-shrink: 0;
 }
-.cai-footer::before {
-  content: '';
-  position: absolute;
-  left: 10%;
-  right: 10%;
-  top: -3px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--rule), transparent);
-}
+.cai-footer::before { display: none; }
 .cai-foot-hint {
   flex: 1 1 auto;
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 13px;
-  color: var(--ink-muted);
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--wg4-ink-3);
 }
 .cai-foot-hint b {
-  color: var(--ink);
-  font-weight: 700;
+  color: var(--wg4-ink-2);
+  font-weight: 600;
+  font-style: italic;
 }
 .cai-foot-hint i {
-  color: var(--gold-deep);
+  color: var(--wg4-ink-4);
   font-style: normal;
   margin: 0 4px;
 }
 .cai-foot-actions {
   display: flex;
-  gap: 10px;
+  gap: 6px;
 }
 .cai-foot-close {
-  padding: 9px 22px;
+  padding: 7px 14px;
+  height: 32px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  background: var(--wg4-surface);
+  border-color: var(--wg4-border);
+  color: var(--wg4-ink-2);
+  font-weight: 600;
+  border-radius: 6px;
+}
+.cai-foot-close:hover {
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
 }
 .cai-foot-done {
-  padding: 9px 22px;
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
-  color: #1a140c;
-  border-color: var(--gold-deep);
-  font-weight: 700;
+  padding: 7px 18px;
+  height: 32px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  background: var(--wg4-accent);
+  border-color: var(--wg4-accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 6px;
 }
 .cai-foot-done:hover {
-  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
-  border-color: var(--gold);
+  background: var(--wg4-accent-ink);
+  border-color: var(--wg4-accent-ink);
+  color: #fff;
 }
 
-/* Filter blocks (SelectContentFilters) — single column vertical
- * scrolling stack so we can fit comprehensive filter sets (37 item
- * groups, 17 cast-time pills, etc.) without breaking layout. No
- * horizontal scrolling — overflow-x:hidden guarantees content can't
- * spill sideways.
+/* Filter blocks (SelectContentFilters) — wg4 parchment styling.
  *
- * flex:1 + minHeight:0 lets the panel grow to the modal frame's full
- * available height (replaces the old fixed `max-height: calc(85vh -
- * 240px)` cap that was leaving dead space under the Requirements
- * field). The outer chain in SelectContent.tsx is flex-column
- * end-to-end so this Stack receives the remaining vertical space. */
+ * Structure is unchanged from the existing SelectContentFilters
+ * component (one .codex-filter-block per filter group, single
+ * vertical scrolling stack). Only colors / fonts / spacing change
+ * here so the panel visually matches the new Add Items popup. */
 .mantine-Modal-root .mantine-Stack-root:has(> .codex-filter-block) {
   display: flex !important;
   flex-direction: column;
-  gap: 16px !important;
+  gap: 14px !important;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-border-strong) transparent;
   padding-right: 8px;
 }
 .mantine-Modal-root .mantine-Stack-root:has(> .codex-filter-block)::-webkit-scrollbar {
   width: 6px;
 }
 .mantine-Modal-root .mantine-Stack-root:has(> .codex-filter-block)::-webkit-scrollbar-thumb {
-  background: var(--gold-deep);
+  background: var(--wg4-border-strong);
+  border-radius: 3px;
+}
+.mantine-Modal-root .mantine-Stack-root:has(> .codex-filter-block)::-webkit-scrollbar-thumb:hover {
+  background: var(--wg4-ink-4);
 }
 .codex-filter-block {
   margin-bottom: 0;
@@ -1183,42 +1572,49 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
   display: none;
 }
 .codex-filter-block-title {
-  font-family: 'Cinzel', serif !important;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 10px !important;
-  letter-spacing: 0.26em !important;
-  color: var(--gold) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  color: var(--wg4-ink-3) !important;
   text-transform: uppercase;
 }
 .codex-filter-search {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 8px 12px;
   margin-bottom: 12px;
-  background: var(--bg-2);
-  border: 1px solid var(--rule-soft);
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: 6px;
+}
+.codex-filter-search:focus-within {
+  border-color: var(--wg4-border-strong);
+  background: var(--wg4-surface);
 }
 .codex-filter-search::before {
   content: '';
-  width: 9px;
-  height: 9px;
-  border: 1.4px solid var(--gold-deep);
+  width: 11px;
+  height: 11px;
+  border: 1.2px solid var(--wg4-ink-4);
   border-radius: 50%;
-  box-shadow: 2px 2px 0 -1px var(--gold-deep);
+  box-shadow: 3px 3px 0 -1.5px var(--wg4-ink-4);
   flex-shrink: 0;
 }
 .codex-filter-search input {
   background: transparent;
   border: 0;
   outline: 0;
-  color: var(--ink);
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 13px;
+  color: var(--wg4-ink);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 12.5px;
   width: 100%;
-  font-style: italic;
+  font-style: normal;
+  letter-spacing: -0.005em;
 }
 .codex-filter-search input::placeholder {
-  color: var(--ink-muted);
+  color: var(--wg4-ink-4);
 }
 
 /* Manage Spells modal — no horizontal scrolling anywhere, themed
@@ -1270,24 +1666,1138 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
   overflow-x: hidden !important;
 }
 
-/* ──── Manage Spells modal — flex body so the spell list grows to
- * fill the frame instead of leaving dead space under short lists.
- * The body marker class is set via `classNames={{ body: ... }}` on
- * the Mantine Modal in ManageSpellsModal.tsx. */
+/* ──── Manage Spells modal ────────────────────────────────────────────
+ * Mirrors the Add Items modal pattern: the Mantine wrapper renders
+ * fully transparent / unstyled, and a custom `.codex-manage-spells`
+ * inner shell paints the parchment surface + radius + border.
+ *
+ * The redesigned JSX in `modals/ManageSpellsModal.tsx` hides Mantine's
+ * default chrome (`withCloseButton={false}`, `title={null}`) and
+ * renders its own header (`.cms-head`), search row (`.cms-search-row`),
+ * rank-grouped body (`.cms-body`), and footer (`.cms-footer`). The
+ * previous attempt fought Mantine via `:has()` selectors on the modal
+ * content; that pattern broke when Mantine's portal wrapper updated.
+ * Keep the styling on regular flat classes — no `:has()` deeper than
+ * the modal frame.                                                   */
+
+/* Frame: 1500 × 75vh, transparent so the inner shell's surface paints.
+ * The inner `.codex-manage-spells` div owns background/border/radius —
+ * matches the spec the user approved in
+ * `proposals/spell-modals-mockup.html`.                              */
+.mantine-Modal-content.codex-manage-spells-content,
+.codex-manage-spells-content {
+  width: min(1500px, calc(100vw - 60px)) !important;
+  max-width: min(1500px, calc(100vw - 60px)) !important;
+  height: 75vh !important;
+  min-height: 75vh !important;
+  max-height: 75vh !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+  overflow: visible !important;
+  padding: 0 !important;
+}
 .codex-manage-spells-body {
-  display: flex !important;
+  padding: 0 !important;
+  height: 100% !important;
+  background: transparent !important;
+}
+
+/* Inner shell: parchment surface, hairline border, 10px radius, flex
+ * column so head / search / body / footer stack and the body grows. */
+.codex-manage-spells {
+  display: flex;
   flex-direction: column;
-  flex: 1;
+  height: 100%;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  border-radius: 10px;
+  overflow: hidden;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  color: var(--wg4-ink);
+}
+
+/* ── Header ───────────────────────────────────────────────────────── */
+.cms-head {
+  display: flex;
+  align-items: center;
+  padding: 16px 22px 14px;
+  flex-shrink: 0;
+}
+.cms-title {
+  flex: 1 1 auto;
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--wg4-ink);
+  text-transform: none;
+  line-height: 1.15;
+}
+.cms-flourish {
+  color: var(--wg4-accent);
+  margin-right: 4px;
+}
+.cms-meta {
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-4);
+  margin-left: 12px;
+  vertical-align: middle;
+}
+.cms-close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--wg4-ink-3);
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1;
+  border-radius: 6px;
+  margin-left: 4px;
+}
+.cms-close:hover {
+  color: var(--wg4-accent);
+  background: var(--wg4-surface-2);
+}
+
+/* ── Search row ───────────────────────────────────────────────────── */
+.cms-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 22px 12px;
+  flex-shrink: 0;
+}
+.cms-search {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: 6px;
+  transition: border-color 0.12s, background 0.12s;
+}
+.cms-search:focus-within {
+  border-color: var(--wg4-border-strong);
+  background: var(--wg4-surface);
+}
+.cms-search-icon {
+  width: 12px;
+  height: 12px;
+  border: 1.2px solid var(--wg4-ink-4);
+  border-radius: 50%;
+  box-shadow: 3px 3px 0 -1.5px var(--wg4-ink-4);
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+.cms-search input {
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--wg4-ink);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  width: 100%;
+  padding: 0;
+}
+.cms-search input::placeholder {
+  color: var(--wg4-ink-4);
+  font-style: normal;
+}
+
+/* Add Spell button — solid rust accent, matches `.cai-foot-done`. */
+.cms-add-btn {
+  padding: 0 16px;
+  height: 33px;
+  background: var(--wg4-accent);
+  border: 1px solid var(--wg4-accent);
+  color: #fff;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.cms-add-btn:hover {
+  background: var(--wg4-accent-ink);
+  border-color: var(--wg4-accent-ink);
+}
+.cms-plus {
+  font-size: 14px;
+  line-height: 1;
+  color: inherit;
+}
+
+/* ── Body ─────────────────────────────────────────────────────────── */
+.cms-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--wg4-border-strong) transparent;
+}
+.cms-body::-webkit-scrollbar { width: 6px; }
+.cms-body::-webkit-scrollbar-thumb {
+  background: var(--wg4-border-strong);
+  border-radius: 3px;
+}
+.cms-body::-webkit-scrollbar-thumb:hover { background: var(--wg4-ink-4); }
+
+/* Each rank section: header, rows, "+ Add" button. */
+.cms-rank-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.cms-rank-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 14px 8px;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-3);
+  border-bottom: 1px solid var(--wg4-border-soft);
+  margin-bottom: 4px;
+}
+.cms-rank-count {
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-size: 10px;
+  color: var(--wg4-ink-4);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+
+/* "No spells at this rank" placeholder. */
+.cms-empty-line {
+  padding: 9px 14px;
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--wg4-ink-4);
+  border: 1px dashed var(--wg4-border);
+  border-radius: 6px;
+  background: transparent;
+  text-align: center;
+}
+
+/* Spell row — parchment card; grid: lvl | name+traits | area | dots. */
+.cms-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 14px;
+  border: 1px solid var(--wg4-border);
+  border-radius: 6px;
+  background: var(--wg4-surface);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.cms-row:hover {
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+}
+.cms-row-lvl {
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--wg4-ink-3);
+  text-align: center;
+}
+.cms-row-name-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.cms-row-name {
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--wg4-ink);
+  letter-spacing: -0.005em;
+}
+.cms-row-star {
+  color: var(--wg4-accent);
+  font-size: 11px;
+  margin-left: 4px;
+}
+.cms-row-traits {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--wg4-ink-4);
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.cms-row-area {
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--wg4-ink-3);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cms-row-dots {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--wg4-ink-4);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.cms-row-dots:hover {
+  color: var(--wg4-ink-2);
+  background: var(--wg4-surface-2);
+}
+
+/* "+ Add N-Rank Spell" inline action row. */
+.cms-add-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px dashed var(--wg4-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--wg4-ink-3);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.cms-add-rank:hover {
+  border-color: var(--wg4-accent);
+  color: var(--wg4-accent);
+  background: var(--wg4-surface);
+}
+.cms-add-rank .cms-plus {
+  color: var(--wg4-accent);
+  font-size: 14px;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────── */
+.cms-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--wg4-border);
+  background: var(--wg4-surface-2);
+  flex-shrink: 0;
+}
+.cms-foot-hint {
+  flex: 1 1 auto;
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--wg4-ink-3);
+}
+.cms-foot-hint b {
+  color: var(--wg4-ink-2);
+  font-weight: 600;
+  font-style: italic;
+}
+.cms-foot-hint i {
+  color: var(--wg4-ink-4);
+  font-style: normal;
+  margin: 0 4px;
+}
+.cms-foot-actions {
+  display: flex;
+  gap: 6px;
+}
+.cms-btn {
+  padding: 7px 14px;
+  height: 32px;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  color: var(--wg4-ink-2);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.cms-btn:hover {
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
+}
+.cms-btn.cms-primary {
+  padding: 7px 18px;
+  background: var(--wg4-accent);
+  border-color: var(--wg4-accent);
+  color: #fff;
+}
+.cms-btn.cms-primary:hover {
+  background: var(--wg4-accent-ink);
+  border-color: var(--wg4-accent-ink);
+  color: #fff;
+}
+
+/* ──── Universal content picker (selectContent({type:...}))
+ *
+ * Every content picker (ancestry, attribute, feat, item, language,
+ * creature, spell, …) now flows through `Wg4PickerShell` and paints
+ * the same parchment shell inside the Mantine Modal — same wrapper
+ * pattern Add Items uses (`.codex-add-items`) and Manage Spells uses
+ * (`.codex-manage-spells`). The legacy `.codex-select-spell-body` /
+ * `.codex-spell-picker` class names are kept as aliases for the spell
+ * shell (which still has its own bespoke data pipeline) so existing
+ * CSS targeting them still wins.
+ *
+ * The body marker class `.codex-select-content-body` (or its alias
+ * `.codex-select-spell-body`) is added to the Mantine modal body so
+ * the frame picks up the 1500×75vh footprint + parchment surface.
+ * Inside the Mantine body the wg4 shell renders its own
+ * header/search/body/footer using `.csp-*` classes mirroring the
+ * `.cai-*` vocabulary; we hide the Mantine header entirely because
+ * `.csp-head` replaces it.                                            */
+.mantine-Modal-content:has(.codex-select-spell-body),
+.mantine-Modal-content:has(.codex-select-content-body) {
+  width: min(1500px, calc(100vw - 60px)) !important;
+  max-width: min(1500px, calc(100vw - 60px)) !important;
+  min-width: min(1500px, calc(100vw - 60px)) !important;
+  height: 75vh !important;
+  min-height: 75vh !important;
+  max-height: 75vh !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  resize: none !important;
+  padding: 0 !important;
+}
+.mantine-Modal-content:has(.codex-select-spell-body) .mantine-Modal-header,
+.mantine-Modal-content:has(.codex-select-content-body) .mantine-Modal-header {
+  display: none !important;
+}
+.codex-select-spell-body,
+.codex-select-content-body {
+  padding: 0 !important;
+  background: var(--wg4-surface) !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* The parchment shell itself — `.codex-spell-picker` is the legacy
+ * class name kept for the spell picker (still around); the new shell
+ * uses `.codex-select-content`. Both share the same flex column
+ * layout. */
+.codex-spell-picker,
+.codex-select-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  color: var(--wg4-ink);
+  background: var(--wg4-surface);
+}
+
+/* ── Header ───────────────────────────────────────────────────────── */
+.csp-head {
+  display: flex;
+  align-items: center;
+  padding: 16px 22px 14px;
+  flex-shrink: 0;
+}
+.csp-title {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--wg4-ink);
+  text-transform: none;
+  line-height: 1.15;
+  flex: 1 1 auto;
+}
+.csp-flourish {
+  color: var(--wg4-accent);
+  margin-right: 4px;
+}
+.csp-meta {
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-4);
+  margin-left: 12px;
+  vertical-align: middle;
+}
+.csp-close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--wg4-ink-3);
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1;
+  border-radius: 6px;
+  margin-left: 4px;
+}
+.csp-close:hover {
+  color: var(--wg4-accent);
+  background: var(--wg4-surface-2);
+}
+
+/* ── Search row ───────────────────────────────────────────────────── */
+.csp-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 22px 12px;
+  flex-shrink: 0;
+}
+.csp-search {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: 6px;
+  transition: border-color 0.12s, background 0.12s;
+}
+.csp-search:focus-within {
+  border-color: var(--wg4-border-strong);
+  background: var(--wg4-surface);
+}
+.csp-search-icon {
+  width: 12px;
+  height: 12px;
+  border: 1.2px solid var(--wg4-ink-4);
+  border-radius: 50%;
+  box-shadow: 3px 3px 0 -1.5px var(--wg4-ink-4);
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+.csp-search input {
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--wg4-ink);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  width: 100%;
+  padding: 0;
+}
+.csp-search input::placeholder {
+  color: var(--wg4-ink-4);
+  font-style: normal;
+}
+
+/* Filters toggle button — matches .cai-filters-btn. */
+.csp-filters-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  height: 33px;
+  background: var(--wg4-surface);
+  color: var(--wg4-ink-2);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: 600;
+  border: 1px solid var(--wg4-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.csp-filters-btn:hover {
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+}
+.csp-filters-btn.on {
+  background: var(--wg4-accent);
+  border-color: var(--wg4-accent);
+  color: #fff;
+}
+.csp-filters-caret {
+  font-size: 9px;
+  opacity: 0.8;
+  margin-left: 2px;
+}
+
+/* ── Body ─────────────────────────────────────────────────────────── */
+.csp-body {
+  flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
-.mantine-Modal-content:has(.codex-manage-spells-body) {
-  height: 85vh;
-  min-height: 85vh;
+
+/* Table container — owns vertical scrolling. */
+.csp-table {
+  padding: 0 22px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--wg4-border-strong) transparent;
 }
-.codex-manage-spells-stack {
-  flex: 1 !important;
+.csp-table::-webkit-scrollbar { width: 6px; }
+.csp-table::-webkit-scrollbar-thumb {
+  background: var(--wg4-border-strong);
+  border-radius: 3px;
+}
+.csp-table::-webkit-scrollbar-thumb:hover { background: var(--wg4-ink-4); }
+
+/* Picker header row — RANK / SPELL / TRADITION / ACTION. */
+.csp-thead {
+  display: grid;
+  grid-template-columns: 56px 1fr 200px 130px;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 14px 6px;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-3);
+  position: sticky;
+  top: 0;
+  background: var(--wg4-surface);
+  z-index: 1;
+}
+.csp-col-rank { text-align: left; }
+.csp-col-spell { text-align: left; }
+.csp-col-trd { text-align: right; }
+.csp-col-action { text-align: right; }
+
+.csp-tbody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Default `.csp-row` layout — full wg4 row with level chip + name +
+ * badges + Select button. Used by every picker EXCEPT the spell
+ * picker, which keeps its bespoke 4-column layout below. The spell
+ * picker scopes its own grid via `.codex-spell-picker .csp-row` so
+ * that rule wins where it nests. */
+.csp-row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  border: 1px solid var(--wg4-border);
+  border-radius: 6px;
+  background: var(--wg4-surface);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.csp-row:hover {
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+}
+/* Simple two-column variant (ancestry, attribute, language, class …). */
+.csp-row.csp-row-simple {
+  grid-template-columns: 1fr auto;
+}
+
+/* Legacy spell-picker row layout — only applies inside the spell
+ * picker container. Kept as-is so the existing spell-row look (rank
+ * cell + spell column + tradition column + action column) doesn't
+ * change. */
+.codex-spell-picker .csp-row {
+  grid-template-columns: 56px 1fr 200px 130px;
+}
+
+.csp-rank {
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--wg4-ink-3);
+  text-align: left;
+}
+.csp-name {
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--wg4-ink);
+  letter-spacing: -0.005em;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.csp-sub {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--wg4-ink-4);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.csp-trd {
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-3);
+  text-align: right;
+}
+.csp-action {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.csp-btn {
+  padding: 4px 14px;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-weight: 600;
+  background: var(--wg4-accent);
+  border: 1px solid var(--wg4-accent);
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  height: 26px;
+  line-height: 1;
+}
+.csp-btn:hover {
+  background: var(--wg4-accent-ink);
+  border-color: var(--wg4-accent-ink);
+  color: #fff;
+}
+.csp-btn.csp-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--wg4-border);
+  color: var(--wg4-ink-2);
+}
+.csp-btn.csp-btn-ghost:hover {
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
+}
+
+/* ── Generic wg4 picker-row internals (universal pickers) ─────────────
+ * Used by ancestry / attribute / feat / item / language / creature /
+ * class / background pickers — the spell picker still uses its own
+ * `.csp-rank` / `.csp-name` / `.csp-trd` / `.csp-action` cells scoped
+ * inside `.codex-spell-picker`. */
+.csp-row-lvl {
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--wg4-ink-3);
+  text-align: left;
+}
+.csp-row-name {
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--wg4-ink);
+  letter-spacing: -0.005em;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.csp-row-sub {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--wg4-ink-4);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.csp-row-glyph {
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--wg4-ink-3);
+  letter-spacing: 0;
+}
+.csp-row-badges {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.csp-badge {
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-3);
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  padding: 3px 7px;
+  border-radius: 4px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.csp-badge.dot::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--wg4-accent);
+  display: inline-block;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.csp-row-select {
+  padding: 4px 14px;
+  background: var(--wg4-accent);
+  border: 1px solid var(--wg4-accent);
+  color: #fff;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-radius: 6px;
+  cursor: pointer;
+  height: 26px;
+  line-height: 1;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.csp-row-select:hover {
+  background: var(--wg4-accent-ink);
+  border-color: var(--wg4-accent-ink);
+}
+.csp-row-select:disabled {
+  background: var(--wg4-surface);
+  border-color: var(--wg4-border);
+  color: var(--wg4-ink-4);
+  cursor: not-allowed;
+}
+
+/* Skill picker — leading prof letter chip (T / E / M / L / U) styled
+ * by the `.pf-chip` modifier. The wg4 row exposes
+ * `.csp-row-lvl pf-chip pf-<letter>`. */
+.csp-row-lvl.pf-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border);
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--wg4-ink-2);
+  text-align: center;
+}
+.csp-row-lvl.pf-chip.pf-T { background: var(--wg4-accent-soft); color: var(--wg4-accent-ink); border-color: var(--wg4-accent-soft); }
+.csp-row-lvl.pf-chip.pf-E { background: var(--wg4-accent-soft); color: var(--wg4-accent-ink); border-color: var(--wg4-accent-soft); }
+.csp-row-lvl.pf-chip.pf-M { background: var(--wg4-accent); color: #fff; border-color: var(--wg4-accent); }
+.csp-row-lvl.pf-chip.pf-L { background: var(--wg4-ink); color: var(--wg4-surface); border-color: var(--wg4-ink); }
+.csp-row-lvl.pf-chip.pf-U { background: var(--wg4-surface); color: var(--wg4-ink-4); border-color: var(--wg4-border); }
+
+/* ── Tab strip (Ancestry Feats / Universal Ancestry / etc.) ───────── */
+.csp-tabstrip {
+  display: flex;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--wg4-border-soft);
+  flex-shrink: 0;
+}
+.csp-tabstrip button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-3);
+  padding: 10px 16px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.12s, border-bottom-color 0.12s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.csp-tabstrip button:hover { color: var(--wg4-ink); }
+.csp-tabstrip button.on {
+  color: var(--wg4-ink);
+  border-bottom-color: var(--wg4-accent);
+}
+.csp-tabstrip button .ct {
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-size: 10px;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border-soft);
+  color: var(--wg4-ink-4);
+  padding: 1px 6px;
+  border-radius: 999px;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.csp-tabstrip button.on .ct {
+  color: var(--wg4-ink);
+  border-color: var(--wg4-border);
+}
+
+/* Description ReactNode rendered above the table body (some pickers
+ * prefix a sentence via selectContent({ ..., description })). */
+.csp-description {
+  padding: 4px 0 6px;
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--wg4-ink-3);
+  line-height: 1.5;
+}
+
+.csp-empty {
+  padding: 32px 14px;
+  text-align: center;
+  font-style: italic;
+  color: var(--wg4-ink-4);
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-size: 13px;
+}
+
+/* ── Pager ────────────────────────────────────────────────────────── */
+.csp-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 22px 6px;
+  flex-shrink: 0;
+}
+.csp-pg, .csp-pg-nav {
+  min-width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--wg4-border);
+  background: var(--wg4-surface);
+  color: var(--wg4-ink-2);
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.csp-pg-nav { color: var(--wg4-ink-3); }
+.csp-pg:hover, .csp-pg-nav:hover:not(:disabled) {
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
+}
+.csp-pg-nav:disabled { opacity: 0.45; cursor: not-allowed; }
+.csp-pg.on {
+  background: var(--wg4-ink);
+  color: var(--wg4-surface);
+  border-color: var(--wg4-ink);
+  font-weight: 500;
+}
+.csp-pg-gap {
+  min-width: 20px;
+  text-align: center;
+  color: var(--wg4-ink-4);
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.csp-count {
+  padding: 0 22px 12px;
+  font-family: var(--wg4-font-mono, 'Geist Mono', ui-monospace, monospace);
+  font-size: 10.5px;
+  color: var(--wg4-ink-4);
+  text-align: center;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.csp-count b {
+  color: var(--wg4-ink-2);
+  font-weight: 600;
+}
+
+/* Filter panel — same as cai filter panel; reuses SelectContentFilters
+ * inside. */
+.csp-filter-panel {
+  flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 22px 0;
+  gap: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--wg4-border-strong) transparent;
+}
+.csp-filter-panel::-webkit-scrollbar { width: 6px; height: 0; }
+.csp-filter-panel::-webkit-scrollbar-thumb {
+  background: var(--wg4-border-strong);
+  border-radius: 3px;
+}
+.csp-filter-panel::-webkit-scrollbar-thumb:hover { background: var(--wg4-ink-4); }
+.csp-filter-panel .mantine-Stack-root:has(> .codex-filter-block) {
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding-right: 0 !important;
+}
+
+/* `.csp-thead` is unused outside the spell picker; scope its grid
+ * layout there so the wg4 picker doesn't accidentally inherit a
+ * 4-column header it never renders. */
+.codex-spell-picker .csp-thead {
+  grid-template-columns: 56px 1fr 200px 130px;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────── */
+.csp-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--wg4-border);
+  background: var(--wg4-surface-2);
+  flex-shrink: 0;
+}
+.csp-foot-hint {
+  flex: 1 1 auto;
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--wg4-ink-3);
+}
+.csp-foot-hint b {
+  color: var(--wg4-ink-2);
+  font-weight: 600;
+  font-style: italic;
+}
+.csp-foot-hint i {
+  color: var(--wg4-ink-4);
+  font-style: normal;
+  margin: 0 4px;
+}
+.csp-foot-actions {
+  display: flex;
+  gap: 6px;
+}
+.csp-foot-close {
+  padding: 7px 14px;
+  height: 32px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  color: var(--wg4-ink-2);
+  font-weight: 600;
+  border-radius: 6px;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.csp-foot-close:hover {
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
+}
+.csp-foot-done {
+  padding: 7px 18px;
+  height: 32px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  background: var(--wg4-accent);
+  border: 1px solid var(--wg4-accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 6px;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.csp-foot-done:hover {
+  background: var(--wg4-accent-ink);
+  border-color: var(--wg4-accent-ink);
+  color: #fff;
 }
 
 /* ──── Add Items modal — inline filter panel. Replaces the table
@@ -1306,16 +2816,19 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 14px 18px 0;
+  padding: 4px 22px 0;
   gap: 12px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-border-strong) transparent;
 }
 .cai-filter-panel::-webkit-scrollbar { width: 6px; height: 0; }
-.cai-filter-panel::-webkit-scrollbar-thumb { background: var(--gold-deep); border-radius: 3px; }
-.cai-filter-panel::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+.cai-filter-panel::-webkit-scrollbar-thumb {
+  background: var(--wg4-border-strong);
+  border-radius: 3px;
+}
+.cai-filter-panel::-webkit-scrollbar-thumb:hover { background: var(--wg4-ink-4); }
 
 /* Re-style the Mantine Stack rendered by SelectContentFilters when
  * it's embedded inside .cai-filter-panel — the surrounding
@@ -1332,25 +2845,15 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 }
 .cai-filter-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
-  padding: 10px 0 14px;
-  border-top: 1px solid var(--rule-soft);
+  padding: 12px 0 14px;
+  border-top: 1px solid var(--wg4-border-soft);
   margin-top: 6px;
   position: sticky;
   bottom: 0;
-  background: var(--bg-card);
+  background: var(--wg4-surface);
   z-index: 2;
-}
-.cai-filters-btn.on {
-  background: rgba(201, 161, 59, 0.12);
-  border-color: var(--gold);
-  color: var(--gold);
-}
-.cai-filters-caret {
-  margin-left: 4px;
-  font-size: 9px;
-  opacity: 0.75;
 }
 
 /* Action-cost pills using Pathfinder2eActions font. The .ActionIcons
@@ -1371,30 +2874,33 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 }
 
 /* Codex filter pill — used by TriChip throughout the SelectContent
- * filters. Visually matches .pill in screens/codex-popups.html:
- * dark parchment surface, gold-deep outline, leading ring dot.
- * Three states: neutral (default), include (.on, gold tint),
- * exclude (.excl, crimson tint). */
+ * filters. wg4 parchment styling: surface chip with hairline border,
+ * leading ring indicator, rust accent for include, muted crimson for
+ * exclude. Three states (neutral / include / exclude) match the
+ * structure of the original codex pills — only the visual language
+ * has been ported to the wg4 parchment vocabulary. */
 .codex-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 11px;
-  border: 1px solid var(--rule-soft);
-  background: var(--bg-2);
-  color: var(--ink-dim);
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 1px solid var(--wg4-border);
+  background: var(--wg4-surface);
+  color: var(--wg4-ink-2);
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  text-transform: none;
   cursor: pointer;
   transition: border-color 0.12s, color 0.12s, background 0.12s;
-  border-radius: 0;
+  border-radius: 999px;
   font-weight: 500;
+  line-height: 1.4;
 }
 .codex-pill:hover {
-  color: var(--gold);
-  border-color: var(--gold-deep);
+  background: var(--wg4-surface-hover);
+  border-color: var(--wg4-border-strong);
+  color: var(--wg4-ink);
 }
 .codex-pill .ring {
   width: 9px;
@@ -1403,28 +2909,385 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
+  opacity: 0.55;
 }
 .codex-pill.on {
-  color: var(--gold);
-  border-color: var(--gold);
-  background: rgba(201, 161, 59, 0.1);
+  color: #fff;
+  border-color: var(--wg4-accent);
+  background: var(--wg4-accent);
+  font-weight: 600;
 }
 .codex-pill.on .ring {
-  background: var(--gold);
-  box-shadow: inset 0 0 0 1.5px var(--bg-2);
-  border-color: var(--gold);
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px var(--wg4-accent);
+  border-color: #fff;
+  opacity: 1;
 }
 .codex-pill.excl {
-  color: var(--crimson);
-  border-color: var(--crimson);
-  background: rgba(168, 58, 37, 0.1);
+  color: #fff;
+  border-color: #a83a25;
+  background: #a83a25;
+  font-weight: 600;
 }
 .codex-pill.excl .ring {
-  background: var(--crimson);
-  box-shadow: inset 0 0 0 1.5px var(--bg-2);
-  border-color: var(--crimson);
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px #a83a25;
+  border-color: #fff;
+  opacity: 1;
 }
 .codex-pill .codex-pill-iconR {
   margin-left: 2px;
   color: currentColor;
+}
+
+/* ──── Codex confirm modal — wg4 parchment dialog ──────────────────────
+ * Used by the various modals.openConfirmModal callsites in the
+ * Character Builder (level change, enable dependencies, revoke
+ * access, etc.). Smaller than the Add Items / Manage Spells / Spell
+ * picker (~540px wide) and auto-height so the dialog hugs its content.
+ *
+ * Structure (Mantine openConfirmModal):
+ *   .mantine-Modal-root.wg4
+ *     .mantine-Modal-overlay (overlay rule above already covers it)
+ *     .mantine-Modal-content.codex-confirm-modal
+ *       .mantine-Modal-header
+ *         .mantine-Modal-title  <Title> from callsite
+ *         .mantine-Modal-close  (the X)
+ *       .mantine-Modal-body
+ *         children
+ *         <Group> with Cancel + Confirm buttons (Mantine generates
+ *         the footer Group inline at the bottom of the body)
+ *
+ * The wg4 paint here keeps Mantine's chrome but recolors it parchment
+ * and replaces the Cinzel-uppercase title with italic Newsreader plus
+ * a leading ✦ flourish (matches the .cai-title / .cms-title vocabulary
+ * in the larger wg4 modals). Confirm button is rust-accent solid,
+ * Cancel is ghost ink — same as .cai-foot-done / .cai-foot-close.    */
+.mantine-Modal-content.codex-confirm-modal,
+.codex-confirm-modal.mantine-Modal-content {
+  width: min(540px, calc(100vw - 60px)) !important;
+  max-width: min(540px, calc(100vw - 60px)) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: calc(100vh - 80px) !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 10px !important;
+  box-shadow:
+    0 1px 0 rgba(20,20,20,.02),
+    0 6px 20px rgba(20,20,20,.06),
+    0 18px 60px rgba(20,20,20,.05) !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  color: var(--wg4-ink);
+}
+/* Defeat the global .mantine-Modal-content::before / ::after gold-tick
+ * decorations from the codex bridge — they're for the dark codex
+ * dialog, not the parchment wg4 frame. */
+.codex-confirm-modal::before,
+.codex-confirm-modal::after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+}
+.codex-confirm-modal .mantine-Modal-header {
+  background: var(--wg4-surface) !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  padding: 16px 22px 14px !important;
+  position: relative;
+}
+.codex-confirm-modal .mantine-Modal-header::after {
+  display: none !important;
+}
+.codex-confirm-modal .mantine-Modal-title {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 22px !important;
+  letter-spacing: -0.01em !important;
+  color: var(--wg4-ink) !important;
+  text-transform: none !important;
+  line-height: 1.15 !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.codex-confirm-modal .mantine-Modal-title::before {
+  content: '✦';
+  color: var(--wg4-accent) !important;
+  font-style: normal;
+  font-size: 18px;
+  margin-right: 2px;
+}
+/* If the callsite passed a <Title> JSX node (the modals here all do),
+ * the Title element overrides the title element's font. Reach down
+ * one level to restyle those too. */
+.codex-confirm-modal .mantine-Modal-title .mantine-Title-root {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 22px !important;
+  letter-spacing: -0.01em !important;
+  color: var(--wg4-ink) !important;
+  text-transform: none !important;
+}
+.codex-confirm-modal .mantine-Modal-close {
+  width: 28px;
+  height: 28px;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--wg4-ink-3) !important;
+  border-radius: 6px !important;
+  transition: color 0.12s, background 0.12s;
+}
+.codex-confirm-modal .mantine-Modal-close:hover {
+  color: var(--wg4-accent) !important;
+  background: var(--wg4-surface-2) !important;
+}
+.codex-confirm-modal .mantine-Modal-body {
+  padding: 14px 22px 16px !important;
+  background: var(--wg4-surface) !important;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  color: var(--wg4-ink-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.codex-confirm-modal .mantine-Modal-body .mantine-Text-root {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif) !important;
+  font-style: normal !important;
+  color: var(--wg4-ink-2) !important;
+  font-size: 13.5px !important;
+  line-height: 1.5 !important;
+}
+/* Buttons inside the confirm modal — Mantine renders Cancel + Confirm
+ * as a Group at the bottom of the body. Repaint to wg4: rust-accent
+ * solid Confirm, ghost ink Cancel. */
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root {
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  height: 32px !important;
+  padding: 0 18px !important;
+}
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='default'],
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='outline'],
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='subtle'] {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink-2) !important;
+}
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='default']:hover,
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='outline']:hover,
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='subtle']:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+  color: var(--wg4-ink) !important;
+}
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='filled'],
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='gradient'] {
+  background: var(--wg4-accent) !important;
+  border: 1px solid var(--wg4-accent) !important;
+  color: #fff !important;
+}
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='filled']:hover,
+.codex-confirm-modal .mantine-Modal-body .mantine-Button-root[data-variant='gradient']:hover {
+  background: var(--wg4-accent-ink) !important;
+  border-color: var(--wg4-accent-ink) !important;
+}
+/* Anchors inside the children body (Enable Dependencies modal lists
+ * book sources as clickable Anchors). Recolor to rust so they stand
+ * out against the parchment without the codex gold leak. */
+.codex-confirm-modal .mantine-Modal-body .mantine-Anchor-root {
+  color: var(--wg4-accent) !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid var(--wg4-accent-soft) !important;
+}
+.codex-confirm-modal .mantine-Modal-body .mantine-Anchor-root:hover {
+  color: var(--wg4-accent-ink) !important;
+  border-bottom-color: var(--wg4-accent) !important;
+}
+/* The List inside the children body (book dependencies, homebrew
+ * bundles). Recolor bullets to the wg4 ink. */
+.codex-confirm-modal .mantine-Modal-body .mantine-List-item {
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif) !important;
+  font-size: 13px !important;
+}
+
+/* ──── Codex operations modal — wg4 parchment frame for the
+ * Custom Operations editor (OperationsModal). Larger frame
+ * (xl) to fit the operations builder tree, same chrome as the
+ * confirm modal otherwise.                                           */
+.mantine-Modal-content.codex-operations-modal,
+.codex-operations-modal.mantine-Modal-content {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 10px !important;
+  box-shadow:
+    0 1px 0 rgba(20,20,20,.02),
+    0 6px 20px rgba(20,20,20,.06),
+    0 18px 60px rgba(20,20,20,.05) !important;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  color: var(--wg4-ink);
+}
+.codex-operations-modal::before,
+.codex-operations-modal::after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+}
+.codex-operations-modal .mantine-Modal-header {
+  background: var(--wg4-surface) !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  padding: 16px 22px 14px !important;
+}
+.codex-operations-modal .mantine-Modal-header::after {
+  display: none !important;
+}
+.codex-operations-modal .mantine-Modal-title {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 22px !important;
+  letter-spacing: -0.01em !important;
+  color: var(--wg4-ink) !important;
+  text-transform: none !important;
+  line-height: 1.15 !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.codex-operations-modal .mantine-Modal-title::before {
+  content: '✦';
+  color: var(--wg4-accent) !important;
+  font-style: normal;
+  font-size: 18px;
+  margin-right: 2px;
+}
+.codex-operations-modal .mantine-Modal-title .mantine-Title-root {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 22px !important;
+  letter-spacing: -0.01em !important;
+  color: var(--wg4-ink) !important;
+  text-transform: none !important;
+}
+.codex-operations-modal .mantine-Modal-close {
+  width: 28px;
+  height: 28px;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--wg4-ink-3) !important;
+  border-radius: 6px !important;
+  transition: color 0.12s, background 0.12s;
+}
+.codex-operations-modal .mantine-Modal-close:hover {
+  color: var(--wg4-accent) !important;
+  background: var(--wg4-surface-2) !important;
+}
+.codex-operations-modal .mantine-Modal-body {
+  background: var(--wg4-surface) !important;
+  padding: 14px 22px 18px !important;
+  color: var(--wg4-ink-2);
+}
+
+/* ──── Codex select-image modal — wg4 parchment frame for the
+ * Select Portrait / Select Background picker. Same chrome as
+ * the confirm modal; medium width to fit a 3-col grid of avatars. */
+.mantine-Modal-content.codex-select-image-modal,
+.codex-select-image-modal.mantine-Modal-content {
+  width: min(540px, calc(100vw - 60px)) !important;
+  max-width: min(540px, calc(100vw - 60px)) !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 10px !important;
+  box-shadow:
+    0 1px 0 rgba(20,20,20,.02),
+    0 6px 20px rgba(20,20,20,.06),
+    0 18px 60px rgba(20,20,20,.05) !important;
+  overflow: hidden !important;
+  font-family: var(--wg4-font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
+  color: var(--wg4-ink);
+}
+.codex-select-image-modal::before,
+.codex-select-image-modal::after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+}
+.codex-select-image-modal .mantine-Modal-header {
+  background: var(--wg4-surface) !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  padding: 16px 22px 14px !important;
+}
+.codex-select-image-modal .mantine-Modal-header::after {
+  display: none !important;
+}
+.codex-select-image-modal .mantine-Modal-title {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 22px !important;
+  letter-spacing: -0.01em !important;
+  color: var(--wg4-ink) !important;
+  text-transform: none !important;
+  line-height: 1.15 !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.codex-select-image-modal .mantine-Modal-title::before {
+  content: '✦';
+  color: var(--wg4-accent) !important;
+  font-style: normal;
+  font-size: 18px;
+  margin-right: 2px;
+}
+.codex-select-image-modal .mantine-Modal-title .mantine-Title-root {
+  font-family: var(--wg4-font-serif, 'Newsreader', ui-serif, Georgia, serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 22px !important;
+  letter-spacing: -0.01em !important;
+  color: var(--wg4-ink) !important;
+  text-transform: none !important;
+}
+.codex-select-image-modal .mantine-Modal-close {
+  width: 28px;
+  height: 28px;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--wg4-ink-3) !important;
+  border-radius: 6px !important;
+  transition: color 0.12s, background 0.12s;
+}
+.codex-select-image-modal .mantine-Modal-close:hover {
+  color: var(--wg4-accent) !important;
+  background: var(--wg4-surface-2) !important;
+}
+.codex-select-image-modal .mantine-Modal-body {
+  background: var(--wg4-surface) !important;
+  padding: 14px 22px 18px !important;
+  color: var(--wg4-ink-2);
+}
+/* The inner Card (LoadingOverlay + ScrollArea + SimpleGrid of avatars)
+ * — flatten its border so it doesn't double-frame inside our parchment
+ * modal frame. */
+.codex-select-image-modal .mantine-Modal-body .mantine-Card-root {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.codex-select-image-modal .mantine-Modal-body .mantine-Avatar-root {
+  border: 1px solid var(--wg4-border-soft);
+  transition: border-color 0.12s, transform 0.12s;
+}
+.codex-select-image-modal .mantine-Modal-body .mantine-Avatar-root:hover {
+  border-color: var(--wg4-accent);
 }

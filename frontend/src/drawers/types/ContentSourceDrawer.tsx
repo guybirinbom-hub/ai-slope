@@ -271,7 +271,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {actions.map((record, index) => (
                   <ActionSelectionOption
                     key={index}
@@ -304,7 +304,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.ancestries.map((record, index) => (
                   <AncestrySelectionOption
                     key={index}
@@ -337,7 +337,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.backgrounds.map((record, index) => (
                   <BackgroundSelectionOption
                     key={index}
@@ -370,7 +370,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.classes.map((record, index) => (
                   <ClassSelectionOption
                     key={index}
@@ -403,7 +403,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.classArchetypes.map((record, index) => (
                   <ClassArchetypeSelectionOption
                     key={index}
@@ -436,7 +436,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.archetypes.map((record, index) => (
                   <ArchetypeSelectionOption
                     key={index}
@@ -469,7 +469,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.versatileHeritages.map((record, index) => (
                   <VersatileHeritageSelectionOption
                     key={index}
@@ -502,7 +502,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.creatures.map((record, index) => (
                   <CreatureSelectionOption
                     key={index}
@@ -536,7 +536,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {feats.map((record, index) => (
                   <FeatSelectionOption
                     key={index}
@@ -569,7 +569,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.items.map((record, index) => (
                   <ItemSelectionOption
                     key={index}
@@ -602,7 +602,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.languages.map((record, index) => (
                   <LanguageSelectionOption
                     key={index}
@@ -635,7 +635,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {modes.map((record, index) => (
                   <ModeSelectionOption
                     key={index}
@@ -668,7 +668,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {physicalFeatures.map((record, index) => (
                   <PhysicalFeatureSelectionOption
                     key={index}
@@ -701,7 +701,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {senses.map((record, index) => (
                   <SenseSelectionOption
                     key={index}
@@ -734,7 +734,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.spells.map((record, index) => (
                   <SpellSelectionOption
                     key={index}
@@ -767,7 +767,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {content.traits.map((record, index) => (
                   <TraitSelectionOption
                     key={index}
@@ -800,7 +800,7 @@ export function ContentSourceDrawerContent(props: {
                 </Group>
               </Accordion.Control>
               <Accordion.Panel>
-                <Divider color='dark.6' />
+                <Divider color='var(--wg4-border-soft)' />
                 {uncategorizedAbilities.map((record, index) => (
                   <ActionSelectionOption
                     key={index}

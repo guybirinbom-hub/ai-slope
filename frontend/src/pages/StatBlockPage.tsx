@@ -94,9 +94,10 @@ export function Component() {
         fontFamily: 'Montserrat, sans-serif',
         fontFamilyMonospace: 'Ubuntu Mono, monospace',
       })}
-      defaultColorScheme='dark'
+      defaultColorScheme='light'
     >
       <Box
+        className='wg4 wg4-screen wg4-page-root'
         p='xl'
         style={{
           position: 'relative',
@@ -104,11 +105,16 @@ export function Component() {
         h='100dvh'
       >
         <ActionIcon
-          variant='light'
+          variant='filled'
           size='lg'
           radius='xl'
           aria-label='Toggle Light/Dark Mode'
-          style={getAnchorStyles({ r: 15, b: 15 })}
+          style={{
+            ...getAnchorStyles({ r: 15, b: 15 }),
+            background: 'var(--wg4-accent-soft)',
+            border: '1px solid var(--wg4-accent-edge, #d8b9a4)',
+            color: 'var(--wg4-accent-ink)',
+          }}
           onClick={() => {
             toggleLightMode(!isLightMode);
           }}

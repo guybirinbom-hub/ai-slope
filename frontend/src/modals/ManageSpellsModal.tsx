@@ -1,34 +1,16 @@
 import { drawerState } from '@atoms/navAtoms';
-import { SelectContentButton, SpellSelectionOption, selectContent } from '@common/select/SelectContent';
-import { EDIT_MODAL_HEIGHT, IMPRINT_BG_COLOR } from '@constants/data';
+import { selectContent } from '@common/select/SelectContent';
 import { collectEntitySpellcasting } from '@content/collect-content';
 import { isSpellVisible } from '@content/content-hidden';
-import { fetchContentAll, getDefaultSources } from '@content/content-store';
-import {
-  Box,
-  Button,
-  Divider,
-  Grid,
-  Group,
-  LoadingOverlay,
-  Modal,
-  ScrollArea,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-  useMantineTheme,
-  useMantineColorScheme,
-} from '@mantine/core';
+import { fetchContentAll, getCachedContent, getDefaultSources } from '@content/content-store';
+import { Button, LoadingOverlay, Menu, Modal, Title } from '@mantine/core';
 import { isCantrip, isNormalSpell, isRitual } from '@spells/spell-utils';
-import { IconPlus, IconSearch } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { LivingEntity, Spell, SpellSlot, SpellSlotRecord } from '@schemas/content';
+import { LivingEntity, Spell, Trait } from '@schemas/content';
 import { StoreID } from '@schemas/variables';
 import { rankNumber } from '@utils/numbers';
 import { toLabel } from '@utils/strings';
 import { isTruthy } from '@utils/type-fixing';
-import useRefresh from '@utils/use-refresh';
 import * as JsSearch from 'js-search';
 import { groupBy } from 'lodash-es';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -52,9 +34,9 @@ export default function ManageSpellsModal(props: {
   zIndex?: number;
 }) {
   const isRituals = props.source === 'RITUALS';
-
   const [searchQuery, setSearchQuery] = useState('');
   const [_drawer, openDrawer] = useAtom(drawerState);
+  const [rankSelectSpell, setRankSelectSpell] = useState<Spell | null>(null);
 
   const { data: allRawSpells, isFetching } = useQuery({
     queryKey: [`find-spells-in-manage-spells-modal`, { entityId: props.entity?.id, source: props.source }],
@@ -91,8 +73,11 @@ export default function ManageSpellsModal(props: {
     (searchQuery.trim() ? (search.current?.search(searchQuery.trim()) as Spell[] | undefined) : (allRawSpells ?? [])) ??
     [];
 
+  // Match repertoire entries to their full Spell record. We carry along the
+  // repertoire-side signature flag so the rank-grouped UI can render the
+  // signature star without re-querying the entity.
   const spells = useMemo(() => {
-    const filteredSpells = charData?.list
+    const filteredSpells = (charData?.list ?? [])
       .map((entry) => {
         const foundSpell = allFilteredSpells.find(
           (spell) => spell.id === entry.spell_id && entry.source === props.source
@@ -101,310 +86,122 @@ export default function ManageSpellsModal(props: {
         return {
           ...foundSpell,
           rank: entry.rank,
-        } as Spell;
+          signature: !!entry.signature,
+        } as Spell & { signature?: boolean };
       })
       .filter(isTruthy)
       .filter((spell) => (isRituals ? isRitual(spell!) : isNormalSpell(spell!)))
       .sort((a, b) => {
-        if (a!.rank === 0 && b!.rank === 0) {
-          return a!.name.localeCompare(b!.name);
-        } else if (a!.rank === 0) {
-          return -1;
-        } else if (b!.rank === 0) {
-          return 1;
-        } else {
-          return a!.rank - b!.rank;
-        }
+        if (a!.rank === b!.rank) return a!.name.localeCompare(b!.name);
+        return a!.rank - b!.rank;
       });
     return filteredSpells;
-  }, [charData, allFilteredSpells]);
+  }, [charData, allFilteredSpells, props.source, isRituals]);
 
-  const slots = useMemo(() => {
-    return groupBy(charData?.slots, 'rank');
-  }, [charData]);
+  // Source / tradition / casting-type meta strip. Falls back gracefully
+  // when we can't resolve the casting source (e.g. innate-only sources
+  // or rituals without a configured source row).
+  const metaStripText = useMemo(() => {
+    if (isRituals) return 'Ritual list';
+    const sourceRow = charData?.sources.find((s) => s.name === props.source);
+    if (!sourceRow) return `${toLabel(props.source)} · Spell list`;
+    const parts = [toLabel(sourceRow.name)];
+    if (sourceRow.tradition) parts.push(`${toLabel(sourceRow.tradition)} tradition`);
+    if (sourceRow.type) {
+      const t = sourceRow.type.toLowerCase();
+      if (t === 'spontaneous') parts.push('Spontaneous repertoire');
+      else if (t === 'prepared') parts.push('Prepared list');
+      else parts.push(`${toLabel(sourceRow.type)} list`);
+    }
+    return parts.join(' · ');
+  }, [charData, props.source, isRituals]);
 
-  return (
-    <Modal
-      opened={props.opened}
-      onClose={props.onClose}
-      title={<Title order={3}>Manage {isRituals ? 'Rituals' : `Spells - ${toLabel(props.source)}`}</Title>}
-      // Tag the body with a marker class so codex-bridge.css can flex
-      // the body + the inner Stack to fill the modal frame, killing the
-      // dead-space gap the user was seeing under short spell lists.
-      classNames={{ body: 'codex-manage-spells-body' }}
-      // Unified with the other codex popups (Add Items, Add Spell).
-      // 1500px wide matches the design footprint. The body grows
-      // tall enough for the spellbook + add-spell button without
-      // scrolling pinching against the page.
-      size={1500}
-      keepMounted={false}
-      zIndex={props.zIndex}
-    >
-      <Stack
-        // The inline flex layout works WITH the .codex-manage-spells-body
-        // CSS rules — the body is set to display:flex, so this Stack
-        // flex-grows to fill the modal. Without `minHeight: 0` the inner
-        // ScrollArea would push its parent past the modal frame.
-        style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
-        mx={10}
-        className='codex-manage-spells-stack'
-      >
-        {/* All three `type` modes now collapse to the spellbook list.
-            The SlotsSection grid (the "SELECT SPELL" buttons per slot)
-            was removed at the user's request — slot-filling lives on
-            the spell page now via the gold "+ Prepare X-Rank Spell"
-            buttons, so the manage modal only manages the spellbook
-            itself (add / remove / re-rank known spells). */}
-        {props.type === 'LIST-ONLY' ? (
-          <ListSection
-            id={props.id}
-            entity={props.entity}
-            setEntity={props.setEntity}
-            selectRank
-            spells={spells ?? []}
-            source={props.source}
-            searchQuery={searchQuery}
-            filter={props.filter}
-            setSearchQuery={(val) => {
-              setSearchQuery(val);
-            }}
-          />
-        ) : props.type === 'SLOTS-AND-LIST' ? (
-          <ListSection
-            id={props.id}
-            entity={props.entity}
-            setEntity={props.setEntity}
-            spells={spells ?? []}
-            source={props.source}
-            searchQuery={searchQuery}
-            filter={props.filter}
-            setSearchQuery={(val) => {
-              setSearchQuery(val);
-            }}
-          />
-        ) : (
-          <>
-            <LoadingOverlay visible={isFetching} />
-            <ListSection
-              id={props.id}
-              entity={props.entity}
-              setEntity={props.setEntity}
-              spells={spells ?? []}
-              source={props.source}
-              searchQuery={searchQuery}
-              filter={props.filter}
-              setSearchQuery={(val) => {
-                setSearchQuery(val);
-              }}
-            />
-          </>
-        )}
-      </Stack>
-    </Modal>
-  );
-}
+  // Highest rank slot the caster can heighten to. Defaults to 10 if we
+  // can't infer (e.g. innate-only). The list renders rank 0 through this
+  // cap so empty ranks still get a "+ Add N-Rank Spell" row.
+  const maxRank = useMemo(() => {
+    const ranks = (charData?.slots ?? []).map((s) => s.rank);
+    const fromSlots = ranks.length > 0 ? Math.max(...ranks) : 0;
+    const fromKnown = spells && spells.length > 0 ? Math.max(...spells.map((s) => s!.rank)) : 0;
+    const top = Math.max(fromSlots, fromKnown);
+    if (top <= 0) return 4; // sensible default — show cantrips + 4 ranks
+    return Math.min(Math.max(top, 1), 10);
+  }, [charData, spells]);
 
-const SlotsSection = (props: {
-  id: StoreID;
-  entity: LivingEntity | null;
-  setEntity: SetterOrUpdater<LivingEntity | null>;
-  //
-  slots: Record<string, SpellSlotRecord[]>;
-  spells?: Spell[];
-  source: string;
-  filter?: {
-    traditions?: string[];
-    rank_min?: number;
-    rank_max?: number;
-  };
-}) => {
-  const theme = useMantineTheme();
-  const [_drawer, openDrawer] = useAtom(drawerState);
-  const [displaySlots, refreshSlots] = useRefresh();
+  // Group repertoire spells by rank for section rendering.
+  const spellsByRank = useMemo(() => groupBy(spells ?? [], 'rank'), [spells]);
 
-  const { slots } = props;
-  // Filter the slots to only show the slots for the source
-  const slotsForSource = Object.keys(slots).reduce(
-    (acc, key) => {
-      const slots = props.slots[key].filter((slot) => slot.source === props.source);
-      if (slots.length > 0) {
-        acc[key] = slots;
+  // Resolved trait names cache — we only need names so we use the
+  // already-loaded content store cache. Newly seen IDs are surfaced via
+  // the fetchContentAll('trait',…) call below; for the common case where
+  // the cache is populated (every spell has been queried once), this is
+  // synchronous.
+  const traitCache = useMemo(() => {
+    const cache = getCachedContent<Trait>('trait') ?? [];
+    const map = new Map<number, string>();
+    for (const t of cache) map.set(t.id, t.name);
+    return map;
+  }, [allRawSpells]);
+
+  // Open the Add Spell picker. When the caster needs to choose a rank
+  // (selectRank case), the picker hands off to the rank-select modal;
+  // otherwise the spell goes into the repertoire at its natural rank.
+  // The optional preselectRank arg lets the per-rank "+ Add N-Rank Spell"
+  // buttons skip the rank picker entirely.
+  const openAddSpellPicker = (preselectRank?: number) => {
+    selectContent<Spell>(
+      'spell',
+      (option) => {
+        if (preselectRank !== undefined) {
+          addSpell(option, preselectRank);
+        } else if (option.rank === 0 || option.rank === 10 || isRitual(option)) {
+          addSpell(option, option.rank);
+        } else {
+          // Spontaneous repertoires support choosing the entry rank
+          // independently of the spell's natural rank. LIST-ONLY mode
+          // exposes the picker because it's what the spontaneous flow
+          // uses; the other modes just add at natural rank.
+          if (props.type === 'LIST-ONLY') {
+            setRankSelectSpell(option);
+          } else {
+            addSpell(option, option.rank);
+          }
+        }
+      },
+      {
+        showButton: true,
+        overrideLabel: `Add ${isRituals ? 'Ritual' : 'Spell'}`,
+        // The ManageSpells parent opens at zIndex 500 (set by its caller
+        // in CodexPanels). The picker must stack ABOVE the Manage
+        // Spells modal (1100) AND the description drawers (1000), so
+        // bump to 1200.
+        zIndex: 1200,
+        filterFn: (spellRec: Record<string, any>) => {
+          const s = spellRec as Spell;
+          return isRituals ? isRitual(s) : isNormalSpell(s);
+        },
+        advancedPresetFilters: {
+          type: 'spell',
+          spell_type: isRituals ? 'RITUAL' : 'NORMAL',
+          traditions: props.filter?.traditions,
+          rank_min: preselectRank ?? props.filter?.rank_min,
+          rank_max: preselectRank ?? props.filter?.rank_max,
+          content_sources: getDefaultSources('PAGE'),
+        },
       }
-      return acc;
-    },
-    {} as Record<string, SpellSlotRecord[]>
-  );
-
-  return (
-    <ScrollArea pr={14} h={`calc(min(80dvh, ${EDIT_MODAL_HEIGHT}px))`} scrollbars='y'>
-      <Stack gap={10}>
-        {Object.keys(slotsForSource).map((rank, index) => (
-          <Box key={index} data-wg-name={`rank-${rank}`}>
-            <Text size='md' pl={5}>
-              {rank === '0' ? 'Cantrips' : `${rankNumber(parseInt(rank))}`}
-            </Text>
-            <Divider pt={0} pb={10} />
-            {displaySlots && (
-              <Group key={index} gap={10}>
-                {slotsForSource[rank].map((slot, index) => (
-                  <Box key={index}>
-                    <SelectContentButton
-                      type='spell'
-                      onClick={(spell) => {
-                        props.setEntity((c) => {
-                          if (!c) return c;
-                          let slots = collectEntitySpellcasting(props.id, c).slots;
-                          slots = slots.map((s) => {
-                            if (s.id === slot.id) {
-                              return {
-                                ...s,
-                                spell_id: spell.id,
-                              };
-                            } else {
-                              return s;
-                            }
-                          });
-
-                          return {
-                            ...c,
-                            spells: {
-                              ...(c.spells ?? {
-                                slots: [],
-                                list: [],
-                                focus_point_current: 0,
-                                innate_casts: [],
-                              }),
-                              slots: slots,
-                            },
-                          };
-                        });
-                        //refreshSlots();
-                      }}
-                      onClear={() => {
-                        props.setEntity((c) => {
-                          if (!c) return c;
-                          let slots = collectEntitySpellcasting(props.id, c).slots;
-                          slots = slots.map((s) => {
-                            if (s.id === slot.id) {
-                              return {
-                                ...s,
-                                spell_id: undefined,
-                              };
-                            } else {
-                              return s;
-                            }
-                          });
-
-                          return {
-                            ...c,
-                            spells: {
-                              ...(c.spells ?? {
-                                slots: [],
-                                list: [],
-                                focus_point_current: 0,
-                                innate_casts: [],
-                              }),
-                              slots: slots,
-                            },
-                          };
-                        });
-                        //refreshSlots();
-                      }}
-                      selectedId={slot.spell_id === -1 ? undefined : slot.spell_id}
-                      options={{
-                        showButton: true,
-                        overrideOptions: props.spells,
-                        filterFn: (spell: Spell) => {
-                          // const foundSpell =
-                          //   props.spells !== undefined
-                          //     ? props.spells.find((s) => s.id === spell.id)
-                          //     : undefined;
-                          // if (props.spells !== undefined && !foundSpell) return false;
-
-                          if (rank === '0') {
-                            return isNormalSpell(spell) && isCantrip(spell);
-                          } else {
-                            return isNormalSpell(spell) && spell.rank <= parseInt(rank) && !isCantrip(spell);
-                          }
-                        },
-                        advancedPresetFilters: props.spells
-                          ? undefined
-                          : {
-                              type: 'spell',
-                              spell_type: 'NORMAL',
-                              traditions: props.filter?.traditions,
-                              rank_min: props.filter?.rank_min,
-                              rank_max: props.filter?.rank_max,
-                              content_sources: getDefaultSources('PAGE'),
-                            },
-                      }}
-                    />
-                  </Box>
-                ))}
-              </Group>
-            )}
-          </Box>
-        ))}
-      </Stack>
-    </ScrollArea>
-  );
-};
-
-const ListSection = (props: {
-  id: StoreID;
-  entity: LivingEntity | null;
-  setEntity: SetterOrUpdater<LivingEntity | null>;
-  //
-  selectRank?: boolean;
-  spells: Spell[];
-  source: string;
-  searchQuery: string;
-  setSearchQuery: (val: string) => void;
-  filter?: {
-    traditions?: string[];
-    rank_min?: number;
-    rank_max?: number;
+    );
   };
-}) => {
-  const isRituals = props.source === 'RITUALS';
-
-  const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
-  const [_drawer, openDrawer] = useAtom(drawerState);
-
-  const [rankSelectSpell, setRankSelectSpell] = useState<Spell | null>(null);
 
   const addSpell = (option: Spell, rank: number) => {
     props.setEntity((c) => {
       if (!c) return c;
-
       const existing = c.spells?.list ?? [];
-      // Idempotent add: if a repertoire entry already exists for the
-      // same (spell, rank, source) tuple, do nothing. Two cases this
-      // protects against:
-      //   - The picker fires onClick twice (rapid double-click, React
-      //     StrictMode dev-mount, etc.) — we'd otherwise insert two
-      //     identical entries that render as two rows in the spells
-      //     panel.
-      //   - The player forgets the spell is already in their repertoire
-      //     and re-picks it from the search modal.
-      // We still allow the same spell at *different* ranks, since PF2e
-      // spontaneous repertoires support that explicitly (heightening
-      // without the signature feature).
+      // Idempotent add — see ManageSpellsModal history: protects against
+      // double-fire and accidental duplicate picks at the same rank/source.
       const alreadyPresent = existing.some(
         (e) => e.spell_id === option.id && e.rank === rank && e.source === props.source
       );
       if (alreadyPresent) return c;
-
-      const list = [
-        ...existing,
-        {
-          spell_id: option.id,
-          rank: rank, //option.rank,
-          source: props.source,
-        },
-      ];
-
       return {
         ...c,
         spells: {
@@ -414,155 +211,253 @@ const ListSection = (props: {
             focus_point_current: 0,
             innate_casts: [],
           }),
-          list: list,
+          list: [
+            ...existing,
+            { spell_id: option.id, rank, source: props.source },
+          ],
         },
       };
     });
   };
 
+  const deleteSpell = (spellId: number, rank: number) => {
+    props.setEntity((c) => {
+      if (!c) return c;
+      const list = (c.spells?.list ?? []).filter((entry) => {
+        return !(entry.spell_id === spellId && entry.rank === rank && entry.source === props.source);
+      });
+      // Cascade: any prepared slot at this source that referenced the
+      // deleted spell is now stranded — clear it so the slot becomes
+      // available-to-fill again. Spontaneous slots carry no spell_id, so
+      // this is a no-op for them.
+      const slots = (c.spells?.slots ?? []).map((s) =>
+        s.source === props.source && s.spell_id === spellId
+          ? { ...s, spell_id: undefined, exhausted: false }
+          : s
+      );
+      return {
+        ...c,
+        spells: {
+          ...(c.spells ?? {
+            slots: [],
+            list: [],
+            focus_point_current: 0,
+            innate_casts: [],
+          }),
+          list,
+          slots,
+        },
+      };
+    });
+  };
+
+  // Format the area / range / defense column. Prefers area; falls back
+  // to range, then defense, then em-dash. Concatenates basic-save info
+  // when both an area and a defense are present (e.g. "10-FT BURST · BASIC REFLEX").
+  const formatArea = (spell: Spell): string => {
+    const area = spell.area?.trim();
+    const range = spell.range?.trim();
+    const defense = spell.defense?.trim();
+    const parts: string[] = [];
+    if (area) parts.push(area);
+    else if (range) parts.push(range);
+    if (defense) parts.push(defense);
+    if (parts.length === 0) return '—';
+    return parts.join(' · ');
+  };
+
+  const formatTraits = (spell: Spell): string => {
+    const ids = spell.traits ?? [];
+    if (ids.length === 0) return '';
+    const names = ids.map((id) => traitCache.get(id)).filter(isTruthy);
+    return names.join(' · ').toLowerCase();
+  };
+
   return (
-    <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+    <Modal
+      opened={props.opened}
+      onClose={props.onClose}
+      withCloseButton={false}
+      title={null}
+      classNames={{
+        content: 'codex-manage-spells-content',
+        body: 'codex-manage-spells-body',
+      }}
+      size={1500}
+      padding={0}
+      keepMounted={false}
+      zIndex={props.zIndex}
+      // Near-opaque overlay + slight blur — the underlying Spells page
+      // was bleeding through and made the modal look old/transparent.
+      // 85% dark + 3px blur matches the dimming used on AddItems.
+      overlayProps={{ backgroundOpacity: 0.85, blur: 3 }}
+    >
       <SelectSpellRankModal
         spell={rankSelectSpell}
         onConfirm={(spell, rank) => {
-          if (spell && rank) {
+          if (spell && rank !== null) {
             addSpell(spell, rank);
           }
           setRankSelectSpell(null);
         }}
       />
-      <Group style={{ flex: '0 0 auto' }}>
-        <TextInput
-          style={{ flex: 1 }}
-          leftSection={<IconSearch size='0.9rem' />}
-          placeholder={`Search ${isRituals ? 'ritual' : 'spell'} list`}
-          defaultValue={props.searchQuery}
-          onChange={(e) => props.setSearchQuery(e.target.value)}
-          styles={{
-            input: {
-              backgroundColor: IMPRINT_BG_COLOR,
-              borderColor: props.searchQuery.trim().length > 0 ? theme.colors['guide'][8] : undefined,
-            },
-          }}
-        />
-        <Button
-          color='dark.6'
-          style={{ borderColor: theme.colors.dark[4] }}
-          radius='md'
-          fw={500}
-          rightSection={<IconPlus size='1.0rem' />}
-          onClick={() => {
-            selectContent<Spell>(
-              'spell',
-              (option) => {
-                if (option.rank === 0 || option.rank === 10 || isRitual(option)) {
-                  addSpell(option, option.rank);
-                } else {
-                  if (props.selectRank) {
-                    setRankSelectSpell(option);
-                  } else {
-                    addSpell(option, option.rank);
-                  }
-                }
-              },
-              {
-                showButton: true,
-                overrideLabel: `Add ${isRituals ? 'Ritual' : 'Spell'}`,
-                // The ManageSpells parent opens at zIndex 500 (set by
-                // its caller in CodexPanels). Without an explicit
-                // zIndex here, selectContent defaults to 499 and the
-                // Add Spell modal renders BEHIND its parent — the
-                // user can see it flash on but can't click any
-                // option. Bumping above 500 puts it on top.
-                zIndex: 600,
 
-                filterFn: (spellRec: Record<string, any>) => {
-                  const s = spellRec as Spell;
-                  if (isRituals) {
-                    return isRitual(s);
-                  } else {
-                    return isNormalSpell(s);
-                  }
-                },
-                advancedPresetFilters: {
-                  type: 'spell',
-                  spell_type: isRituals ? 'RITUAL' : 'NORMAL',
-                  traditions: props.filter?.traditions,
-                  rank_min: props.filter?.rank_min,
-                  rank_max: props.filter?.rank_max,
-                  content_sources: getDefaultSources('PAGE'),
-                },
-              }
-            );
-          }}
-        >
-          Add {isRituals ? 'Ritual' : 'Spell'}
-        </Button>
-      </Group>
-      {/* flex:1 lets the spell list fill the modal — replaces the old
-          fixed calc() height that was leaving big dead space under short
-          lists. scrollbars='y' keeps the horizontal scrollbar off. */}
-      <ScrollArea style={{ flex: 1, minHeight: 0, marginTop: 10 }} scrollbars='y'>
-        <Stack gap={0}>
-          {props.spells.map((spell, index) => (
-            <SpellSelectionOption
-              key={index}
-              spell={spell}
-              onClick={(spell) => {
-                openDrawer({ type: 'spell', data: { spell: spell, entity: props.entity } });
-              }}
-              onDelete={(spellId) => {
-                props.setEntity((c) => {
-                  if (!c) return c;
+      <div className='codex-manage-spells'>
+        {isFetching && <LoadingOverlay visible />}
 
-                  const list = (c.spells?.list ?? []).filter((entry) => {
-                    return !(entry.spell_id === spellId && entry.rank === spell.rank && entry.source === props.source);
-                  });
+        {/* Header — Newsreader italic title + meta strip, custom close X. */}
+        <div className='cms-head'>
+          <div className='cms-title'>
+            <span className='cms-flourish'>✦</span> Manage{' '}
+            {isRituals ? 'Rituals' : `Spells - ${toLabel(props.source)}`}
+            <span className='cms-meta'>{metaStripText}</span>
+          </div>
+          <button type='button' className='cms-close' onClick={props.onClose} aria-label='Close'>
+            ✕
+          </button>
+        </div>
 
-                  // Cascade: any prepared slot at this source that
-                  // referenced the deleted spell is now stranded
-                  // (slot.spell_id points at a spell no longer in the
-                  // spellbook). Clear those slots so they become
-                  // available-to-fill again. Spontaneous casters cast
-                  // via rank-only slot matching so they're unaffected
-                  // — but the filter is safe to run for them too
-                  // since their slots never carry a spell_id.
-                  const slots = (c.spells?.slots ?? []).map((s) =>
-                    s.source === props.source && s.spell_id === spellId
-                      ? { ...s, spell_id: undefined, exhausted: false }
-                      : s
-                  );
-
-                  return {
-                    ...c,
-                    spells: {
-                      ...(c.spells ?? {
-                        slots: [],
-                        list: [],
-                        focus_point_current: 0,
-                        innate_casts: [],
-                      }),
-                      list,
-                      slots,
-                    },
-                  };
-                });
-              }}
-              showButton={false}
-              hideTraits={true}
-              includeOptions={true}
+        {/* Search row — plain input + accent Add button. */}
+        <div className='cms-search-row'>
+          <div className='cms-search'>
+            <span className='cms-search-icon' aria-hidden='true' />
+            <input
+              type='text'
+              placeholder={`Search ${isRituals ? 'ritual' : 'spell'} list…`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          ))}
-          {props.spells.length === 0 && (
-            <Text c='gray.3' fz='sm' fs='italic' ta='center' pt={20}>
-              No {isRituals ? 'rituals' : 'spells'} found
-            </Text>
-          )}
-        </Stack>
-      </ScrollArea>
-    </Box>
+          </div>
+          <button type='button' className='cms-add-btn' onClick={() => openAddSpellPicker()}>
+            <span className='cms-plus'>+</span> Add {isRituals ? 'Ritual' : 'Spell'}
+          </button>
+        </div>
+
+        {/* Body — rank-grouped sections. */}
+        <div className='cms-body'>
+          {Array.from({ length: maxRank + 1 }, (_, i) => i).map((rank) => {
+            const inRank = (spellsByRank[String(rank)] ?? []) as Array<Spell & { signature?: boolean }>;
+            const label = rank === 0 ? 'Cantrips' : `${rankNumber(rank)} Rank`;
+            const emptyLabel =
+              rank === 0
+                ? 'No cantrips in repertoire'
+                : `No ${rankNumber(rank).toLowerCase()}-rank ${isRituals ? 'rituals' : 'spells'} in repertoire`;
+            const addLabel = rank === 0 ? 'Add Cantrip' : `Add ${rankNumber(rank)}-Rank ${isRituals ? 'Ritual' : 'Spell'}`;
+
+            return (
+              <div key={rank} className='cms-rank-group'>
+                <div className='cms-rank-head'>
+                  {label} <span className='cms-rank-count'>{inRank.length}</span>
+                </div>
+                {inRank.length === 0 ? (
+                  <div className='cms-empty-line'>{emptyLabel}</div>
+                ) : (
+                  inRank.map((spell, idx) => {
+                    const traitLabel = formatTraits(spell);
+                    const areaLabel = formatArea(spell);
+                    const isSig = !!spell.signature;
+                    return (
+                      <SpellRow
+                        key={`${spell.id}-${idx}`}
+                        spell={spell}
+                        rank={rank}
+                        isSignature={isSig}
+                        traitLabel={traitLabel}
+                        areaLabel={areaLabel}
+                        onOpen={() =>
+                          openDrawer({
+                            type: 'spell',
+                            data: { id: spell.id },
+                            extra: { addToHistory: true },
+                          })
+                        }
+                        onDelete={() => deleteSpell(spell.id, rank)}
+                      />
+                    );
+                  })
+                )}
+                <button type='button' className='cms-add-rank' onClick={() => openAddSpellPicker(rank)}>
+                  <span className='cms-plus'>+</span> {addLabel}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer — hint strip + Close/Done. */}
+        <div className='cms-footer'>
+          <div className='cms-foot-hint'>
+            <b>Click</b> a spell to view details <i>·</i> <b>⋯</b> opens its menu <i>·</i> <b>Add</b> opens the picker
+          </div>
+          <div className='cms-foot-actions'>
+            <button type='button' className='cms-btn' onClick={props.onClose}>
+              Close
+            </button>
+            <button type='button' className='cms-btn cms-primary' onClick={props.onClose}>
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
-};
+}
+
+/**
+ * Single spell row in the rank-grouped list. The dots button hosts a
+ * Mantine Menu so the existing delete affordance stays available; the
+ * row's body opens the spell drawer.
+ */
+function SpellRow(props: {
+  spell: Spell;
+  rank: number;
+  isSignature: boolean;
+  traitLabel: string;
+  areaLabel: string;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const { spell, rank, isSignature, traitLabel, areaLabel } = props;
+  return (
+    <div className='cms-row' onClick={props.onOpen}>
+      <div className='cms-row-lvl'>{rank === 0 ? 'C' : rank}</div>
+      <div className='cms-row-name-wrap'>
+        <span className='cms-row-name'>
+          {spell.name}
+          {isSignature && <span className='cms-row-star'>★ signature</span>}
+        </span>
+        {traitLabel && <span className='cms-row-traits'>{traitLabel}</span>}
+      </div>
+      <div className='cms-row-area'>{areaLabel}</div>
+      <Menu shadow='md' width={200} zIndex={1000}>
+        <Menu.Target>
+          <button
+            type='button'
+            className='cms-row-dots'
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            aria-label='Row actions'
+          >
+            ⋯
+          </button>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Label>Options</Menu.Label>
+          <Menu.Item
+            color='red'
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onDelete();
+            }}
+          >
+            Delete
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
+    </div>
+  );
+}
 
 const SelectSpellRankModal = (props: {
   spell: Spell | null;
@@ -577,21 +472,20 @@ const SelectSpellRankModal = (props: {
       title={<Title order={3}>Select {props.spell?.name}'s Rank</Title>}
       zIndex={1000}
     >
-      <Stack gap={10}>
-        {props.spell &&
-          getRankOptions(props.spell.rank).map((rank) => (
-            <Button
-              key={rank}
-              onClick={() => {
-                props.onConfirm(props.spell, rank);
-              }}
-              variant='light'
-              fullWidth
-            >
-              {rankNumber(rank)}
-            </Button>
-          ))}
-      </Stack>
+      {props.spell &&
+        getRankOptions(props.spell.rank).map((rank) => (
+          <Button
+            key={rank}
+            onClick={() => {
+              props.onConfirm(props.spell, rank);
+            }}
+            variant='light'
+            fullWidth
+            mb={6}
+          >
+            {rankNumber(rank)}
+          </Button>
+        ))}
     </Modal>
   );
 };

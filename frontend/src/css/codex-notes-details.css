@@ -15,8 +15,11 @@
  */
 
 /* ============================ BODY GRID OVERRIDES ============================ */
+/* Notes tab hides the vitals rail (per wg4 D:\Inst reference design)
+ * so the body becomes a 2-col grid: sidebar (page list) + editor.
+ * The sidebar is the .col.main.notes-pages child; editor is .col.right. */
 .body.body--notes {
-  grid-template-columns: 224px 280px 1fr;
+  grid-template-columns: 300px 1fr;
 }
 .body.body--details {
   grid-template-columns: 224px 1fr 320px;

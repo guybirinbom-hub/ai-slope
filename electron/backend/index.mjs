@@ -1463,6 +1463,9 @@ export async function stop() {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   await start();
   await startGateway();
+  // Standalone (non-Electron) run: Electron normally calls markReady() once
+  // pg is up — without it we have to flip the flag ourselves here.
+  markReady();
   console.log('\n[ready] gateway URLs:');
   console.log(`  http://localhost:${config.gatewayPort}/rest/v1/class?select=name&limit=3   (embedded)`);
   console.log(`  http://localhost:${config.gatewayPort}/auth/v1/health   (in-process auth stub)`);

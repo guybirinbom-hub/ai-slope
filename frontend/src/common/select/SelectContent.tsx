@@ -329,21 +329,1403 @@ export function selectContent<T = Record<string, any>>(
     height: 900,
   });
 
+  // Every content-type picker now flows through the wg4 parchment shell
+  // (`Wg4PickerShell`). Title gets a leading flourish glyph that the
+  // shell paints in accent colour next to the italic Newsreader title.
+  const titleText = `✦ ${label}`;
+
+  // The marker class `.codex-select-content-body` is applied to the
+  // Mantine modal body for EVERY type so codex-bridge.css can:
+  //   • lock the frame to 1500×75vh (matching Add Items / Manage Spells)
+  //   • paint the parchment surface
+  //   • set the near-opaque overlay
+  //   • hide the Mantine header (the wg4 shell renders its own
+  //     `.csp-head` with italic title + close X)
+  // The legacy `.codex-select-spell-body` alias is kept for backwards
+  // compatibility — see codex-bridge.css.
+  const mergedClassNames = {
+    ...resizable.classNames,
+    body: 'codex-select-content-body',
+  };
+
   openContextModal({
     modal: 'selectContent',
-    title: <Title order={3}>{label}</Title>,
-    zIndex: options?.zIndex ?? 499,
+    // Drop the Mantine title for every type — the wg4 `.csp-head`
+    // renders its own italic Newsreader title with a flourish glyph
+    // and the close X.
+    title: null,
+    // Default zIndex 1100 so the picker sits ABOVE the description
+    // drawers (which mount at zIndex 1000). Per user request: popups
+    // should always render on top of the side description panels so
+    // the chosen content stays focused while browsing the list.
+    zIndex: options?.zIndex ?? 1100,
     // Mantine's size= would override our explicit width via CSS vars,
     // so we pass undefined and let the styles.content width win.
     size: undefined,
-    classNames: resizable.classNames,
+    classNames: mergedClassNames,
     styles: resizable.styles,
+    // Hide the Mantine close-X — the `.csp-close` button in the wg4
+    // header handles closing.
+    withCloseButton: false,
+    // Near-opaque overlay + slight blur to match Add Items / Manage
+    // Spells dimming behaviour.
+    overlayProps: { backgroundOpacity: 0.85, blur: 3 },
+    // Drop the default Mantine body padding — the wg4 shell paints
+    // its own padding via `.csp-head` / `.csp-search-row` etc.
+    padding: 0,
     innerProps: {
       type,
       onClick: onClick ? (option: any) => onClick(option as T) : undefined,
       options,
+      _titleText: titleText,
     },
   });
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// SpellPickerShell — custom parchment shell for the spell picker.
+//
+// Strategy B (from the wg4 mockup `proposals/spell-modals-mockup.html`):
+// we paint the entire modal body ourselves instead of trying to override
+// Mantine's deep DOM via CSS, mirroring how `.codex-add-items` /
+// `.codex-manage-spells` already work. SelectContentModal short-circuits
+// to this component when `innerProps.type === 'spell'`.
+//
+// Reuses the existing data pipeline: same fetchContentAll('spell',…),
+// same SelectContentFilters component for the filter panel, same
+// triStateMatches + parseDistanceFt/parseAreaFt/parseDurationSec helpers.
+// Only the visual scaffolding changes — and it's quarantined to the
+// spell type so feat / item / ancestry / language / creature pickers
+// keep their existing chrome unchanged.
+// ──────────────────────────────────────────────────────────────────────
+function SpellPickerShell(props: {
+  titleText: string;
+  onClose: () => void;
+  // Optional consumer callback. When set, clicking "Add" on a row
+  // forwards the spell here and closes the modal — same shape as the
+  // legacy SelectionOptions onClick.
+  onClick?: (option: Spell) => void;
+  // Same options shape SelectContentModal sees — we only read a small
+  // subset (filterFn, overrideOptions, advancedPresetFilters,
+  // showButton, includeOptions).
+  options?: {
+    overrideOptions?: Record<string, any>[];
+    filterFn?: (option: Record<string, any>) => boolean;
+    advancedPresetFilters?: Partial<FiltersParams>;
+    showButton?: boolean;
+    includeOptions?: boolean;
+  };
+}) {
+  const NUM_PER_PAGE = 18;
+  const [_drawer, openDrawer] = useAtom(drawerState);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQueryDebounced] = useDebouncedValue(searchQuery, 200);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterState, setFilterState] = useState<ContentFilterState>(() => ({
+    ...DEFAULT_FILTER_STATE,
+  }));
+  // "Find a filter" query — hoisted up out of SelectContentFilters so
+  // the modal's top search bar can host it when the filter panel is
+  // open (same pattern as AddItemsModal).
+  const [filterSearchQuery, setFilterSearchQuery] = useState('');
+  const [activePage, setPage] = useState(1);
+
+  // Fetch the full spell store, then narrow with consumer filterFn.
+  const { data: rawSpells, isFetching } = useQuery({
+    queryKey: [`spell-picker-shell-spells`],
+    queryFn: async () => {
+      return (await fetchContentAll<Spell>('spell', getDefaultSources('PAGE'))) ?? [];
+    },
+  });
+
+  // Build (or reuse) a JsSearch index on the loaded spells. Re-indexes
+  // when the dataset changes.
+  const search = useRef(new JsSearch.Search('id'));
+  useEffect(() => {
+    if (!rawSpells) return;
+    // Re-create the index so we don't keep stale documents from a
+    // previous fetch.
+    const s = new JsSearch.Search('id');
+    s.addIndex('name');
+    s.addDocuments(rawSpells);
+    search.current = s;
+  }, [rawSpells]);
+
+  // Trait cache for row subtitle. The cached content store is populated
+  // on first fetch; if it's empty we just leave the subtitle blank
+  // rather than blocking the render.
+  const traitCache = useMemo(() => {
+    const cache = getCachedContent<Trait>('trait') ?? [];
+    const map = new Map<number, string>();
+    for (const t of cache) map.set(t.id, t.name);
+    return map;
+  }, [rawSpells]);
+
+  // Domain values for the Range / Area / Duration sliders. Built from
+  // the actual fetched spells so the slider only spans values that
+  // exist.
+  const spellDomain = useMemo(() => {
+    if (!rawSpells) return undefined;
+    return buildSpellFilterDomain(rawSpells);
+  }, [rawSpells]);
+
+  // Allowed traits — narrow the Traits autocomplete to traits that
+  // actually appear on spells in the current set.
+  const allowedTraitIds = useMemo(() => {
+    if (!rawSpells) return undefined;
+    const ids = new Set<number>();
+    for (const s of rawSpells) for (const t of s.traits ?? []) ids.add(t);
+    return [...ids];
+  }, [rawSpells]);
+
+  const maxRank = useMemo(() => {
+    if (!rawSpells || rawSpells.length === 0) return 10;
+    return Math.min(10, rawSpells.reduce((m, s) => Math.max(m, s.rank ?? 0), 0));
+  }, [rawSpells]);
+
+  // Apply the same filter pipeline SelectContentModal uses, narrowed to
+  // the fields that actually apply to spells.
+  const triStateMatches = <K,>(map: TriStateMap<K>, value: K | undefined): boolean => {
+    if (map.size === 0) return true;
+    if (value !== undefined && map.get(value) === 'exclude') return false;
+    const hasInclude = [...map.values()].includes('include');
+    if (hasInclude && (value === undefined || map.get(value) !== 'include')) return false;
+    return true;
+  };
+  const triStateMatchesAny = <K,>(map: TriStateMap<K>, values: K[]): boolean => {
+    if (map.size === 0) return true;
+    if (values.some((v) => map.get(v) === 'exclude')) return false;
+    const hasInclude = [...map.values()].includes('include');
+    if (hasInclude && !values.some((v) => map.get(v) === 'include')) return false;
+    return true;
+  };
+
+  const applyFilter = (spell: Spell): boolean => {
+    const rnk = spell.rank ?? 0;
+    if (rnk < filterState.rankMin || rnk > filterState.rankMax) return false;
+    const rarity = (spell.rarity ?? 'COMMON') as any;
+    if (!triStateMatches(filterState.rarities, rarity)) return false;
+    const availability = ((spell as any).availability ?? 'STANDARD') as any;
+    if (!triStateMatches(filterState.availabilities, availability)) return false;
+    if (filterState.traditions.size > 0) {
+      const tr = ((spell.traditions ?? []) as string[]).map((x) => x.toUpperCase());
+      if (!triStateMatchesAny(filterState.traditions, tr)) return false;
+    }
+    if (filterState.spellTypes.size > 0) {
+      const meta = (spell as any).meta_data ?? {};
+      const isRitual = !!meta.ritual;
+      const isFocus = !!meta.focus;
+      const kind: 'NORMAL' | 'FOCUS' | 'RITUAL' = isRitual ? 'RITUAL' : isFocus ? 'FOCUS' : 'NORMAL';
+      if (!triStateMatches(filterState.spellTypes, kind)) return false;
+    }
+    if (filterState.traits.length > 0) {
+      const traits = (spell.traits ?? []) as number[];
+      if (!filterState.traits.every((id) => traits.includes(id))) return false;
+    }
+    if (filterState.rangeFt) {
+      const n = parseDistanceFt(spell.range);
+      if (n !== null && (n < filterState.rangeFt[0] || n > filterState.rangeFt[1])) return false;
+    }
+    if (filterState.areaFt) {
+      const n = parseAreaFt(spell.area);
+      if (n !== null && (n < filterState.areaFt[0] || n > filterState.areaFt[1])) return false;
+    }
+    if (filterState.durationSec) {
+      const n = parseDurationSec(spell.duration);
+      if (n !== null && (n < filterState.durationSec[0] || n > filterState.durationSec[1])) return false;
+    }
+    if (filterState.cast.trim()) {
+      if (!matchesCastTime(spell.cast, filterState.cast.trim())) return false;
+    }
+    const textChecks: Array<[keyof ContentFilterState, string]> = [
+      ['description', 'description'],
+      ['defense', 'defense'],
+      ['targets', 'targets'],
+      ['trigger', 'trigger'],
+      ['requirements', 'requirements'],
+    ];
+    for (const [key, field] of textChecks) {
+      const needle = String(filterState[key] ?? '').trim().toLowerCase();
+      if (!needle) continue;
+      const haystack = String((spell as any)[field] ?? '').toLowerCase();
+      if (!haystack.includes(needle)) return false;
+    }
+    return true;
+  };
+
+  // Compose final option list: search → consumer filterFn → state filter → sort.
+  const allFilteredSpells = useMemo(() => {
+    const base: Spell[] = (() => {
+      if (!rawSpells) return [];
+      if (searchQueryDebounced.trim()) {
+        return (search.current.search(searchQueryDebounced.trim()) as Spell[]) ?? [];
+      }
+      return rawSpells;
+    })();
+    return base
+      .filter((s) => (props.options?.filterFn ? props.options.filterFn(s as any) : true))
+      .filter(applyFilter)
+      .sort((a, b) => {
+        if (a.rank === b.rank) return a.name.localeCompare(b.name);
+        return a.rank - b.rank;
+      });
+  }, [rawSpells, searchQueryDebounced, filterState, props.options?.filterFn]);
+
+  // Reset to page 1 whenever the result set could change underneath us.
+  useEffect(() => {
+    setPage(1);
+  }, [searchQueryDebounced, filterState, rawSpells]);
+  useEffect(() => {
+    if (!filtersOpen) setFilterSearchQuery('');
+  }, [filtersOpen]);
+
+  const totalCount = allFilteredSpells.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / NUM_PER_PAGE));
+  const pageSpells = allFilteredSpells.slice((activePage - 1) * NUM_PER_PAGE, activePage * NUM_PER_PAGE);
+  const fromIndex = totalCount === 0 ? 0 : (activePage - 1) * NUM_PER_PAGE + 1;
+  const toIndex = Math.min(activePage * NUM_PER_PAGE, totalCount);
+  const filterCount = activeFilterCount(filterState, 'spell');
+
+  // Pretty-print a tradition list, e.g. ['ARCANE','OCCULT'] → "Arcane · Occult".
+  const fmtTraditions = (spell: Spell): string => {
+    const list = ((spell.traditions ?? []) as string[]).map((s) => toLabel(s));
+    if (list.length === 0) return '—';
+    if (list.length === 4) return 'All Four';
+    return list.join(' · ');
+  };
+
+  // Subtitle for the spell row — list of trait names (lowercase, dot
+  // separated) so a player can see "concentrate · auditory · mental" at
+  // a glance.
+  const fmtTraitSubtitle = (spell: Spell): string => {
+    const ids = spell.traits ?? [];
+    if (ids.length === 0) return '';
+    const names = ids
+      .map((id) => traitCache.get(id))
+      .filter((n): n is string => !!n)
+      .map((n) => n.toLowerCase());
+    return names.join(' · ');
+  };
+
+  const onPickSpell = (spell: Spell) => {
+    props.onClick?.(spell);
+    props.onClose();
+  };
+
+  return (
+    <div className='codex-select-content codex-spell-picker'>
+      <div className='csp-head'>
+        <div className='csp-title'>
+          {props.titleText.includes('✦') ? (
+            <>
+              <span className='csp-flourish'>✦</span> {props.titleText.replace('✦', '').trim()}
+            </>
+          ) : (
+            <>
+              <span className='csp-flourish'>✦</span> {props.titleText}
+            </>
+          )}
+        </div>
+        <button
+          type='button'
+          className='csp-close'
+          onClick={props.onClose}
+          aria-label='Close'
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className='csp-search-row'>
+        <div className='csp-search'>
+          <span className='csp-search-icon' aria-hidden='true' />
+          <input
+            type='text'
+            placeholder={filtersOpen ? 'Find a filter — e.g. "rank", "tradition", "cast time"…' : 'Search spells by name…'}
+            value={filtersOpen ? filterSearchQuery : searchQuery}
+            onChange={(e) => (filtersOpen ? setFilterSearchQuery(e.target.value) : setSearchQuery(e.target.value))}
+            autoFocus
+          />
+        </div>
+        <button
+          type='button'
+          className={`csp-filters-btn${filtersOpen ? ' on' : ''}`}
+          onClick={() => setFiltersOpen((v) => !v)}
+        >
+          ⚙ Filters{filterCount > 0 ? ` (${filterCount})` : ''}
+          <span className='csp-filters-caret' aria-hidden='true'>{filtersOpen ? '▴' : '▾'}</span>
+        </button>
+      </div>
+
+      <div className='csp-body'>
+        {filtersOpen ? (
+          <div className='csp-filter-panel'>
+            <SelectContentFilters
+              type='spell'
+              state={filterState}
+              onChange={setFilterState}
+              maxRank={maxRank}
+              spellDomain={spellDomain}
+              allowedTraitIds={allowedTraitIds}
+              searchQuery={filterSearchQuery}
+              onSearchQueryChange={setFilterSearchQuery}
+              hideSearchInput
+            />
+          </div>
+        ) : (
+          <>
+            <div className='csp-table'>
+              <div className='csp-thead'>
+                <div className='csp-col-rank'>Rank</div>
+                <div className='csp-col-spell'>Spell</div>
+                <div className='csp-col-trd'>Tradition</div>
+                <div className='csp-col-action'>Action</div>
+              </div>
+              <div className='csp-tbody'>
+                {isFetching && pageSpells.length === 0 && (
+                  <div className='csp-empty'>Loading spells…</div>
+                )}
+                {!isFetching && pageSpells.length === 0 && (
+                  <div className='csp-empty'>
+                    {searchQueryDebounced.trim()
+                      ? `No spells match "${searchQueryDebounced.trim()}".`
+                      : filterCount > 0
+                        ? 'No spells match the current filters.'
+                        : 'No spells available.'}
+                  </div>
+                )}
+                {pageSpells.map((spell) => {
+                  const sub = fmtTraitSubtitle(spell);
+                  const trd = fmtTraditions(spell);
+                  return (
+                    <div
+                      key={spell.id}
+                      className='csp-row'
+                      onClick={() =>
+                        openDrawer({
+                          type: 'spell',
+                          data: { id: spell.id },
+                          extra: { addToHistory: true },
+                        })
+                      }
+                    >
+                      <div className='csp-col-rank csp-rank'>
+                        {spell.rank === 0 ? 'C' : spell.rank}
+                      </div>
+                      <div className='csp-col-spell csp-name'>
+                        {spell.name}
+                        {sub && <em className='csp-sub'>{sub}</em>}
+                      </div>
+                      <div className='csp-col-trd csp-trd'>{trd}</div>
+                      <div className='csp-col-action csp-action'>
+                        <button
+                          type='button'
+                          className='csp-btn'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPickSpell(spell);
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className='csp-pager'>
+              <button
+                type='button'
+                className='csp-pg-nav'
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={activePage <= 1}
+                aria-label='Previous'
+              >
+                ‹
+              </button>
+              {/* Pager — show a window of 7 buttons around the current
+                  page, plus first/last with `…` gaps. Mirrors the same
+                  helper in AddItemsModal.tsx. */}
+              {(() => {
+                const WINDOW = 7;
+                const out: (number | '…')[] = [];
+                if (totalPages <= WINDOW + 2) {
+                  for (let p = 1; p <= totalPages; p++) out.push(p);
+                } else {
+                  let start = activePage - Math.floor(WINDOW / 2);
+                  let end = activePage + Math.floor(WINDOW / 2);
+                  if (start < 1) { end += 1 - start; start = 1; }
+                  if (end > totalPages) { start -= end - totalPages; end = totalPages; }
+                  start = Math.max(1, start);
+                  end = Math.min(totalPages, end);
+                  if (start > 1) {
+                    out.push(1);
+                    if (start > 2) out.push('…');
+                  }
+                  for (let p = start; p <= end; p++) out.push(p);
+                  if (end < totalPages) {
+                    if (end < totalPages - 1) out.push('…');
+                    out.push(totalPages);
+                  }
+                }
+                return out.map((p, i) =>
+                  p === '…' ? (
+                    <span key={`gap${i}`} className='csp-pg-gap'>
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      type='button'
+                      className={`csp-pg${p === activePage ? ' on' : ''}`}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </button>
+                  )
+                );
+              })()}
+              <button
+                type='button'
+                className='csp-pg-nav'
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={activePage >= totalPages}
+                aria-label='Next'
+              >
+                ›
+              </button>
+            </div>
+            <div className='csp-count'>
+              Showing {fromIndex} – {toIndex} of <b>{totalCount.toLocaleString()}</b> spells
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className='csp-footer'>
+        <div className='csp-foot-hint'>
+          {filtersOpen ? (
+            <>
+              <b>Reset</b> clears every filter <i>·</i> <b>Apply</b> returns to the spell list
+            </>
+          ) : (
+            <>
+              <b>Click</b> a row to view spell <i>·</i> <b>Add</b> adds it to the repertoire
+            </>
+          )}
+        </div>
+        <div className='csp-foot-actions'>
+          {filtersOpen ? (
+            <>
+              <button
+                type='button'
+                className='csp-foot-close'
+                onClick={() => setFilterState({ ...DEFAULT_FILTER_STATE })}
+              >
+                Reset
+              </button>
+              <button
+                type='button'
+                className='csp-foot-done'
+                onClick={() => setFiltersOpen(false)}
+              >
+                Apply
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type='button'
+                className='csp-foot-close'
+                onClick={props.onClose}
+              >
+                Close
+              </button>
+              <button
+                type='button'
+                className='csp-foot-done'
+                onClick={props.onClose}
+              >
+                Done
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Wg4PickerShell — unified parchment shell for every NON-spell picker.
+//
+// Same chrome the spell picker uses (`.codex-select-content` /
+// `.csp-*` classes from codex-bridge.css), but now hosts the existing
+// SelectContentModal data pipeline: per-type fetchContentAll, JsSearch
+// indexing, tab handling for ancestry-feat / class-feat / heritage
+// flows, advancedPresetFilters, content-source filtering, drawer
+// open on row click, addToHistory, etc. — preserved verbatim. The only
+// thing that changes is the visual scaffolding around the rows: rows
+// now render as wg4 `<div className='csp-row'>` markup via per-type
+// row renderers (renderSimpleRow / renderFeatRow / renderItemRow / …)
+// instead of Mantine's dark BaseSelectionOption.
+// ──────────────────────────────────────────────────────────────────────
+type PickerRow = {
+  key: string | number;
+  // The option payload — passed through to onClick and to the parent's
+  // drawer-open path. Plain Record<string, any> mirrors what
+  // SelectionOptions consumed historically.
+  option: Record<string, any>;
+  // Rendered JSX for the row's main content. The shell wraps this in
+  // the `<div className='csp-row'>` chrome + handles the click/select
+  // behaviour, so renderers only return the inner slots
+  // (`.csp-row-lvl`, `.csp-row-name`, `.csp-row-badges`,
+  // `<button className='csp-row-select'>`).
+  content: ReactNode;
+  // Click behaviour for the row body (typically opens the drawer). The
+  // select button still calls onSelect via the renderer.
+  onClick?: () => void;
+  // Optional row variant class added to the row element. Currently used
+  // for "simple" two-column rows (ancestry, attribute, …) that skip
+  // the level/badges columns.
+  variantClass?: string;
+};
+
+type Wg4Tab = {
+  key: string;
+  label: string;
+  count?: number;
+};
+
+function Wg4PickerShell(props: {
+  titleText: string;
+  metaText?: string;
+  onClose: () => void;
+  // Type-aware filter panel — same SelectContentFilters component the
+  // legacy modal used. Pass-through to render the right filter blocks.
+  type: ContentType;
+  abilityBlockType?: AbilityBlockType;
+  featType?: FeatType;
+  maxLevel?: number;
+  maxRank?: number;
+  spellDomain?: ReturnType<typeof buildSpellFilterDomain>;
+  allowedTraitIds?: number[];
+  // Filter state + handler — lifted into Wg4PickerShell so the search
+  // row owns the "Filters (N)" badge count.
+  filterState: ContentFilterState;
+  setFilterState: (next: ContentFilterState) => void;
+  // Search bar placeholder. Defaults to "Search options…".
+  searchPlaceholder?: string;
+  searchQuery: string;
+  setSearchQuery: (next: string) => void;
+  // Custom-select mode (attribute boost / skill prof picks etc.)
+  // hides the Filters button entirely.
+  hideFilters?: boolean;
+  // Optional tabs strip — when present, renders a Newsreader/Geist tab
+  // bar above the search row with the count chip. activeTab + setTab
+  // are owned by the parent so the body re-fetches on tab change.
+  tabs?: Wg4Tab[];
+  activeTab?: string;
+  setActiveTab?: (next: string) => void;
+  // Body — list of rows to render in the current page. The shell owns
+  // pagination + the count strip; the parent provides the slice via
+  // `rows`, `totalCount`, `pageFrom`, `pageTo`, plus `activePage` +
+  // `setPage` + `totalPages`. `isLoading` keeps the parchment frame
+  // visible while options stream in.
+  rows: PickerRow[];
+  totalCount: number;
+  pageFrom: number;
+  pageTo: number;
+  totalPages: number;
+  activePage: number;
+  setPage: (next: number) => void;
+  isLoading: boolean;
+  // Empty-state message override. Defaults to "No options match …".
+  emptyMessage?: string;
+  // Pretty-print label for the count strip (e.g. "spells", "feats",
+  // "items"). Defaults to "options".
+  countNoun?: string;
+  // Optional description ReactNode rendered above the body (passed
+  // through from selectContent({ ..., description })). Keeps the
+  // existing OperationsModal behaviour where some pickers prefix a
+  // sentence above the list.
+  description?: ReactNode;
+}) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // "Find a filter" query — hoisted up into the modal's top search bar
+  // so it replaces the items search when the filter panel is open
+  // (same pattern as AddItemsModal / SpellPickerShell).
+  const [filterSearchQuery, setFilterSearchQuery] = useState('');
+  useEffect(() => {
+    if (!filtersOpen) setFilterSearchQuery('');
+  }, [filtersOpen]);
+
+  const filterCount = activeFilterCount(
+    props.filterState,
+    props.type,
+    props.abilityBlockType
+  );
+
+  const pagerWindow = (() => {
+    const WINDOW = 7;
+    const out: (number | '…')[] = [];
+    const tp = props.totalPages;
+    const ap = props.activePage;
+    if (tp <= WINDOW + 2) {
+      for (let p = 1; p <= tp; p++) out.push(p);
+    } else {
+      let start = ap - Math.floor(WINDOW / 2);
+      let end = ap + Math.floor(WINDOW / 2);
+      if (start < 1) {
+        end += 1 - start;
+        start = 1;
+      }
+      if (end > tp) {
+        start -= end - tp;
+        end = tp;
+      }
+      start = Math.max(1, start);
+      end = Math.min(tp, end);
+      if (start > 1) {
+        out.push(1);
+        if (start > 2) out.push('…');
+      }
+      for (let p = start; p <= end; p++) out.push(p);
+      if (end < tp) {
+        if (end < tp - 1) out.push('…');
+        out.push(tp);
+      }
+    }
+    return out;
+  })();
+
+  return (
+    <div className='codex-select-content'>
+      <div className='csp-head'>
+        <div className='csp-title'>
+          <span className='csp-flourish'>✦</span>{' '}
+          {props.titleText.replace(/^✦\s*/, '').trim()}
+          {props.metaText && <span className='csp-meta'>{props.metaText}</span>}
+        </div>
+        <button
+          type='button'
+          className='csp-close'
+          onClick={props.onClose}
+          aria-label='Close'
+        >
+          ✕
+        </button>
+      </div>
+
+      {props.tabs && props.tabs.length > 1 && (
+        <div className='csp-tabstrip'>
+          {props.tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type='button'
+              className={props.activeTab === tab.key ? 'on' : ''}
+              onClick={() => props.setActiveTab?.(tab.key)}
+            >
+              {tab.label}
+              {tab.count !== undefined && (
+                <span className='ct'>{tab.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className='csp-search-row'>
+        <div className='csp-search'>
+          <span className='csp-search-icon' aria-hidden='true' />
+          <input
+            type='text'
+            placeholder={
+              filtersOpen
+                ? 'Find a filter — e.g. "level", "trait"…'
+                : props.searchPlaceholder ?? 'Search options…'
+            }
+            value={filtersOpen ? filterSearchQuery : props.searchQuery}
+            onChange={(e) =>
+              filtersOpen
+                ? setFilterSearchQuery(e.target.value)
+                : props.setSearchQuery(e.target.value)
+            }
+            autoFocus
+          />
+        </div>
+        {!props.hideFilters && (
+          <button
+            type='button'
+            className={`csp-filters-btn${filtersOpen ? ' on' : ''}`}
+            onClick={() => setFiltersOpen((v) => !v)}
+          >
+            ⚙ Filters{filterCount > 0 ? ` (${filterCount})` : ''}
+            <span className='csp-filters-caret' aria-hidden='true'>
+              {filtersOpen ? '▴' : '▾'}
+            </span>
+          </button>
+        )}
+      </div>
+
+      <div className='csp-body'>
+        {filtersOpen ? (
+          <div className='csp-filter-panel'>
+            <SelectContentFilters
+              type={props.type}
+              abilityBlockType={props.abilityBlockType}
+              featType={props.featType}
+              state={props.filterState}
+              onChange={props.setFilterState}
+              maxLevel={props.maxLevel}
+              maxRank={props.maxRank}
+              spellDomain={props.spellDomain}
+              allowedTraitIds={props.allowedTraitIds}
+              searchQuery={filterSearchQuery}
+              onSearchQueryChange={setFilterSearchQuery}
+              hideSearchInput
+            />
+          </div>
+        ) : (
+          <>
+            <div className='csp-table'>
+              {props.description && (
+                <div className='csp-description'>{props.description}</div>
+              )}
+              <div className='csp-tbody'>
+                {props.isLoading && props.rows.length === 0 && (
+                  <div className='csp-empty'>Loading {props.countNoun ?? 'options'}…</div>
+                )}
+                {!props.isLoading && props.rows.length === 0 && (
+                  <div className='csp-empty'>
+                    {props.emptyMessage ?? `No ${props.countNoun ?? 'options'} match the current filters.`}
+                  </div>
+                )}
+                {props.rows.map((row) => (
+                  <div
+                    key={row.key}
+                    className={`csp-row${row.variantClass ? ` ${row.variantClass}` : ''}`}
+                    onClick={row.onClick}
+                  >
+                    {row.content}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {props.totalPages > 1 && (
+              <div className='csp-pager'>
+                <button
+                  type='button'
+                  className='csp-pg-nav'
+                  onClick={() => props.setPage(Math.max(1, props.activePage - 1))}
+                  disabled={props.activePage <= 1}
+                  aria-label='Previous'
+                >
+                  ‹
+                </button>
+                {pagerWindow.map((p, i) =>
+                  p === '…' ? (
+                    <span key={`gap${i}`} className='csp-pg-gap'>
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      type='button'
+                      className={`csp-pg${p === props.activePage ? ' on' : ''}`}
+                      onClick={() => props.setPage(p)}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  type='button'
+                  className='csp-pg-nav'
+                  onClick={() =>
+                    props.setPage(Math.min(props.totalPages, props.activePage + 1))
+                  }
+                  disabled={props.activePage >= props.totalPages}
+                  aria-label='Next'
+                >
+                  ›
+                </button>
+              </div>
+            )}
+            <div className='csp-count'>
+              {props.totalCount === 0
+                ? `NO ${(props.countNoun ?? 'OPTIONS').toUpperCase()}`
+                : props.totalPages > 1
+                  ? <>Showing {props.pageFrom} – {props.pageTo} of <b>{props.totalCount.toLocaleString()}</b> {props.countNoun ?? 'options'}</>
+                  : <>Showing all <b>{props.totalCount.toLocaleString()}</b> {props.countNoun ?? 'options'}</>}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className='csp-footer'>
+        <div className='csp-foot-hint'>
+          {filtersOpen ? (
+            <>
+              <b>Reset</b> clears every filter <i>·</i> <b>Apply</b> returns to the list
+            </>
+          ) : (
+            <>
+              <b>Click</b> a row to view <i>·</i> <b>Select</b> chooses the option
+            </>
+          )}
+        </div>
+        <div className='csp-foot-actions'>
+          {filtersOpen ? (
+            <>
+              <button
+                type='button'
+                className='csp-foot-close'
+                onClick={() => props.setFilterState({ ...DEFAULT_FILTER_STATE })}
+              >
+                Reset
+              </button>
+              <button
+                type='button'
+                className='csp-foot-done'
+                onClick={() => setFiltersOpen(false)}
+              >
+                Apply
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type='button'
+                className='csp-foot-close'
+                onClick={props.onClose}
+              >
+                Close
+              </button>
+              <button
+                type='button'
+                className='csp-foot-done'
+                onClick={props.onClose}
+              >
+                Done
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Wg4 row renderers — per-type. Each returns the inner content for one
+// `.csp-row` (the shell wraps it in the row chrome + handles clicks).
+//
+// Row shape (per the wg4 mockup):
+//   • simple (.csp-row-simple): name+subtitle on left, Select button on right
+//   • full: level chip · name+subtitle · trait badges · Select button
+//   • skill: prof letter chip · name+attribute · mod chip · Train/Increase
+//
+// All variants share the same outer `.csp-row` div the shell provides.
+// ──────────────────────────────────────────────────────────────────────
+
+/** Resolve a list of trait IDs to their display names via the cached
+ *  content store. Returns lowercase, dot-separated list — e.g.
+ *  "concentrate · polymorph". Empty array → empty string. */
+function wg4FormatTraitSubtitle(
+  traitIds: number[],
+  traitCache: Map<number, string>,
+  maxEntries = 3
+): string {
+  const names = traitIds
+    .map((id) => traitCache.get(id))
+    .filter((n): n is string => !!n)
+    .map((n) => n.toLowerCase());
+  if (names.length === 0) return '';
+  return names.slice(0, maxEntries).join(' · ');
+}
+
+/** Format an action-cost enum into the glyph used in the row name.
+ *  We render text glyphs rather than the SVG ActionSymbol so the wg4
+ *  Newsreader/Geist baseline stays clean. Returns null for non-action
+ *  casts ("10 minutes" on a spell, etc.). */
+function wg4ActionGlyph(cost?: string | null): string | null {
+  if (typeof cost !== 'string') return null;
+  switch (cost) {
+    case 'ONE-ACTION': return '◆';
+    case 'TWO-ACTIONS': return '◆◆';
+    case 'THREE-ACTIONS': return '◆◆◆';
+    case 'FREE-ACTION': return '◇';
+    case 'REACTION': return '⤴';
+    case 'ONE-TO-TWO-ACTIONS': return '◆–◆◆';
+    case 'ONE-TO-THREE-ACTIONS': return '◆–◆◆◆';
+    case 'TWO-TO-THREE-ACTIONS': return '◆◆–◆◆◆';
+    default: return null;
+  }
+}
+
+/** Trait → wg4 badge component. The first trait in a feat list gets
+ *  the dot accent (matches the mockup's "Anadi" badge); the rest are
+ *  plain Caps badges. */
+function Wg4TraitBadges({
+  traitIds,
+  traitCache,
+  max = 3,
+}: {
+  traitIds: number[];
+  traitCache: Map<number, string>;
+  max?: number;
+}) {
+  const names = traitIds
+    .map((id) => traitCache.get(id))
+    .filter((n): n is string => !!n);
+  if (names.length === 0) return null;
+  const visible = names.slice(0, max);
+  return (
+    <>
+      {visible.map((name, i) => (
+        <span key={`${name}-${i}`} className={`csp-badge${i === 0 ? ' dot' : ''}`}>
+          {name}
+        </span>
+      ))}
+    </>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Build a wg4 PickerRow for any non-spell option. Dispatches on
+// type / abilityBlockType so the level chip, badges and Select label
+// look right for ancestries vs feats vs items vs creatures vs ….
+// ──────────────────────────────────────────────────────────────────────
+function buildWg4Row(opts: {
+  option: Record<string, any>;
+  type: ContentType;
+  abilityBlockType?: AbilityBlockType;
+  skillAdjustment?: ExtendedProficiencyType;
+  selectedId?: number;
+  traitCache: Map<number, string>;
+  openDrawer: (next: any) => void;
+  onSelect: (option: Record<string, any>) => void;
+}): PickerRow {
+  const {
+    option,
+    type,
+    abilityBlockType: ab,
+    skillAdjustment,
+    selectedId,
+    traitCache,
+    openDrawer,
+    onSelect,
+  } = opts;
+  const key = option.id ?? option._select_uuid ?? option.name;
+  const isSelected = option.id !== undefined && selectedId === option.id;
+
+  const selectBtn = (
+    <button
+      type='button'
+      className='csp-row-select'
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(option);
+      }}
+      disabled={isSelected}
+    >
+      {isSelected ? 'Selected' : 'Select'}
+    </button>
+  );
+
+  const openOnRowClick = (drawerType: DrawerType, extraData?: Record<string, any>) => () =>
+    openDrawer({
+      type: drawerType,
+      data: { id: option.id, ...extraData },
+      extra: { addToHistory: true },
+    });
+
+  // ── Feat / Class-feature / Action / Sense / Physical-feature / Mode
+  if (type === 'ability-block') {
+    if (ab === 'feat') {
+      const traits = (option.traits ?? []) as number[];
+      const traitSub = wg4FormatTraitSubtitle(traits, traitCache);
+      const actionGlyph = wg4ActionGlyph(option.actions);
+      return {
+        key,
+        option,
+        variantClass: '',
+        onClick: openOnRowClick('feat'),
+        content: (
+          <>
+            <div className='csp-row-lvl'>{option.level ?? 1}</div>
+            <div className='csp-row-name'>
+              {option.name}
+              {actionGlyph && <span className='csp-row-glyph'>{actionGlyph}</span>}
+              {traitSub && <span className='csp-row-sub'>{traitSub}</span>}
+            </div>
+            <div className='csp-row-badges'>
+              <Wg4TraitBadges traitIds={traits} traitCache={traitCache} />
+            </div>
+            {selectBtn}
+          </>
+        ),
+      };
+    }
+    if (ab === 'class-feature') {
+      const traits = (option.traits ?? []) as number[];
+      return {
+        key,
+        option,
+        onClick: openOnRowClick('class-feature'),
+        content: (
+          <>
+            <div className='csp-row-lvl'>{option.level ?? 1}</div>
+            <div className='csp-row-name'>{option.name}</div>
+            <div className='csp-row-badges'>
+              <Wg4TraitBadges traitIds={traits} traitCache={traitCache} />
+            </div>
+            {selectBtn}
+          </>
+        ),
+      };
+    }
+    if (ab === 'action') {
+      const traits = (option.traits ?? []) as number[];
+      const actionGlyph = wg4ActionGlyph(option.actions);
+      return {
+        key,
+        option,
+        variantClass: 'csp-row-simple',
+        onClick: openOnRowClick('action'),
+        content: (
+          <>
+            <div className='csp-row-name'>
+              {option.name}
+              {actionGlyph && <span className='csp-row-glyph'>{actionGlyph}</span>}
+              {traits.length > 0 && (
+                <span className='csp-row-sub'>
+                  {wg4FormatTraitSubtitle(traits, traitCache)}
+                </span>
+              )}
+            </div>
+            {selectBtn}
+          </>
+        ),
+      };
+    }
+    if (ab === 'heritage') {
+      return {
+        key,
+        option,
+        variantClass: 'csp-row-simple',
+        onClick: openOnRowClick('heritage'),
+        content: (
+          <>
+            <div className='csp-row-name'>{option.name}</div>
+            {selectBtn}
+          </>
+        ),
+      };
+    }
+    if (ab === 'sense' || ab === 'physical-feature' || ab === 'mode') {
+      return {
+        key,
+        option,
+        variantClass: 'csp-row-simple',
+        onClick: openOnRowClick(ab as DrawerType),
+        content: (
+          <>
+            <div className='csp-row-name'>{option.name}</div>
+            {selectBtn}
+          </>
+        ),
+      };
+    }
+    // Generic ability-block fallback (variable picks, attribute boosts, etc.)
+    // — see GenericSelectionOption's "variable" branch. Skill increases get
+    // the prof letter + mod chip; everything else gets a simple two-column
+    // row.
+    const variable = getVariable('CHARACTER', option.variable);
+    if (variable?.type === 'prof' && skillAdjustment) {
+      let currentProf: ProficiencyType | undefined | null = compileProficiencyType((variable as VariableProf).value);
+      let nextProf: ProficiencyType | undefined | null =
+        skillAdjustment === '1'
+          ? nextProficiencyType(currentProf ?? 'U')
+          : skillAdjustment === '-1'
+            ? prevProficiencyType(currentProf ?? 'U')
+            : (skillAdjustment as ProficiencyType);
+      // @ts-ignore — same as legacy: option.variable is a string variable
+      const finalTotal = getFinalProfValue('CHARACTER', option.variable, undefined, undefined, nextProf ?? currentProf);
+      return {
+        key,
+        option,
+        content: (
+          <>
+            <div className={`csp-row-lvl pf-chip pf-${currentProf ?? 'U'}`}>
+              {currentProf ?? 'U'}
+            </div>
+            <div className='csp-row-name'>
+              {option.name}
+              <span className='csp-row-sub'>
+                {(variable.value as any)?.attribute ?? ''}
+              </span>
+            </div>
+            <div className='csp-row-badges'>
+              <span className='csp-badge'>
+                {typeof finalTotal === 'number' && finalTotal >= 0
+                  ? `+${finalTotal}`
+                  : finalTotal ?? ''}
+              </span>
+            </div>
+            <button
+              type='button'
+              className='csp-row-select'
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(option);
+              }}
+              disabled={isSelected}
+            >
+              {currentProf === 'U' ? 'Train' : 'Increase'}
+            </button>
+          </>
+        ),
+      };
+    }
+    // Custom select (operation-generated options like attribute boost,
+    // language pick). Two-column simple row.
+    if (option._custom_select) {
+      return {
+        key,
+        option,
+        variantClass: 'csp-row-simple',
+        onClick: () =>
+          openDrawer({
+            type: 'generic',
+            data: {
+              ...option._custom_select,
+              onSelect: () => onSelect(option),
+            },
+            extra: { addToHistory: true },
+          }),
+        content: (
+          <>
+            <div className='csp-row-name'>{option._custom_select.title ?? option.name}</div>
+            {selectBtn}
+          </>
+        ),
+      };
+    }
+    return {
+      key,
+      option,
+      variantClass: 'csp-row-simple',
+      content: (
+        <>
+          <div className='csp-row-name'>{option.name}</div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'ancestry') {
+    const sub = (() => {
+      const sz = extractAncestrySize(option);
+      const rarity = option.rarity ?? null;
+      const bits: string[] = [];
+      if (sz) bits.push(String(sz).toLowerCase());
+      if (rarity && rarity !== 'COMMON') bits.push(String(rarity).toLowerCase());
+      return bits.join(' · ');
+    })();
+    return {
+      key,
+      option,
+      variantClass: 'csp-row-simple',
+      onClick: openOnRowClick('ancestry'),
+      content: (
+        <>
+          <div className='csp-row-name'>
+            {option.name}
+            {sub && <span className='csp-row-sub'>{sub}</span>}
+          </div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'background') {
+    return {
+      key,
+      option,
+      variantClass: 'csp-row-simple',
+      onClick: openOnRowClick('background'),
+      content: (
+        <>
+          <div className='csp-row-name'>{option.name}</div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'class') {
+    return {
+      key,
+      option,
+      variantClass: 'csp-row-simple',
+      onClick: openOnRowClick('class'),
+      content: (
+        <>
+          <div className='csp-row-name'>{option.name}</div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'archetype') {
+    return {
+      key,
+      option,
+      variantClass: 'csp-row-simple',
+      onClick: openOnRowClick('archetype'),
+      content: (
+        <>
+          <div className='csp-row-name'>{option.name}</div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'versatile-heritage') {
+    return {
+      key,
+      option,
+      variantClass: 'csp-row-simple',
+      onClick: openOnRowClick('versatile-heritage'),
+      content: (
+        <>
+          <div className='csp-row-name'>{option.name}</div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'class-archetype') {
+    return {
+      key,
+      option,
+      variantClass: 'csp-row-simple',
+      onClick: () =>
+        option.id === -999
+          ? openDrawer({ type: 'class', data: { id: option.class_id }, extra: { addToHistory: true } })
+          : openDrawer({ type: 'class-archetype', data: { id: option.id }, extra: { addToHistory: true } }),
+      content: (
+        <>
+          <div className='csp-row-name'>{option.name}</div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'item') {
+    const traits = (option.traits ?? []) as number[];
+    return {
+      key,
+      option,
+      onClick: openOnRowClick('item'),
+      content: (
+        <>
+          <div className='csp-row-lvl'>{option.level ?? 0}</div>
+          <div className='csp-row-name'>
+            {option.name}
+            {option.bulk !== undefined && option.bulk !== null && option.bulk !== '' && (
+              <span className='csp-row-sub'>bulk {String(option.bulk).toLowerCase()}</span>
+            )}
+          </div>
+          <div className='csp-row-badges'>
+            <Wg4TraitBadges traitIds={traits} traitCache={traitCache} />
+          </div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'creature') {
+    return {
+      key,
+      option,
+      onClick: () =>
+        openDrawer({
+          type: 'creature',
+          data: { id: option.id },
+          extra: { addToHistory: true },
+        }),
+      content: (
+        <>
+          <div className='csp-row-lvl'>{getEntityLevel(option as Creature)}</div>
+          <div className='csp-row-name'>{option.name}</div>
+          <div className='csp-row-badges'>
+            <Wg4TraitBadges
+              traitIds={(option.traits ?? []) as number[]}
+              traitCache={traitCache}
+            />
+          </div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'language') {
+    return {
+      key,
+      option,
+      variantClass: 'csp-row-simple',
+      onClick: openOnRowClick('language'),
+      content: (
+        <>
+          <div className='csp-row-name'>{option.name}</div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  if (type === 'trait') {
+    return {
+      key,
+      option,
+      variantClass: 'csp-row-simple',
+      onClick: openOnRowClick('trait'),
+      content: (
+        <>
+          <div className='csp-row-name'>{option.name}</div>
+          {selectBtn}
+        </>
+      ),
+    };
+  }
+
+  // Fallback — never hit in practice but keeps the renderer total.
+  return {
+    key,
+    option,
+    variantClass: 'csp-row-simple',
+    content: (
+      <>
+        <div className='csp-row-name'>{option.name ?? `Option ${option.id}`}</div>
+        {selectBtn}
+      </>
+    ),
+  };
 }
 
 export default function SelectContentModal({
@@ -365,7 +1747,33 @@ export default function SelectContentModal({
     zIndex?: number;
     description?: ReactNode;
   };
+  // Plain title text — only the spell picker reads this (to render its
+  // own .csp-title since the Mantine header chrome is hidden for spells).
+  // Optional so older non-spell call paths that don't set it still type-check.
+  _titleText?: string;
 }>) {
+  // Spell pickers render an entirely custom parchment shell (wg4
+  // mockup). We early-return BEFORE the rest of the SelectContentModal
+  // hooks fire — `innerProps.type` is invariant after mount, so the
+  // Rules of Hooks order stays consistent across renders for any
+  // given modal instance.
+  if (innerProps.type === 'spell') {
+    return (
+      <SpellPickerShell
+        titleText={innerProps._titleText ?? 'Select Spell'}
+        onClose={() => context.closeModal(id)}
+        onClick={
+          innerProps.onClick
+            ? (spell) => {
+                innerProps.onClick!(spell as unknown as Record<string, any>);
+              }
+            : undefined
+        }
+        options={innerProps.options}
+      />
+    );
+  }
+
   const theme = useMantineTheme();
 
   // Pairs with `getResizableModalContextProps('select-content', ...)`
@@ -384,7 +1792,7 @@ export default function SelectContentModal({
   const [filterState, setFilterState] = useState<ContentFilterState>(() => ({
     ...DEFAULT_FILTER_STATE,
   }));
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // filtersOpen state lives inside Wg4PickerShell now — see line ~960.
 
   // Feat-type detection: peek at the first option's traits and decide
   // which filter blocks the panel should surface. Skill feats → all blocks
@@ -694,9 +2102,13 @@ export default function SelectContentModal({
     };
   };
 
-  const filterCount = activeFilterCount(filterState, innerProps.type, innerProps.options?.abilityBlockType);
+  // filterCount lives inside Wg4PickerShell now (drives the "Filters (N)" pill).
 
+  // typeName retained for the legacy advanced-search hook only; the wg4
+  // shell formats labels via toLabel directly. Suppress unused-locals
+  // warnings with a `void` reference below.
   const typeName = toLabel(innerProps.options?.abilityBlockType || innerProps.type);
+  void typeName;
 
   // Detect "custom-select mode": when ALL options are operation-generated
   // custom picks (attribute boost, skill proficiency choices, language
@@ -777,150 +2189,10 @@ export default function SelectContentModal({
     return [...set];
   }, [innerProps.options?.overrideOptions, innerProps.options?.abilityBlockType, innerProps.type]);
 
-  const getSelectionContents = (selectionOptions: React.ReactNode) => {
-    return (
-      // flex-fill chain: this Stack stretches inside the outer flex Box
-      // (see line ~1038) so the filter panel / option list below can
-      // flex-1 themselves. Without this the panel collapses to its
-      // intrinsic height and leaves a dead-space gap below.
-      <Stack gap={10} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* Search row: input + Filters toggle button, both same height. The
-            Filters button is sized to match the TextInput visually so they
-            read as siblings rather than search-plus-tiny-action. The body
-            below this row swaps between the result list and the filter
-            panel based on `filtersOpen` — toggling Filters reveals the
-            panel; toggling again returns to the results. The advanced
-            search modal is gone — everything filterable now lives in the
-            unified filter panel. */}
-        <Group wrap='nowrap' gap={8}>
-          <FocusTrap active={true}>
-            <TextInput
-              data-autofocus
-              style={{ flex: 1 }}
-              size='md'
-              leftSection={<IconSearch size='0.9rem' />}
-              placeholder={`Search ${pluralize(typeName.toLowerCase())}`}
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              rightSection={
-                searchQuery.trim() ? (
-                  <ActionIcon
-                    variant='subtle'
-                    size='md'
-                    color='gray'
-                    radius='xl'
-                    aria-label='Clear search'
-                    onClick={() => {
-                      setSearchQuery('');
-                    }}
-                  >
-                    <IconX size='1.2rem' stroke={2} />
-                  </ActionIcon>
-                ) : undefined
-              }
-              styles={{
-                input: {
-                  borderColor: searchQuery.trim().length > 0 ? theme.colors['guide'][8] : undefined,
-                },
-              }}
-            />
-          </FocusTrap>
-          {/* Custom-select mode (attribute boost / skill prof picks) has
-              no filterable content — just hide the button entirely. */}
-          {!isCustomSelectMode && (
-            <Indicator
-              color={theme.primaryColor}
-              label={filterCount > 0 ? filterCount : undefined}
-              disabled={filterCount === 0}
-              size={16}
-              offset={6}
-            >
-              <Button
-                size='md'
-                variant={filtersOpen ? 'filled' : 'default'}
-                color={filtersOpen ? theme.primaryColor : undefined}
-                leftSection={<IconFilter size='1rem' />}
-                rightSection={
-                  filtersOpen ? <IconChevronUp size='0.9rem' stroke={2.5} /> : <IconChevronDown size='0.9rem' stroke={2.5} />
-                }
-                onClick={() => setFiltersOpen((o) => !o)}
-                aria-expanded={filtersOpen}
-              >
-                Filters
-              </Button>
-            </Indicator>
-          )}
-        </Group>
-
-        {/* Filter panel and result list are now MUTUALLY EXCLUSIVE
-            — when filters open, they fill the whole modal body and
-            the result list is hidden; when filters close, the
-            result list comes back. This matches the AddItemsModal
-            UX and the user's explicit preference: "filters take
-            the entire popup; closing filters shows the results."
-            Reset / Done buttons sit at the bottom of the filter
-            panel so the player has both a one-click way to clear
-            and a clear way back to results without having to find
-            the toolbar Filters button again. */}
-        {filtersOpen && !isCustomSelectMode ? (
-          <Box
-            p='sm'
-            style={{
-              backgroundColor: IMPRINT_BG_COLOR,
-              border: `1px solid ${IMPRINT_BORDER_COLOR}`,
-              borderRadius: theme.radius.md,
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            <Box style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-              <SelectContentFilters
-                type={innerProps.type}
-                abilityBlockType={innerProps.options?.abilityBlockType}
-                featType={featType}
-                state={filterState}
-                onChange={setFilterState}
-                maxLevel={optionMaxLevel}
-                maxRank={optionMaxRank}
-                spellDomain={spellFilterDomain}
-                allowedTraitIds={allowedTraitIds}
-              />
-            </Box>
-            <Group
-              justify='space-between'
-              wrap='nowrap'
-              gap={8}
-              pt='sm'
-              mt='sm'
-              style={{ borderTop: `1px solid ${IMPRINT_BORDER_COLOR}`, flex: '0 0 auto' }}
-            >
-              <Button
-                size='sm'
-                variant='default'
-                onClick={() => setFilterState({ ...DEFAULT_FILTER_STATE })}
-                disabled={filterCount === 0}
-              >
-                Reset filters{filterCount > 0 ? ` (${filterCount})` : ''}
-              </Button>
-              <Button
-                size='sm'
-                variant='filled'
-                color={theme.primaryColor}
-                onClick={() => setFiltersOpen(false)}
-              >
-                Done — show results
-              </Button>
-            </Group>
-          </Box>
-        ) : (
-          selectionOptions
-        )}
-      </Stack>
-    );
-  };
+  // (Legacy `getSelectionContents` helper was removed when the
+  // SelectContentModal body migrated to the wg4 parchment shell —
+  // the Wg4PickerShell now owns the search row, filters button,
+  // filter panel toggle and the inner option list rendering.)
 
   /// Handle Class Feats ///
 
@@ -1114,302 +2386,378 @@ export default function SelectContentModal({
 
   /// ------------------ ///
 
+  // ── Wg4 shell wiring ───────────────────────────────────────────────
+  // Decide what tab strip (if any) to render, and which data
+  // pipeline + per-tab filter applies to the active tab. The legacy
+  // SelectionOptions component handled this internally via three
+  // parallel <Tabs.Panel>s; we now compute it up-front and feed the
+  // result into a single Wg4PickerShell so the parchment chrome
+  // stays consistent.
+  type TabSpec = {
+    key: string;
+    label: string;
+    // Per-tab data source — defaults to (innerProps.type, abilityBlockType)
+    // but archetype / dedication / heritage / universal-ancestry tabs
+    // need a different fetch.
+    fetchType: ContentType;
+    fetchAbilityBlockType?: AbilityBlockType;
+    // Whether this tab uses overrideOptions (for class-feat / heritage /
+    // ancestry-feat default tabs) or fetches all-of-type.
+    useOverrideOptions: boolean;
+    // Per-tab predicate. AND-ed with the global filter state.
+    tabPredicate?: (option: Record<string, any>) => boolean;
+    // Per-tab onClick adapter — archetype / dedication / universal /
+    // versatile tabs synthesize `_select_uuid` + `_content_type` so the
+    // selection ops engine downstream knows which content set the
+    // selection came from.
+    adaptOnClick?: (option: Record<string, any>) => Record<string, any>;
+  };
+
+  const tabSpecs: TabSpec[] = (() => {
+    if (isClassFeat) {
+      return [
+        {
+          key: 'class-feat',
+          label: 'Class Feats',
+          fetchType: innerProps.type,
+          fetchAbilityBlockType: innerProps.options?.abilityBlockType,
+          useOverrideOptions: true,
+        },
+        {
+          key: 'archetype-feat',
+          label: 'Archetype Feats',
+          fetchType: 'ability-block',
+          fetchAbilityBlockType: 'feat',
+          useOverrideOptions: false,
+          tabPredicate: (option) =>
+            intersection(
+              getAllArchetypeTraitVariables('CHARACTER').map((v) => v.value) ?? [],
+              option.traits ?? []
+            ).length > 0 && option.level <= classFeatSourceLevel,
+          adaptOnClick: (option) => ({
+            ...option,
+            _select_uuid: `${option.id}`,
+            _content_type: 'ability-block',
+          }),
+        },
+        {
+          key: 'add-dedication',
+          label: 'Add Dedication',
+          fetchType: 'ability-block',
+          fetchAbilityBlockType: 'feat',
+          useOverrideOptions: false,
+          tabPredicate: (option) =>
+            hasTraitType('DEDICATION', option.traits) && option.level <= classFeatSourceLevel,
+          adaptOnClick: (option) => ({
+            ...option,
+            _select_uuid: `${option.id}`,
+            _content_type: 'ability-block',
+          }),
+        },
+      ];
+    }
+    if (isHeritage) {
+      return [
+        {
+          key: 'ancestry-heritage',
+          label: 'Ancestry Heritages',
+          fetchType: innerProps.type,
+          fetchAbilityBlockType: innerProps.options?.abilityBlockType,
+          useOverrideOptions: true,
+          tabPredicate: (option) =>
+            !versHeritageData?.versHeritages.find((v) => v.heritage_id === option.id),
+        },
+        {
+          key: 'versatile-heritage',
+          label: 'Versatile Heritages',
+          fetchType: 'ability-block',
+          fetchAbilityBlockType: 'heritage',
+          useOverrideOptions: false,
+          tabPredicate: (option) =>
+            !!versHeritageData?.versHeritages.find((v) => v.heritage_id === option.id),
+          adaptOnClick: (option) => ({
+            ...option,
+            _select_uuid: `${option.id}`,
+            _content_type: 'ability-block',
+          }),
+        },
+      ];
+    }
+    if (isAncestryFeat) {
+      return [
+        {
+          key: 'ancestry-feat',
+          label: 'Ancestry Feats',
+          fetchType: innerProps.type,
+          fetchAbilityBlockType: innerProps.options?.abilityBlockType,
+          useOverrideOptions: true,
+        },
+        {
+          key: 'universal-ancestry-feat',
+          label: 'Universal Ancestry',
+          fetchType: 'ability-block',
+          fetchAbilityBlockType: 'feat',
+          useOverrideOptions: false,
+          tabPredicate: (option) => {
+            if (!UNIVERSAL_ANCESTRY_FEAT_NAMES.has(((option.name || '') as string).toLowerCase())) return false;
+            const lvl = option.level;
+            if (lvl !== undefined && lvl !== null && lvl > ancestryFeatSourceLevel) return false;
+            return true;
+          },
+          adaptOnClick: (option) => ({
+            ...option,
+            _select_uuid: `${option.id}`,
+            _content_type: 'ability-block',
+          }),
+        },
+      ];
+    }
+    return [
+      {
+        key: 'default',
+        label: '',
+        fetchType: innerProps.type,
+        fetchAbilityBlockType: innerProps.options?.abilityBlockType,
+        useOverrideOptions: true,
+      },
+    ];
+  })();
+
+  const activeTabKey = isClassFeat
+    ? classFeatTab ?? tabSpecs[0].key
+    : isHeritage
+      ? versHeritageTab ?? tabSpecs[0].key
+      : isAncestryFeat
+        ? ancestryFeatTab ?? tabSpecs[0].key
+        : tabSpecs[0].key;
+  const setActiveTabKey = (next: string) => {
+    if (isClassFeat) setClassFeatTab(next);
+    else if (isHeritage) setVersHeritageTab(next);
+    else if (isAncestryFeat) setAncestryFeatTab(next);
+  };
+  const activeTabSpec = tabSpecs.find((t) => t.key === activeTabKey) ?? tabSpecs[0];
+
+  // Fetch data for the active tab. The query key includes the tab key
+  // so switching tabs hits the correct cache slot.
+  const character = useAtomValue(characterState);
+  const sortByPrereqs =
+    innerProps.options?.abilityBlockType === 'feat' &&
+    (character?.options?.auto_detect_prerequisites ?? false);
+
+  const { data: rawOptions, isFetching: isLoadingOptions } = useQuery({
+    queryKey: [
+      `select-content-options-${activeTabSpec.fetchType}`,
+      { ab: activeTabSpec.fetchAbilityBlockType, tab: activeTabSpec.key },
+    ],
+    queryFn: async () => {
+      return (
+        (await fetchContentAll(
+          activeTabSpec.fetchType,
+          getDefaultSources('PAGE')
+        )) ?? null
+      );
+    },
+    refetchOnMount: true,
+  });
+
+  // Trait cache for row badges/subtitles. Populated by the global
+  // content store; if cold, badges fall back to empty.
+  const traitCache = useMemo(() => {
+    const cache = getCachedContent<Trait>('trait') ?? [];
+    const map = new Map<number, string>();
+    for (const t of cache) map.set(t.id, t.name);
+    return map;
+  }, [rawOptions]);
+
+  // Compose the option pool. When the tab uses overrideOptions and
+  // they're available, prefer them; otherwise fall back to the
+  // fetched cache. Mirrors SelectionOptions's logic.
+  const optionPool = useMemo(() => {
+    let pool: Record<string, any>[];
+    if (activeTabSpec.useOverrideOptions && innerProps.options?.overrideOptions) {
+      pool = innerProps.options.overrideOptions;
+    } else {
+      pool = rawOptions ? [...rawOptions.values()] : [];
+    }
+    pool = pool.filter((d) => d);
+
+    // Ability block type narrow (skip when the tab spec already
+    // pre-filters; otherwise belt-and-braces).
+    if (activeTabSpec.fetchAbilityBlockType) {
+      pool = pool.filter((o) => o.type === activeTabSpec.fetchAbilityBlockType);
+    } else if (
+      activeTabSpec.fetchType === 'ability-block' &&
+      (!activeTabSpec.useOverrideOptions ||
+        !innerProps.options?.overrideOptions ||
+        innerProps.options.overrideOptions.length === 0)
+    ) {
+      pool = [];
+    }
+
+    // Already-selected feats / languages — mirrors SelectionOptions.
+    if (innerProps.options?.abilityBlockType === 'feat') {
+      const featIds = getVariable<VariableListStr>('CHARACTER', 'FEAT_IDS')?.value.map((v) => parseInt(v)) ?? [];
+      pool = pool.filter((option) => !featIds.includes(option.id) || option.meta_data?.can_select_multiple_times);
+    }
+    if (
+      innerProps.options?.overrideOptions &&
+      innerProps.options.overrideOptions.length > 0 &&
+      innerProps.options.overrideOptions[0]._content_type === 'language'
+    ) {
+      const languageIds = getVariable<VariableListStr>('CHARACTER', 'LANGUAGE_IDS')?.value.map((v) => parseInt(v)) ?? [];
+      pool = pool.filter((option) => !languageIds.includes(option.id));
+    }
+    return pool;
+  }, [
+    rawOptions,
+    innerProps.options?.overrideOptions,
+    innerProps.options?.abilityBlockType,
+    activeTabSpec.fetchAbilityBlockType,
+    activeTabSpec.fetchType,
+    activeTabSpec.useOverrideOptions,
+  ]);
+
+  // JsSearch index for the current pool. Re-builds whenever the pool
+  // changes (rare — usually only on tab switch).
+  const search = useRef(new JsSearch.Search('id'));
+  useEffect(() => {
+    if (optionPool.length === 0) return;
+    const s = new JsSearch.Search('id');
+    s.addIndex('name');
+    s.addDocuments(optionPool);
+    search.current = s;
+  }, [optionPool]);
+
+  // ── Pagination ────────────────────────────────────────────────────
+  const NUM_PER_PAGE = 20;
+  const [activePage, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [activeTabKey, searchQueryDebounced, filterState]);
+
+  // Compose final filtered + sorted list.
+  const filteredAndSorted = useMemo(() => {
+    let base = searchQueryDebounced
+      ? (search.current.search(searchQueryDebounced) as Record<string, any>[])
+      : optionPool;
+
+    // Apply consumer filterFn + state filter + tab predicate.
+    base = base.filter((o) => {
+      if (innerProps.options?.filterFn && !innerProps.options.filterFn(o)) return false;
+      if (!applyStateFilter(o)) return false;
+      if (activeTabSpec.tabPredicate && !activeTabSpec.tabPredicate(o)) return false;
+      return true;
+    });
+
+    // Prereq sorting (feats only when auto-detect is on).
+    const prereqRank = new Map<number, number>();
+    if (sortByPrereqs) {
+      for (const opt of base) {
+        if (!opt.prerequisites || opt.prerequisites.length === 0) {
+          prereqRank.set(opt.id, 0);
+          continue;
+        }
+        const r = meetsPrerequisites('CHARACTER', opt.prerequisites).result;
+        prereqRank.set(opt.id, r === 'FULLY' ? 0 : r === 'PARTIALLY' ? 1 : r === 'NOT' ? 3 : 2);
+      }
+    }
+
+    return [...base].sort((a, b) => {
+      if (a.level !== undefined && b.level !== undefined && a.level !== b.level) {
+        return innerProps.options?.overrideOptions
+          ? b.level - a.level
+          : a.level - b.level;
+      }
+      if (a.rank !== undefined && b.rank !== undefined && a.rank !== b.rank) {
+        return innerProps.options?.overrideOptions
+          ? b.rank - a.rank
+          : a.rank - b.rank;
+      }
+      if (sortByPrereqs) {
+        const diff = (prereqRank.get(a.id) ?? 2) - (prereqRank.get(b.id) ?? 2);
+        if (diff !== 0) return diff;
+      }
+      return (a.name ?? '').localeCompare(b.name ?? '');
+    });
+  }, [
+    optionPool,
+    searchQueryDebounced,
+    filterState,
+    innerProps.options?.filterFn,
+    innerProps.options?.overrideOptions,
+    activeTabSpec.tabPredicate,
+    sortByPrereqs,
+  ]);
+
+  const totalCount = filteredAndSorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / NUM_PER_PAGE));
+  const pageSlice = filteredAndSorted.slice(
+    (activePage - 1) * NUM_PER_PAGE,
+    activePage * NUM_PER_PAGE
+  );
+  const pageFrom = totalCount === 0 ? 0 : (activePage - 1) * NUM_PER_PAGE + 1;
+  const pageTo = Math.min(activePage * NUM_PER_PAGE, totalCount);
+
+  // Drawer + onPick adapter for the active tab.
+  const [, openDrawer] = useAtom(drawerState);
+  const onPick = (option: Record<string, any>) => {
+    if (!innerProps.onClick) return;
+    const adapted = activeTabSpec.adaptOnClick ? activeTabSpec.adaptOnClick(option) : option;
+    innerProps.onClick(adapted);
+    context.closeModal(id);
+  };
+
+  const wg4Rows: PickerRow[] = pageSlice.map((option) =>
+    buildWg4Row({
+      option,
+      type: activeTabSpec.fetchType,
+      abilityBlockType: activeTabSpec.fetchAbilityBlockType,
+      skillAdjustment: innerProps.options?.skillAdjustment,
+      selectedId: innerProps.options?.selectedId,
+      traitCache,
+      openDrawer,
+      onSelect: onPick,
+    })
+  );
+
+  // Pretty noun for the count strip + empty state.
+  const countNoun = pluralize(
+    toLabel(innerProps.options?.abilityBlockType ?? innerProps.type).toLowerCase()
+  );
+  // Avoid the noisy theme reference in the no-deps tab-only case.
+  void theme;
+
   return (
-    // Stack + inner Box now flex-fill the modal body. The previous
-    // implementation pinned the Box to a fixed 620/700px height which
-    // left dead space at the bottom whenever the user-resizable modal
-    // was taller than that — exactly what the user was seeing in the
-    // Add Spell / Add Item screenshots. With flex:1 + minHeight:0 the
-    // option list (or the filter panel) grows to whatever vertical
-    // space the modal frame gives us.
-    <Stack style={{ flex: 1, minHeight: 0 }} gap={10}>
-      {innerProps.options?.description}
-      <Box style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {isClassFeat && (
-          <Tabs value={classFeatTab} onChange={setClassFeatTab}>
-            <Tabs.List grow mb={10}>
-              <Tabs.Tab value='class-feat'>Class Feats</Tabs.Tab>
-              <Tabs.Tab value='archetype-feat'>Archetype Feats</Tabs.Tab>
-              <Tabs.Tab value='add-dedication'>Add Dedication</Tabs.Tab>
-            </Tabs.List>
-
-            <Tabs.Panel value='class-feat'>
-              <Box>
-                {getSelectionContents(
-                  <SelectionOptions
-                    type={innerProps.type}
-                    abilityBlockType={innerProps.options?.abilityBlockType}
-                    skillAdjustment={innerProps.options?.skillAdjustment}
-                    selectedId={innerProps.options?.selectedId}
-                    overrideOptions={innerProps.options?.overrideOptions}
-                    searchQuery={searchQueryDebounced}
-                    onClick={
-                      innerProps.onClick
-                        ? (option) => {
-                            innerProps.onClick!(option);
-                            context.closeModal(id);
-                          }
-                        : undefined
-                    }
-                    filterFn={getMergedFilterFn()}
-                    includeOptions={innerProps.options?.includeOptions}
-                    showButton={innerProps.options?.showButton}
-                    limitSelectedOptions={true}
-                  />
-                )}
-              </Box>
-            </Tabs.Panel>
-
-            <Tabs.Panel value='archetype-feat'>
-              <Box>
-                {getSelectionContents(
-                  <SelectionOptions
-                    type='ability-block'
-                    abilityBlockType='feat'
-                    selectedId={innerProps.options?.selectedId}
-                    searchQuery={searchQueryDebounced}
-                    onClick={
-                      innerProps.onClick
-                        ? (option) => {
-                            innerProps.onClick!({
-                              ...option,
-                              // Need this for selection ops to work correctly
-                              // since we're not using the override options
-                              _select_uuid: `${option.id}`,
-                              _content_type: 'ability-block',
-                            } satisfies ObjectWithUUID);
-                            context.closeModal(id);
-                          }
-                        : undefined
-                    }
-                    filterFn={mergeWithStateFilter((option) =>
-                      intersection(
-                        getAllArchetypeTraitVariables('CHARACTER').map((v) => v.value) ?? [],
-                        option.traits ?? []
-                      ).length > 0 && option.level <= classFeatSourceLevel
-                    )}
-                    includeOptions={innerProps.options?.includeOptions}
-                    showButton={innerProps.options?.showButton}
-                    limitSelectedOptions={true}
-                  />
-                )}
-              </Box>
-            </Tabs.Panel>
-
-            <Tabs.Panel value='add-dedication'>
-              <Box>
-                {getSelectionContents(
-                  <SelectionOptions
-                    type='ability-block'
-                    abilityBlockType='feat'
-                    selectedId={innerProps.options?.selectedId}
-                    searchQuery={searchQueryDebounced}
-                    onClick={
-                      innerProps.onClick
-                        ? (option) => {
-                            innerProps.onClick!({
-                              ...option,
-                              // Need this for selection ops to work correctly
-                              // since we're not using the override options
-                              _select_uuid: `${option.id}`,
-                              _content_type: 'ability-block',
-                            } satisfies ObjectWithUUID);
-                            context.closeModal(id);
-                          }
-                        : undefined
-                    }
-                    filterFn={mergeWithStateFilter((option) =>
-                      hasTraitType('DEDICATION', option.traits) && option.level <= classFeatSourceLevel
-                    )}
-                    includeOptions={innerProps.options?.includeOptions}
-                    showButton={innerProps.options?.showButton}
-                    limitSelectedOptions={true}
-                  />
-                )}
-              </Box>
-            </Tabs.Panel>
-          </Tabs>
-        )}
-
-        {isHeritage && (
-          <Tabs value={versHeritageTab} onChange={setVersHeritageTab}>
-            <Tabs.List grow mb={10}>
-              <Tabs.Tab value='ancestry-heritage'>Ancestry Heritages</Tabs.Tab>
-              <Tabs.Tab value='versatile-heritage'>Versatile Heritages</Tabs.Tab>
-            </Tabs.List>
-
-            <Tabs.Panel value='ancestry-heritage'>
-              <Box>
-                {getSelectionContents(
-                  <SelectionOptions
-                    type={innerProps.type}
-                    abilityBlockType={innerProps.options?.abilityBlockType}
-                    skillAdjustment={innerProps.options?.skillAdjustment}
-                    selectedId={innerProps.options?.selectedId}
-                    overrideOptions={innerProps.options?.overrideOptions}
-                    searchQuery={searchQueryDebounced}
-                    onClick={
-                      innerProps.onClick
-                        ? (option) => {
-                            innerProps.onClick!(option);
-                            context.closeModal(id);
-                          }
-                        : undefined
-                    }
-                    filterFn={mergeWithStateFilter(
-                      (option) => !versHeritageData?.versHeritages.find((v) => v.heritage_id === option.id)
-                    )}
-                    includeOptions={innerProps.options?.includeOptions}
-                    showButton={innerProps.options?.showButton}
-                    limitSelectedOptions={true}
-                  />
-                )}
-              </Box>
-            </Tabs.Panel>
-
-            <Tabs.Panel value='versatile-heritage'>
-              <Box>
-                {getSelectionContents(
-                  <SelectionOptions
-                    type='ability-block'
-                    abilityBlockType='heritage'
-                    selectedId={innerProps.options?.selectedId}
-                    searchQuery={searchQueryDebounced}
-                    onClick={
-                      innerProps.onClick
-                        ? (option) => {
-                            innerProps.onClick!({
-                              ...option,
-                              // Need this for selection ops to work correctly
-                              // since we're not using the override options
-                              _select_uuid: `${option.id}`,
-                              _content_type: 'ability-block',
-                            } satisfies ObjectWithUUID);
-                            context.closeModal(id);
-                          }
-                        : undefined
-                    }
-                    filterFn={mergeWithStateFilter(
-                      (option) => !!versHeritageData?.versHeritages.find((v) => v.heritage_id === option.id)
-                    )}
-                    includeOptions={innerProps.options?.includeOptions}
-                    showButton={innerProps.options?.showButton}
-                    limitSelectedOptions={true}
-                  />
-                )}
-              </Box>
-            </Tabs.Panel>
-          </Tabs>
-        )}
-
-        {isAncestryFeat && (
-          <Tabs value={ancestryFeatTab} onChange={setAncestryFeatTab}>
-            <Tabs.List grow mb={10}>
-              <Tabs.Tab value='ancestry-feat'>Ancestry Feats</Tabs.Tab>
-              <Tabs.Tab value='universal-ancestry-feat'>Universal Ancestry Feats</Tabs.Tab>
-            </Tabs.List>
-
-            <Tabs.Panel value='ancestry-feat'>
-              <Box>
-                {getSelectionContents(
-                  <SelectionOptions
-                    type={innerProps.type}
-                    abilityBlockType={innerProps.options?.abilityBlockType}
-                    skillAdjustment={innerProps.options?.skillAdjustment}
-                    selectedId={innerProps.options?.selectedId}
-                    overrideOptions={innerProps.options?.overrideOptions}
-                    searchQuery={searchQueryDebounced}
-                    onClick={
-                      innerProps.onClick
-                        ? (option) => {
-                            innerProps.onClick!(option);
-                            context.closeModal(id);
-                          }
-                        : undefined
-                    }
-                    filterFn={getMergedFilterFn()}
-                    includeOptions={innerProps.options?.includeOptions}
-                    showButton={innerProps.options?.showButton}
-                    limitSelectedOptions={true}
-                  />
-                )}
-              </Box>
-            </Tabs.Panel>
-
-            <Tabs.Panel value='universal-ancestry-feat'>
-              <Box>
-                {getSelectionContents(
-                  <SelectionOptions
-                    type='ability-block'
-                    abilityBlockType='feat'
-                    selectedId={innerProps.options?.selectedId}
-                    searchQuery={searchQueryDebounced}
-                    onClick={
-                      innerProps.onClick
-                        ? (option) => {
-                            innerProps.onClick!({
-                              ...option,
-                              // Mirror the class-feat fallthrough pattern: when we
-                              // hand back a feat the parent didn't pre-list, we have
-                              // to synthesize the bookkeeping ids the selection ops
-                              // engine reads.
-                              _select_uuid: `${option.id}`,
-                              _content_type: 'ability-block',
-                            } satisfies ObjectWithUUID);
-                            context.closeModal(id);
-                          }
-                        : undefined
-                    }
-                    filterFn={mergeWithStateFilter((option) => {
-                      // Name whitelist — see UNIVERSAL_ANCESTRY_FEAT_NAMES above.
-                      if (!UNIVERSAL_ANCESTRY_FEAT_NAMES.has(((option.name || '') as string).toLowerCase())) {
-                        return false;
-                      }
-                      // Level gate — ancestry feat slots only accept feats at or
-                      // below the slot's source level. PF2e ancestry feats only
-                      // exist at levels 1/5/9/13/17 so <= naturally clamps to those.
-                      const lvl = option.level;
-                      if (lvl !== undefined && lvl !== null && lvl > ancestryFeatSourceLevel) return false;
-                      return true;
-                    })}
-                    includeOptions={innerProps.options?.includeOptions}
-                    showButton={innerProps.options?.showButton}
-                    limitSelectedOptions={true}
-                  />
-                )}
-              </Box>
-            </Tabs.Panel>
-          </Tabs>
-        )}
-
-        {!(isClassFeat || isHeritage || isAncestryFeat) && (
-          <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            {getSelectionContents(
-              <SelectionOptions
-                type={innerProps.type}
-                abilityBlockType={innerProps.options?.abilityBlockType}
-                skillAdjustment={innerProps.options?.skillAdjustment}
-                selectedId={innerProps.options?.selectedId}
-                overrideOptions={innerProps.options?.overrideOptions}
-                searchQuery={searchQueryDebounced}
-                onClick={
-                  innerProps.onClick
-                    ? (option) => {
-                        innerProps.onClick!(option);
-                        context.closeModal(id);
-                      }
-                    : undefined
-                }
-                filterFn={getMergedFilterFn()}
-                includeOptions={innerProps.options?.includeOptions}
-                showButton={innerProps.options?.showButton}
-                limitSelectedOptions={!!innerProps.options?.overrideOptions}
-              />
-            )}
-          </Box>
-        )}
-      </Box>
-    </Stack>
+    <Wg4PickerShell
+      titleText={innerProps._titleText ?? `✦ Select ${toLabel(innerProps.options?.abilityBlockType ?? innerProps.type)}`}
+      onClose={() => context.closeModal(id)}
+      type={activeTabSpec.fetchType}
+      abilityBlockType={activeTabSpec.fetchAbilityBlockType}
+      featType={featType}
+      maxLevel={optionMaxLevel}
+      maxRank={optionMaxRank}
+      spellDomain={spellFilterDomain}
+      allowedTraitIds={allowedTraitIds}
+      filterState={filterState}
+      setFilterState={setFilterState}
+      searchPlaceholder={`Search ${countNoun}…`}
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      hideFilters={isCustomSelectMode}
+      tabs={tabSpecs.length > 1 ? tabSpecs.map((t) => ({ key: t.key, label: t.label, count: undefined })) : undefined}
+      activeTab={activeTabKey}
+      setActiveTab={setActiveTabKey}
+      rows={wg4Rows}
+      totalCount={totalCount}
+      pageFrom={pageFrom}
+      pageTo={pageTo}
+      totalPages={totalPages}
+      activePage={activePage}
+      setPage={setPage}
+      isLoading={isLoadingOptions}
+      countNoun={countNoun}
+      description={innerProps.options?.description}
+    />
   );
 }
 
@@ -1634,6 +2982,7 @@ export function SelectionOptionsInner(props: {
           size='sm'
           total={Math.ceil(props.options.length / NUM_PER_PAGE)}
           value={activePage}
+          siblings={3}
           onChange={(value) => {
             setPage(value);
             scrollToTop();

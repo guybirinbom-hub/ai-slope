@@ -738,6 +738,69 @@ export function isItemRangedWeapon(item: Item) {
   return !!item.meta_data?.range;
 }
 
+// The runes blob stored on an item. `meta_data` is nullable and
+// `runes` is optional, so we strip both layers to get the inner shape
+// the helpers below pass around.
+type ItemRunes = NonNullable<NonNullable<Item['meta_data']>['runes']>;
+
+/**
+ * Handwraps of Mighty Blows — a worn rune-holder whose etched runes
+ * (potency / striking / property) apply to ALL of the wearer's unarmed
+ * attacks. In PF2e it is NOT itself a Strike. Detected by name: the
+ * canonical PF2e item is the only thing called "Handwraps of Mighty
+ * Blows", and reskins/legacy copies keep the name, so a name match is
+ * both sufficient and robust.
+ * @param item - Item
+ * @returns - Whether the item is Handwraps of Mighty Blows
+ */
+export function isHandwrapsOfMightyBlows(item: Item): boolean {
+  const name = item.name?.toLowerCase() ?? '';
+  return name.includes('handwraps of mighty blows');
+}
+
+/**
+ * Find the equipped Handwraps of Mighty Blows in an inventory (if any)
+ * and return its runes. Returns null when none is worn.
+ * @param inv - Inventory
+ * @returns - The handwraps' runes, or null
+ */
+export function getEquippedHandwrapsRunes(inv?: Inventory | null): ItemRunes | null {
+  if (!inv) return null;
+  const flat = getFlatInvItems(inv);
+  const wraps = flat.find((i) => i.is_equipped && isHandwrapsOfMightyBlows(i.item));
+  return wraps?.item.meta_data?.runes ?? null;
+}
+
+/**
+ * Given an unarmed-attack item and a set of handwraps runes, return a
+ * shallow clone of the item with the handwraps' fundamental + property
+ * runes merged in. The unarmed attack keeps the BETTER of its own vs
+ * the handwraps' potency/striking (per PF2e you use the higher), and
+ * unions the property runes. Non-unarmed items and null runes are
+ * returned untouched (so normal weapons, shields, ranged weapons are
+ * never affected).
+ * @param item - Item to merge into (only `unarmed_attack` items change)
+ * @param wrapsRunes - Runes from the equipped handwraps (or null)
+ * @returns - The (possibly) rune-merged item
+ */
+export function applyHandwrapsToUnarmed(item: Item, wrapsRunes: ItemRunes | null): Item {
+  if (!wrapsRunes) return item;
+  if (item.meta_data?.category !== 'unarmed_attack') return item;
+  const own: ItemRunes = item.meta_data?.runes ?? {};
+  return {
+    ...item,
+    meta_data: {
+      ...item.meta_data,
+      runes: {
+        ...own,
+        potency: Math.max(Number(own.potency ?? 0), Number(wrapsRunes.potency ?? 0)) || undefined,
+        striking: Math.max(Number(own.striking ?? 0), Number(wrapsRunes.striking ?? 0)) || undefined,
+        property: [...(own.property ?? []), ...(wrapsRunes.property ?? [])],
+      },
+    },
+  };
+}
+
 /**
  * Utility function to determine if an item is armor
  * @param item - Item

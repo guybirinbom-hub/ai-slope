@@ -112,20 +112,21 @@ export function Component() {
   }, [data]);
 
   return (
-    <Center>
-      <Box maw={875} w='100%'>
-        <Box>
-          <Group wrap='nowrap' align='center' justify='center' gap={10}>
-            <Title order={1} c='gray.0'>
-              {!data ? 'Loading Update Request...' : `Content Update by ${data?.user.display_name}`}
-            </Title>
-            <Text fz='xl' fw={500} c='gray.2' span>
-              {!data ? `` : `(#${data?.user.id})`}
-            </Text>
-          </Group>
+    <div className='wg4 wg4-screen wg4-page-root' style={{ minHeight: '100%', padding: 16 }}>
+      <Center>
+        <Box maw={875} w='100%'>
+          <Box>
+            <Group wrap='nowrap' align='center' justify='center' gap={10}>
+              <Title order={1}>
+                {!data ? 'Loading Update Request...' : `Content Update by ${data?.user.display_name}`}
+              </Title>
+              <Text fz='xl' fw={500} c='dimmed' span>
+                {!data ? `` : `(#${data?.user.id})`}
+              </Text>
+            </Group>
 
-          <Divider color='gray.2' />
-        </Box>
+            <Divider color='var(--wg4-border-soft)' />
+          </Box>
         <Group pt='sm'>
           {!data ? (
             <Loader
@@ -353,7 +354,8 @@ export function Component() {
             </BlurBox>
           )}
         </Group>
-      </Box>
-    </Center>
+        </Box>
+      </Center>
+    </div>
   );
 }

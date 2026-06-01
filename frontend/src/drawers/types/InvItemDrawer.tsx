@@ -633,7 +633,7 @@ function InvItemSections(props: {
   let quantitySection = null;
   if (hasQuantity) {
     quantitySection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group wrap='nowrap'>
           <Text fw={600} c='gray.2' span>
             Quantity
@@ -691,7 +691,7 @@ function InvItemSections(props: {
     };
 
     healthSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md' style={{ position: 'relative' }}>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ position: 'relative', border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={5}>
           <Group wrap='nowrap' gap={10} style={{ flexGrow: 1 }}>
             <Text fw={600} c='gray.2' span>
@@ -783,7 +783,7 @@ function InvItemSections(props: {
     const damageBonus = weaponStats.damage.bonus.total > 0 ? ` + ${weaponStats.damage.bonus.total}` : ``;
 
     attackAndDamageSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group
           grow
           gap={0}
@@ -858,7 +858,7 @@ function InvItemSections(props: {
     const rightLabel = strikingLabel || resilientLabel;
 
     runesSection = (
-      <Paper shadow='xs' my={5} py={10} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={10} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={5}>
           {potencyLabel && (
             <Badge
@@ -938,7 +938,7 @@ function InvItemSections(props: {
   let materialSection = null;
   if (isItemWithMaterial(props.invItem.item)) {
     materialSection = (
-      <Paper shadow='xs' my={5} py={10} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={10} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={5}>
           {materialType && (
             <Badge
@@ -964,7 +964,7 @@ function InvItemSections(props: {
   let upgradeSection = null;
   if (isItemWithGradeImprovement(props.invItem.item)) {
     upgradeSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={10}>
           <Group wrap='nowrap' mr={5}>
             <Text fw={600} c='gray.2' span>
@@ -1010,7 +1010,7 @@ function InvItemSections(props: {
   let rangeAndReloadSection = null;
   if (isItemRangedWeapon(props.invItem.item)) {
     rangeAndReloadSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={0}>
           <Group wrap='nowrap' gap={10} style={{ flexGrow: 1 }}>
             <Text fw={600} c='gray.2' span>
@@ -1036,7 +1036,7 @@ function InvItemSections(props: {
   let capacityAndUsageSection = null;
   if (props.invItem.item.meta_data?.starfinder?.capacity || props.invItem.item.meta_data?.starfinder?.usage) {
     capacityAndUsageSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={0}>
           <Group wrap='nowrap' gap={10} style={{ flexGrow: 1 }}>
             <Text fw={600} c='gray.2' span>
@@ -1079,7 +1079,7 @@ function InvItemSections(props: {
     }
 
     categoryAndGroupSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={0}>
           {props.invItem.item.meta_data?.category && (
             <Group wrap='nowrap' gap={10} style={{ flexGrow: 1 }}>
@@ -1127,7 +1127,7 @@ function InvItemSections(props: {
   let armorSection = null;
   if (hasArmor) {
     armorSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md' style={{ position: 'relative' }}>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ position: 'relative', border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={0}>
           <Group wrap='nowrap' mr={20} style={{ flexGrow: 1 }}>
             <Text fw={600} c='gray.2' span>

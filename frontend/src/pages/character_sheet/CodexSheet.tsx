@@ -1,39 +1,19 @@
 /**
- * Codex-themed character sheet.
+ * wg4 character sheet — emits the markup defined in
+ * wg4-mockups/sheet-main.html. No winbar (the codex window strip is
+ * gone), .wg4-sheet-topbar (crest + name + tabs + LV + XP + menu),
+ * .wg4-sheet-body (left rail × 6 cards + main column on the Main tab,
+ * full-width panels on every other tab).
  *
- * Renders the codex-sheet-v5.html design as a React component, wired
- * up to the existing character data layer (useCharacter atom + the
- * variable system + the sub-panel components). Replaces the previous
- * SimpleGrid + SectionPanels layout used in CharacterSheetPage.
- *
- * Architecture:
- *  - `.topbar` with `.who` (crest+name+sub), `.tabs`, `.right` cluster
- *    (lv-chip, xp bar, menu).
- *  - `.body` is a 2-col grid: `.col.left` sidebar (Vitals, Speed,
- *    Hero Points, Saves+Perception, Conditions, Languages) + `.col.main`
- *    (Abilities+Skills, Pinned/Activities) for the "Main" tab.
- *  - Other tabs (Spells, Inventory, Feats, Companions, Notes, Details)
- *    render the existing sub-panel components from
- *    `pages/character_sheet/panels/`. Those use Mantine but pick up the
- *    codex aesthetic via the codex-bridge stylesheet.
- *
- * Data wiring:
- *  - HP: entity.hp_current / getFinalHealthValue('CHARACTER')
- *  - AC: getFinalAcValue('CHARACTER')
- *  - Class DC / Perception / saves / skills: displayFinalProfValue or
- *    getFinalProfValue
- *  - Attributes: getVariable<VariableAttr>('CHARACTER', 'ATTRIBUTE_*')
- *  - Proficiency rank letter (T/E/M/L): compileProficiencyType
- *  - Hero points: entity.hero_points (0-3)
- *  - Languages: getVariable<VariableListStr>('CHARACTER', 'LANGUAGES')
- *  - Conditions: entity.details.conditions
+ * State + mutation handlers are unchanged from the previous codex
+ * sheet — only the render output is rewritten.
  */
 
 import { LivingEntity, Character, ContentPackage, InventoryItem, AbilityBlock } from '@schemas/content';
 import { isItemShield } from '@items/inv-utils';
 import { handleUpdateItem, handleDeleteItem, handleMoveItem } from '@items/inv-handlers';
 import { SetterOrUpdater } from '@utils/type-fixing';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { getVariable, setVariable } from '@variables/variable-manager';
 import {
   VariableAttr,
@@ -64,11 +44,6 @@ import { drawerState } from '@atoms/navAtoms';
 import { confirmHealth, handleRest } from './entity-handler';
 import { showNotification } from '@mantine/notifications';
 import CompanionsPanel from './panels/CompanionsPanel';
-// The legacy Mantine-based DetailsPanel / NotesPanel are no longer
-// referenced — replaced by CodexDetailsPanel / CodexNotesPanel which
-// render directly into the codex .body grid as two sibling .col divs.
-// Keeping the panels/ files on disk for now; they ship 0 KB into the
-// bundle once nothing imports them.
 import {
   CodexSpellsPanel,
   CodexInventoryPanel,
@@ -85,6 +60,7 @@ import { CodexDetailsPanel } from './CodexDetailsPanel';
 import ConditionsModesModal, { HARMFUL_CONDITIONS, ConditionDescription } from './ConditionsModesModal';
 import { getAllConditions } from '@conditions/condition-handler';
 import { useNavigate } from 'react-router-dom';
+import { useCollapsedSections } from './useCollapsedSections';
 
 type CodexTab =
   | 'main'
@@ -105,9 +81,6 @@ const TABS: { id: CodexTab; label: string }[] = [
   { id: 'details', label: 'Details' },
 ];
 
-// The 16 base skills + the lore wildcard. Matches the codex-sheet-v5
-// mockup's two-column skill ladder. Lore skills are rendered last as
-// dynamic entries (since each character has different lores).
 const BASE_SKILLS: { name: string; var: string }[] = [
   { name: 'Acrobatics', var: 'SKILL_ACROBATICS' },
   { name: 'Arcana', var: 'SKILL_ARCANA' },
@@ -140,53 +113,6 @@ function sign(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
-// Gold `*` indicator that appears next to a stat value whenever the
-// stat has conditional bonuses applied (e.g., "+1 vs fear effects",
-// "+2 when prone", "Bestow Curse" etc.). The same indicator appears
-// in the info drawer via displayFinalProfValue / displayFinalAcValue;
-// without this marker on the sheet the player has no clue a stat has
-// conditional modifiers until they click in. We compute the flag
-// directly from the live variable store on every render so it picks
-// up mode toggles, condition changes, and equipment swaps immediately.
-function CondMark({
-  hasConditionals,
-}: {
-  hasConditionals: boolean | undefined;
-}) {
-  if (!hasConditionals) return null;
-  return (
-    <span
-      style={{
-        color: 'var(--gold)',
-        marginLeft: 2,
-        fontWeight: 700,
-        fontFamily: 'Cinzel, serif',
-      }}
-      title='This stat has conditional bonuses — open the info page for details.'
-    >
-      *
-    </span>
-  );
-}
-
-// Convenience wrappers for the three flavors of "has conditional"
-// check (proficiency, AC, generic variable breakdown). All read from
-// the live variable store so they re-evaluate on every render.
-function ProfCondMark({ varName }: { varName: string }) {
-  const has = !!getProfValueParts('CHARACTER', varName)?.hasConditionals;
-  return <CondMark hasConditionals={has} />;
-}
-function AcCondMark() {
-  const has = !!getAcParts('CHARACTER').hasConditionals;
-  return <CondMark hasConditionals={has} />;
-}
-function VarCondMark({ varName }: { varName: string }) {
-  const has = getVariableBreakdown('CHARACTER', varName).conditionals.length > 0;
-  return <CondMark hasConditionals={has} />;
-}
-
-// XP thresholds per level in PF2e are 1000 per level. We just use that
-// flat cap; the underlying engine reconciles when level changes anyway.
 const XP_PER_LEVEL = 1000;
 
 export default function CodexSheet(props: {
@@ -196,89 +122,22 @@ export default function CodexSheet(props: {
   content: ContentPackage;
   panelWidth: number;
   panelHeight: number;
-  // Sidebar action buttons — Modes / Campaign / Dice Roller. The
-  // legacy CharacterSheetPage renders them as floating bottom-left
-  // anchored buttons; we accept them as a render prop so the sheet's
-  // sidebar can host them at the bottom instead.
   sidebarActions?: React.ReactNode;
 }) {
   const { character, setCharacter, content } = props;
   const navigate = useNavigate();
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [activeTab, setActiveTab] = useState<CodexTab>('main');
-  // Used to invalidate the find-character React Query cache after we
-  // make an out-of-band save (mode deactivation, etc.). Without this
-  // invalidation, the cache stays "fresh" for staleTime=60s and the
-  // next /sheet/<id> mount reads STALE data from cache instead of the
-  // updated character — even though the DB row was already updated.
   const queryClient = useQueryClient();
+  // Collapsible section headers — every <section className='sec'> below
+  // is toggled via this hook, keyed by a stable per-section ID.
+  const { isCollapsed, toggle: toggleCollapsed } = useCollapsedSections();
 
-  // Prefetch all ability-blocks into the in-memory content cache so
-  // click-time lookups by name (most importantly the sense chips →
-  // openDrawer flow at the bottom of the Vitals card) can resolve
-  // without an extra network round-trip. Without this the cache may
-  // be empty on first sheet open (only the current character/content
-  // package gets fetched), making the senses fall through to the
-  // "No description registered…" generic fallback.
   useQuery({
     queryKey: ['prefetch-ability-blocks-for-sheet'],
     queryFn: () => fetchContentAll<AbilityBlock>('ability-block', getDefaultSources('INFO')),
     staleTime: 60 * 60 * 1000,
   });
-
-  // Global section collapse with smooth height animation. Strategy:
-  //   1. To OPEN: set max-height to scrollHeight (animates from 0 → N),
-  //      then after the transition set max-height: 'none' so future
-  //      content size changes don't get clipped.
-  //   2. To CLOSE: set max-height to the measured scrollHeight first
-  //      (so the browser has a concrete value to animate from), force
-  //      a reflow, then set max-height: 0 and add .collapsed class.
-  //
-  // Ignores clicks on nested interactive elements so editing HP,
-  // clicking hero pips, pressing the + Add condition button, etc.
-  // don't collapse the section under them.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const t = e.target as HTMLElement;
-      const title = t.closest('.sec-title');
-      if (!title) return;
-      if (
-        t.closest(
-          'input, button, textarea, select, a, .pip, .fp, .dot-pip, .x, .cond .x, [data-no-collapse]'
-        )
-      ) {
-        return;
-      }
-      const sec = title.closest<HTMLElement>('.sec');
-      if (!sec) return;
-      const body = sec.querySelector<HTMLElement>(':scope > .sec-body');
-      if (!body) return;
-
-      const isCollapsed = sec.classList.contains('collapsed');
-      if (isCollapsed) {
-        // OPEN: animate 0 → measured height, then drop the cap.
-        sec.classList.remove('collapsed');
-        body.style.maxHeight = body.scrollHeight + 'px';
-        const onEnd = () => {
-          if (!sec.classList.contains('collapsed')) {
-            body.style.maxHeight = 'none';
-          }
-          body.removeEventListener('transitionend', onEnd);
-        };
-        body.addEventListener('transitionend', onEnd);
-      } else {
-        // CLOSE: set explicit max-height first so the transition has
-        // a concrete value to animate from, then force reflow + drop.
-        body.style.maxHeight = body.scrollHeight + 'px';
-        // Force reflow — read offsetHeight to flush layout.
-        void body.offsetHeight;
-        sec.classList.add('collapsed');
-        body.style.maxHeight = '0px';
-      }
-    };
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
-  }, []);
 
   // ---- Derived data ----
   const initial = character?.name?.trim()?.[0]?.toUpperCase() || '?';
@@ -289,8 +148,6 @@ export default function CodexSheet(props: {
   const ancestryName = character?.details?.ancestry?.name ?? '';
   const className = character?.details?.class?.name ?? '';
 
-  // The keyspell attribute on the class (e.g., CHA for bard, INT for wizard).
-  // Used to highlight the key ability tile with a gold glow.
   const keyAttribute =
     (
       getVariable<VariableProf>('CHARACTER', 'CLASS_DC')?.value as
@@ -298,7 +155,6 @@ export default function CodexSheet(props: {
         | undefined
     )?.attribute ?? null;
 
-  // HP — three values: current (mutable), max (computed), temp (mutable).
   const maxHp = getFinalHealthValue('CHARACTER');
   let currentHp = character?.hp_current;
   if (currentHp === undefined || currentHp < 0) currentHp = maxHp;
@@ -308,81 +164,18 @@ export default function CodexSheet(props: {
   const ac = getFinalAcValue('CHARACTER');
   const classDcStr = getFinalProfValue('CHARACTER', 'CLASS_DC', true);
   const spellDcStr = getFinalProfValue('CHARACTER', 'SPELL_DC', true);
-  // When Class DC and Spell DC come out to the same number (very
-  // common for casters whose key attribute drives both), collapse
-  // the two tiles into one labeled "Class/Spell DC" so the vitals
-  // grid doesn't repeat the same value side-by-side.
   const dcMerged = classDcStr === spellDcStr;
-  // Spell attack — render the base + iterative penalties (-5 / -10).
-  // PF2e's multi-attack penalty applies on the 2nd and 3rd action
-  // in a turn; showing all three saves the player the mental math
-  // when picking which Strike / spell-attack to take.
-  const spellAtkRaw = getFinalProfValue('CHARACTER', 'SPELL_ATTACK');
-  // getFinalProfValue returns e.g. "+11"; parse to apply penalties.
-  const spellAtkBase = parseInt(spellAtkRaw, 10);
-  const spellAtkStr = isNaN(spellAtkBase)
-    ? spellAtkRaw
-    : `${spellAtkBase >= 0 ? '+' : ''}${spellAtkBase}/${spellAtkBase - 5 >= 0 ? '+' : ''}${spellAtkBase - 5}/${spellAtkBase - 10 >= 0 ? '+' : ''}${spellAtkBase - 10}`;
-  // Compact spell-attack string for narrow vital cells: drops the
-  // redundant +/- signs so "+18/+13/+8" becomes "18 / 13 / 8". Used in
-  // 3-col / 4-col vital layouts where the full string overflows.
-  const spellAtkCompactStr = isNaN(spellAtkBase)
-    ? spellAtkRaw
-    : `${spellAtkBase}/${spellAtkBase - 5}/${spellAtkBase - 10}`;
-  const perceptionStr = getFinalProfValue('CHARACTER', 'PERCEPTION');
   const speed = getVariable<VariableNum>('CHARACTER', 'SPEED')?.value ?? 25;
-  // Show the spell tiles only when the character actually has
-  // spellcasting (otherwise +0 / 10 is just noise).
   const hasSpellcasting =
     !!getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value &&
     compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value) !== 'U';
 
-  // ============================================================
-  // Equipped shields → vital tiles
-  // ============================================================
-  // Each equipped shield gets its own vital tile that displays
-  // current HP / max HP, hardness, and the shield's AC bonus. The
-  // tile is clickable and opens the existing inv-item drawer which
-  // already has full HP tracking + the shield's description / runes
-  // / etc. Per-shield HP lives on item.meta_data.hp (the canonical
-  // storage that InvItemDrawer reads/writes).
+  // Equipped shields — used only if we want to show a shield breakdown
+  // chip somewhere. Not surfaced in the new vitals card (would clutter
+  // the two-cell pair), but kept available via the resists drawer.
   const equippedShields = (character?.inventory?.items ?? []).filter(
     (i) => i.is_equipped && isItemShield(i.item)
   ) as InventoryItem[];
-  const getMetaNumber = (raw: unknown): number => {
-    if (typeof raw === 'number') return raw;
-    if (typeof raw === 'string') {
-      const n = parseInt(raw, 10);
-      return Number.isFinite(n) ? n : 0;
-    }
-    return 0;
-  };
-  const getShieldHpMax = (inv: InventoryItem): number =>
-    getMetaNumber(inv.item.meta_data?.hp_max);
-  const getShieldHardness = (inv: InventoryItem): number =>
-    getMetaNumber(inv.item.meta_data?.hardness);
-  const getShieldAcBonus = (inv: InventoryItem): number =>
-    inv.item.meta_data?.ac_bonus ?? 0;
-  // Current HP for a shield. InvItemDrawer writes to item.meta_data.hp;
-  // an item with hp === 0 in its meta_data could legitimately mean "0 HP
-  // right now" (shield broken) OR "never been damaged" (no field set yet
-  // because the data import doesn't initialise it). We treat hp_max as
-  // the starting value when meta_data.hp is null/undefined, so a freshly
-  // equipped shield reads at full HP instead of zero.
-  const getShieldHp = (inv: InventoryItem): number => {
-    const hp = inv.item.meta_data?.hp;
-    if (typeof hp === 'number') return Math.max(0, hp);
-    if (typeof hp === 'string') {
-      const n = parseInt(hp, 10);
-      if (Number.isFinite(n)) return Math.max(0, n);
-    }
-    return getShieldHpMax(inv);
-  };
-  // Open the full shield description / HP tracker drawer. Uses the
-  // same handlers the inventory panel uses so updates flow back into
-  // character.inventory.items correctly (the legacy direct
-  // setCharacter path silently lost the favorite star, delete, and
-  // move-to flows).
   const setEntity = setCharacter as unknown as SetterOrUpdater<LivingEntity | null>;
   const openShieldDrawer = (invItem: InventoryItem) => {
     openDrawer({
@@ -399,50 +192,13 @@ export default function CodexSheet(props: {
     });
   };
 
-  // Count of non-HP vital tiles → drives the grid sizing. Anything
-  // past 4 cubes needs a 3-col layout (smaller cells) so we never
-  // grow past 2 rows of cubes under the HP card. The HP card itself
-  // always spans 2 columns and sits on its own row.
-  //
-  // Tiles rendered below:
-  //   - Class DC OR Class/Spell DC (always = 1)
-  //   - Spell DC (= 1 when caster + not merged)
-  //   - Armor (always = 1)
-  //   - Spell Atk (= 1 when caster)
-  //   - One per equipped shield
-  const vitalCubeCount =
-    1 + // Class DC (or merged Class/Spell DC)
-    (hasSpellcasting && !dcMerged ? 1 : 0) + // separate Spell DC
-    1 + // Armor
-    (hasSpellcasting ? 1 : 0) + // Spell Atk
-    equippedShields.length;
-  // Hand-tuned column rule:
-  //   ≤4 cubes:  2 cols (default)
-  //   5-6 cubes: 3 cols
-  //   ≥7 cubes:  4 cols
-  const vitalsCols = vitalCubeCount <= 4 ? 2 : vitalCubeCount <= 6 ? 3 : 4;
-  const vitalsClass =
-    vitalsCols === 4 ? 'vitals vitals-c4' : vitalsCols === 3 ? 'vitals vitals-c3' : 'vitals';
-
-  // Hero points (PF2e CRB caps at 3 — display as 3 diamond pips).
   const heroPoints = Math.max(
     0,
     Math.min(3, (character as { hero_points?: number } | null)?.hero_points ?? 0)
   );
 
-  // Conditions list from the character entity.
   const conditions = character?.details?.conditions ?? [];
 
-  // Active modes — show them in the conditions row as chips so the
-  // player has one place to glance at every currently-applied effect
-  // (Rage, Mutate, an active Stance, plus all conditions).
-  //
-  // ACTIVE_MODES is a variable populated by ConditionsModesModal when
-  // the user toggles a mode. Stored as a string list of keys —
-  // `labelToVariable(name)` for built-in modes (ability blocks with
-  // type='mode') and `getModeToggleKey(mode)` for user-created custom
-  // modes. We reverse-resolve each key to its display name so we can
-  // render a friendly chip.
   const activeModeKeys: string[] =
     (getVariable<VariableListStr>('CHARACTER', 'ACTIVE_MODES')?.value as
       | string[]
@@ -460,19 +216,12 @@ export default function CodexSheet(props: {
         (b) => labelToVariable(b.name) === key
       );
       if (builtin) {
-        return {
-          key,
-          name: builtin.name,
-          description: builtin.description || '',
-        };
+        return { key, name: builtin.name, description: builtin.description || '' };
       }
       const custom = customModesAll.find(
         (m: CustomMode) => getModeToggleKey(m) === key
       );
       if (custom) {
-        // Custom modes don't have a description field in the schema,
-        // but they have effects — render a brief summary so the
-        // click-for-info popover still has something useful to show.
         const effectsList = (custom.effects ?? [])
           .map((e) => `${e.variable ?? ''} ${e.value ?? ''} (${e.type ?? 'untyped'})`)
           .filter((s) => s.trim())
@@ -483,22 +232,12 @@ export default function CodexSheet(props: {
           description: effectsList || 'Custom mode (no effects defined)',
         };
       }
-      // Fallback for orphan keys (mode was deleted from content) —
-      // show the raw key in a readable-ish form rather than dropping.
       return { key, name: key.replace(/_/g, ' '), description: '' };
     });
 
-  // Languages — variable is LANGUAGE_NAMES (a string list). The
-  // entries are already proper names ("Common", "Elven", "Sylvan"…)
-  // so we render them as-is.
   const languages =
     getVariable<VariableListStr>('CHARACTER', 'LANGUAGE_NAMES')?.value ?? [];
 
-  // Senses are split into precise / imprecise / vague variables in
-  // the engine. We concatenate the unique non-default ones for the
-  // display (NORMAL_VISION/HEARING/SMELL are universal defaults so
-  // we skip them). Each chip is clickable — opens the matching
-  // sense drawer by name.
   const sensesPrecise = getVariable<VariableListStr>('CHARACTER', 'SENSES_PRECISE')?.value ?? [];
   const sensesImprecise = getVariable<VariableListStr>('CHARACTER', 'SENSES_IMPRECISE')?.value ?? [];
   const sensesVague = getVariable<VariableListStr>('CHARACTER', 'SENSES_VAGUE')?.value ?? [];
@@ -514,7 +253,6 @@ export default function CodexSheet(props: {
     ...sensesVague.filter((s) => s !== 'SMELL'),
   ].map((raw) => ({ raw, display: formatSense(raw) }));
 
-  // Saves + perception list (used in the sidebar Save&Perception section).
   const saves: { label: string; var: string }[] = [
     { label: 'Fortitude', var: 'SAVE_FORT' },
     { label: 'Reflex', var: 'SAVE_REFLEX' },
@@ -531,25 +269,13 @@ export default function CodexSheet(props: {
 
   const onTempHpChange = (next: number) => {
     setCharacter((c) =>
-      c
-        ? {
-            ...c,
-            hp_temp: Math.max(0, isNaN(next) ? 0 : next),
-          }
-        : c
+      c ? { ...c, hp_temp: Math.max(0, isNaN(next) ? 0 : next) } : c
     );
   };
 
   const setHeroPoints = (next: number) => {
     const clamped = Math.max(0, Math.min(3, next));
-    setCharacter((c) =>
-      c
-        ? {
-            ...c,
-            hero_points: clamped,
-          }
-        : c
-    );
+    setCharacter((c) => (c ? { ...c, hero_points: clamped } : c));
   };
 
   const addXp = (amount: number) => {
@@ -565,11 +291,6 @@ export default function CodexSheet(props: {
     );
   };
 
-  // Direct-set the XP value (from the click-to-edit input). Unlike
-  // addXp this is a raw assignment — the user typed an exact number
-  // and we trust it. We still clamp to >= 0 and walk into the next
-  // level if the input overshoots the per-level cap so the level/xp
-  // pair stays consistent.
   const setXp = (raw: number) => {
     if (!character) return;
     if (isNaN(raw) || raw < 0) raw = 0;
@@ -598,20 +319,6 @@ export default function CodexSheet(props: {
     );
   };
 
-  // Toggle an active mode off (used by the X on a mode chip rendered
-  // in the conditions row). Three steps:
-  //   1. setVariable('ACTIVE_MODES', next) — updates the variable
-  //      store immediately so the next render sees the chip gone.
-  //   2. setCharacter(...) — mirrors to character.meta_data.active_modes
-  //      in React state so the autosave's debounced effect picks it up.
-  //   3. makeRequest('update-character', ...) — flushes the change
-  //      DIRECTLY to the DB without waiting for the 250 ms debounce.
-  //      Why: the X click is followed almost immediately by tab
-  //      switches or page navigation, and the previous version lost
-  //      the update because the autosave's useDidUpdate effect never
-  //      fired before the component unmounted (debounced timer is
-  //      cancelled on unmount). Firing the save right here guarantees
-  //      persistence regardless of how quickly the user navigates.
   const deactivateMode = (key: string) => {
     if (!character) return;
     const current =
@@ -625,34 +332,14 @@ export default function CodexSheet(props: {
       meta_data: { ...character.meta_data, active_modes: cloneDeep(next) },
     };
     setCharacter(updatedCharacter);
-    // CRITICAL: also seed the React Query cache with the new value.
-    // useCharacter's mount-time fetch reads from
-    // queryClient.getQueryData(['find-character', id]) BEFORE doing a
-    // network round-trip — and the cache's staleTime is 60s, so a
-    // mode toggled off then re-visited within that window would come
-    // back as still-active because the cache returned the pre-toggle
-    // version and overwrote the atom on re-mount. Seeding both the
-    // numeric and the string-keyed variants matches the lookup logic
-    // in useCharacter (it checks both).
     queryClient.setQueryData(['find-character', character.id], updatedCharacter);
     queryClient.setQueryData(['find-character', String(character.id)], updatedCharacter);
-    // Fire-and-forget direct save so deactivation survives an
-    // immediate navigation. We only send the field we changed —
-    // update-character treats missing fields as untouched on the
-    // server side. Failure is swallowed (the next regular autosave
-    // will retry on its own debounce tick if anything else changes).
     makeRequest('update-character', {
       id: character.id,
       meta_data: { ...character.meta_data, active_modes: cloneDeep(next) },
     }).catch(() => {});
   };
 
-  // Bump a condition's numeric value up or down. Conditions without a
-  // value never call this — only the -/+ buttons rendered next to
-  // value-bearing chips do. Clamps at 1 (going below removes the
-  // condition entirely so the player doesn't get stuck with a stale
-  // 0-value entry). The condition-handler's compiledConditions()
-  // already re-derives cascading effects on the next recompile.
   const adjustConditionValue = (name: string, delta: number) => {
     setCharacter((c) => {
       if (!c) return c;
@@ -672,121 +359,113 @@ export default function CodexSheet(props: {
     });
   };
 
-  // The Conditions + Modes modal opens from the vitals "+ add" chip
-  // (and there's no separate Modes button anymore — modes are a tab
-  // inside the same modal). Stored as local UI state so it doesn't
-  // need to round-trip through the drawer system.
   const [cmModalOpen, setCmModalOpen] = useState(false);
-  // Condition description popover state. Opened by clicking the chip
-  // body in the vitals (separate from the +-/x controls).
   const [showCondDesc, setShowCondDesc] = useState<{ name: string; description: string } | null>(null);
+
+  const onRest = () => {
+    if (!character) return;
+    handleRest(
+      'CHARACTER',
+      character as LivingEntity,
+      setCharacter as unknown as SetterOrUpdater<LivingEntity | null>
+    );
+    showNotification({
+      title: 'Rested',
+      message: 'HP, spell slots, focus, and daily-use items refreshed.',
+      autoClose: 1800,
+    });
+  };
+
+  const openSenseDrawer = (s: { raw: string; display: string }) => {
+    const all = (getCachedContent<AbilityBlock>('ability-block') ?? []).filter(
+      (b) => b.type === 'sense'
+    );
+    const targetKey = labelToVariable(s.raw);
+    const hit = all.find((b) => labelToVariable(b.name) === targetKey);
+    if (hit) {
+      openDrawer({ type: 'sense', data: { id: hit.id }, extra: { addToHistory: true } });
+    } else {
+      openDrawer({
+        type: 'generic',
+        data: {
+          title: s.display,
+          description: 'No description registered for this sense in the current content pack.',
+        },
+        extra: { addToHistory: true },
+      });
+    }
+  };
+
+  // Split skills + lores into 4 columns
+  const lores = discoverLoreSkills();
+  const allSkillEntries: { var: string; name: string; lore?: string }[] = [
+    ...BASE_SKILLS.map((s) => ({ var: s.var, name: s.name })),
+    ...lores.map((l) => ({ var: l.var, name: 'Lore', lore: l.topic })),
+  ];
+  const skillColumns: typeof allSkillEntries[] = [[], [], [], []];
+  allSkillEntries.forEach((s, i) => {
+    skillColumns[i % 4].push(s);
+  });
 
   // ---- Render ----
 
   return (
     <div className='codex-root codex-sheet-root wg4'>
       <div className='codex-sheet-page'>
-        {/* ============================ WINBAR ============================
-            Styled title-bar strip mimicking the codex design's window
-            chrome. The functional min/max/close are still rendered by
-            Electron's titleBarOverlay above this (32 px) — this strip
-            is the labeled band right beneath it, showing brand on the
-            left and character info in the center. No functional
-            buttons inside; the OS overlay handles those. */}
+        {/* WINBAR — brand + character crumbs + window controls */}
         <div className='winbar'>
-          <div className='title'>
-            <span className='dot'></span>
-            <span>
-              <b>Wanderer's Codex</b> · Character Sheet
+          <div className='brand'>
+            <span className='mark'></span>
+            <span className='name'>
+              Wanderer's <em>Codex</em> · Character Sheet
             </span>
           </div>
-          <div className='center'>
-            {character?.name || 'Unknown'}
-            {ancestryName && (
-              <>
-                {' '}
-                <b>·</b> {ancestryName}
-              </>
-            )}
-            {className && (
-              <>
-                {' '}
-                <b>·</b> {className}
-              </>
-            )}
-            {level && (
-              <>
-                {' '}
-                <b>·</b> Level {level}
-              </>
-            )}
+          <div className='crumbs'>
+            <b>{character?.name || 'Unnamed'}</b>
+            {ancestryName && <> · {ancestryName}</>}
+            {className && <> · {className}</>}
+            {level != null && <> · Level {level}</>}
           </div>
-          <WinButtons />
+          <div className='wbtns'>
+            <WinButtons />
+          </div>
         </div>
 
-        {/* ============================ TOPBAR ============================ */}
+        {/* TOPBAR — matches design HTML structure exactly */}
         <div className='topbar'>
           <div className='who'>
             <div className='crest'>{initial}</div>
             <div className='label'>
-              <div className='nm'>{character?.name?.toUpperCase() || 'UNNAMED'}</div>
-              {/* Class line + inline Rest button — user explicitly
-                  marked the position next to "ANCESTRY · CLASS" so the
-                  Rest control rides shotgun on the same row instead of
-                  hanging off to the right of the .who block. Same
-                  handleRest flow — heals HP, refunds focus/spell slots,
-                  refreshes daily-use items, drops Fatigued, decrements
-                  Drained/Doomed. */}
+              <div className='nm'>{character?.name || 'Unnamed'}</div>
               <div className='sub'>
-                {ancestryName || '—'} <i>·</i> {className || '—'}
+                <a>{ancestryName || '—'}</a>
+                <span className='dot'></span>
+                <a>{className || '—'}</a>
                 <button
                   type='button'
-                  className='rest-btn-compact'
+                  className='rest-btn'
                   title='Take a Rest (recover HP, refill slots, refresh daily items)'
-                  onClick={() => {
-                    if (!character) return;
-                    handleRest(
-                      'CHARACTER',
-                      character as LivingEntity,
-                      setCharacter as unknown as SetterOrUpdater<LivingEntity | null>
-                    );
-                    showNotification({
-                      title: 'Rested',
-                      message: 'HP, spell slots, focus, and daily-use items refreshed.',
-                      autoClose: 1800,
-                    });
-                  }}
+                  onClick={onRest}
                 >
-                  <span className='rest-icon'>☾</span>
+                  <span>☾</span>
                   <span>Rest</span>
                 </button>
               </div>
             </div>
           </div>
 
-          <div
-            className='tabs'
-            onWheel={(e) => {
-              // Convert vertical wheel motion to horizontal scroll on
-              // the tab strip — mice with no horizontal-scroll wheel
-              // still let the user reach off-screen tabs by scrolling
-              // up/down. Only intercept when deltaY is the dominant
-              // axis; if the user is using a trackpad or horizontal
-              // mouse, leave their natural horizontal delta alone.
-              const el = e.currentTarget;
-              if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-                el.scrollLeft += e.deltaY;
-              }
-            }}
-          >
+          <div className='tabs' role='tablist'>
             {TABS.map((t) => (
-              <div
+              <button
                 key={t.id}
-                className={`tab ${activeTab === t.id ? 'on' : ''}`}
+                type='button'
+                role='tab'
+                aria-selected={activeTab === t.id}
+                className={`tab${activeTab === t.id ? ' on' : ''}`}
                 onClick={() => setActiveTab(t.id)}
               >
                 {t.label}
-              </div>
+              </button>
             ))}
           </div>
 
@@ -799,9 +478,7 @@ export default function CodexSheet(props: {
               <div className='row'>
                 <span>XP</span>
                 <span className='nums'>
-                  <XpValueInput value={xp} onChange={setXp} />
-                  {' / '}
-                  {XP_PER_LEVEL}
+                  <XpValueInput value={xp} onChange={setXp} /> / {XP_PER_LEVEL}
                 </span>
               </div>
               <div className='bar'>
@@ -809,94 +486,86 @@ export default function CodexSheet(props: {
               </div>
             </div>
             <AddXpForm onAdd={addXp} />
-            {/* Hamburger menu — opens the nav dropdown (Characters,
-                Homebrew, Settings) + Edit in Builder shortcut. */}
             <CodexNavMenu characterId={props.characterId} navigate={navigate} />
           </div>
         </div>
 
-        {/* ============================ BODY ============================ */}
-        {/* The body modifier class re-templates the grid: Notes adds
-            a middle 280px page list; Details swaps the right 1fr for
-            a 320px origins/proficiencies rail. All other tabs keep
-            the default 224px + 1fr grid from codex.css. */}
+        {/* BODY — on the Notes tab the design uses a full-width
+            sidebar + editor layout with NO vitals rail (per
+            D:\Inst\wg4 reference). Every other tab keeps the
+            persistent left rail. The Details tab uses a 3-col grid
+            with the persistent left rail + dossier center + origins/
+            proficiencies right rail. */}
         <div
-          className={`body${activeTab === 'notes' ? ' body--notes' : activeTab === 'details' ? ' body--details' : ''}`}
+          className={`body${
+            activeTab === 'notes'
+              ? ' body--notes'
+              : activeTab === 'details'
+                ? ' body--details'
+                : ''
+          }`}
         >
-          {/* ============ LEFT RAIL (persistent across all tabs) ============ */}
-          <div className='col left'>
-            {/* Vitals — 5 tiles: HP (span-2), Class DC, Spell DC, Armor,
-                Spell Atk. Spell tiles only render when the character
-                actually casts (avoids surfacing meaningless +0 / 10
-                for non-casters). Layout matches the updated codex
-                main mockup. */}
-            <section className='sec'>
-              <div className='sec-title compact'>
-                <span className='lozenge'>♥</span>
-                <span className='label'>Vitals</span>
-              </div>
-              <div className='sec-body'>
-                <div className={vitalsClass}>
-                  <div
-                    className='vital hp span2'
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => openDrawer({ type: 'stat-hp', data: { id: 'CHARACTER' }, extra: { addToHistory: true } })}
-                  >
-                    <div className='hp-row'>
-                      <div>
-                        <div className='label'>Hit Points</div>
-                        <div className='num'>
-                          <HpInput value={currentHp} onChange={onHpChange} />
-                          {' '}
-                          <small>/ {maxHp}</small>
-                        </div>
+          {/* Notes tab renders its own 2-col layout directly inside
+              .body — bypassing the .col.main wrapper so the body grid
+              can lay the page-list sidebar + editor leaf side-by-side
+              as direct children of .body.body--notes. */}
+          {activeTab === 'notes' && (
+            <CodexNotesPanel
+              character={character}
+              setCharacter={setCharacter as unknown as SetterOrUpdater<LivingEntity | null>}
+            />
+          )}
+          {/* LEFT RAIL — persistent across every tab EXCEPT notes */}
+          {activeTab !== 'notes' && (
+          <aside className='col left'>
+                {/* Vitals */}
+                <section className={`sec${isCollapsed('vitals') ? ' collapsed' : ''}`}>
+                  <div className='sec-title' onClick={() => toggleCollapsed('vitals')}>
+                    <div className='label'>
+                      <span className='lz'>♥</span>Vitals
+                      <span className='sec-chevron'>▾</span>
+                    </div>
+                  </div>
+                  <div className='sec-body hp-card vitals-body'>
+                    <div className='hp-head'>
+                      <div className='hp-num'>
+                        <HpInput value={currentHp} onChange={onHpChange} />
+                        <span className='sep'>/</span>
+                        <span className='max'>{maxHp}</span>
+                        <span className='lbl'>HP</span>
                       </div>
-                      <div
-                        className='temp-hp'
-                        title='Temporary HP'
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className='label'>Temp</div>
-                        <div className='v'>
+                      <div className='hp-temp' onClick={(e) => e.stopPropagation()}>
+                        <div className='k'>Temp</div>
+                        <div className={`v${tempHp ? '' : ' off'}`}>
                           <input
+                            className='v-input'
                             type='number'
                             min={0}
-                            value={tempHp}
+                            value={tempHp || ''}
+                            placeholder='—'
                             onChange={(e) => onTempHpChange(parseInt(e.target.value, 10))}
                           />
                         </div>
                       </div>
                     </div>
-                    <div className='hpbar'>
-                      <div className='fill' style={{ right: `${100 - hpPct}%` }}></div>
+                    <div className='hpbar hp-bar'>
+                      <div className='fill' style={{ width: `${hpPct}%` }}></div>
                     </div>
-                  </div>
-                  {/* Class DC + Spell DC — when they match (common for
-                      casters), render one merged tile; otherwise two
-                      separate tiles so the player sees the breakdown. */}
-                  {hasSpellcasting && dcMerged ? (
-                    <div
-                      className='vital'
-                      style={{ cursor: 'pointer' }}
+                    <a
+                      className='resist-link'
                       onClick={() =>
                         openDrawer({
-                          type: 'stat-prof',
-                          data: { id: 'CHARACTER', variableName: 'CLASS_DC', isDC: true },
+                          type: 'stat-resist-weak',
+                          data: { id: 'CHARACTER' },
                           extra: { addToHistory: true },
                         })
                       }
                     >
-                      <div className='label'>Class/Spell DC</div>
-                      <div className='num'>
-                        {classDcStr}
-                        <ProfCondMark varName='CLASS_DC' />
-                      </div>
-                    </div>
-                  ) : (
-                    <>
+                      Resistances &amp; Weaknesses
+                    </a>
+                    <div className='tiles vitals-pair'>
                       <div
-                        className='vital'
-                        style={{ cursor: 'pointer' }}
+                        className='tile pcell'
                         onClick={() =>
                           openDrawer({
                             type: 'stat-prof',
@@ -905,16 +574,27 @@ export default function CodexSheet(props: {
                           })
                         }
                       >
-                        <div className='label'>Class DC</div>
-                        <div className='num'>
-                          {classDcStr}
-                          <ProfCondMark varName='CLASS_DC' />
+                        <div className='k'>
+                          {dcMerged && hasSpellcasting ? 'Class/Spell DC' : 'Class DC'}
                         </div>
+                        <div className='num v'>{classDcStr}</div>
                       </div>
-                      {hasSpellcasting && (
+                      <div
+                        className='tile pcell'
+                        onClick={() =>
+                          openDrawer({
+                            type: 'stat-ac',
+                            data: { id: 'CHARACTER' },
+                            extra: { addToHistory: true },
+                          })
+                        }
+                      >
+                        <div className='k'>Armor Class</div>
+                        <div className='num v'>{ac}</div>
+                      </div>
+                      {hasSpellcasting && !dcMerged && (
                         <div
-                          className='vital'
-                          style={{ cursor: 'pointer' }}
+                          className='tile pcell'
                           onClick={() =>
                             openDrawer({
                               type: 'stat-prof',
@@ -923,221 +603,67 @@ export default function CodexSheet(props: {
                             })
                           }
                         >
-                          <div className='label'>Spell DC</div>
-                          <div className='num'>
-                            {spellDcStr}
-                            <ProfCondMark varName='SPELL_DC' />
-                          </div>
+                          <div className='k'>Spell DC</div>
+                          <div className='num v'>{spellDcStr}</div>
                         </div>
                       )}
-                    </>
-                  )}
-                  <div
-                    className='vital'
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => openDrawer({ type: 'stat-ac', data: { id: 'CHARACTER' }, extra: { addToHistory: true } })}
-                  >
-                    <div className='label'>Armor</div>
-                    <div className='num'>
-                      {ac}
-                      <AcCondMark />
+                      {hasSpellcasting && (
+                        <div
+                          className='tile pcell'
+                          onClick={() =>
+                            openDrawer({
+                              type: 'stat-prof',
+                              data: { id: 'CHARACTER', variableName: 'SPELL_ATTACK' },
+                              extra: { addToHistory: true },
+                            })
+                          }
+                        >
+                          <div className='k'>Spell Atk</div>
+                          <div className='num v'>{getFinalProfValue('CHARACTER', 'SPELL_ATTACK')}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {hasSpellcasting && (
-                    <div
-                      className='vital'
-                      style={{ cursor: 'pointer' }}
-                      title='Spell attack — base / MAP -5 / MAP -10'
-                      onClick={() =>
-                        openDrawer({
-                          type: 'stat-prof',
-                          data: { id: 'CHARACTER', variableName: 'SPELL_ATTACK' },
-                          extra: { addToHistory: true },
-                        })
-                      }
-                    >
-                      <div className='label'>Spell Atk</div>
-                      {/* 3-value iterative MAP display. Font scales
-                          with the vitals grid density: 14px at 2-col,
-                          shrinks at 3-col/4-col, AND switches to a
-                          compact "+/" -dropped format ("18/13/8") so
-                          the string actually fits the ~56px cell at
-                          dense layouts instead of overflowing past the
-                          right edge. */}
-                      <div
-                        className='num'
-                        style={{
-                          fontSize: vitalsCols === 4 ? 10 : vitalsCols === 3 ? 12 : 14,
-                          letterSpacing: '0',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {vitalsCols >= 3 ? spellAtkCompactStr : spellAtkStr}
-                        <ProfCondMark varName='SPELL_ATTACK' />
-                      </div>
-                    </div>
-                  )}
-                  {/* Shield-block tiles — one per equipped shield. Each
-                      tile reads its current HP from
-                      character.meta_data.shield_hp keyed by inv item id,
-                      defaulting to the shield's max HP if no entry
-                      exists yet. The tile shows:
-                        - HP / max HP (main number)
-                        - hardness as a small subscript on the HP line
-                        - AC bonus as a chip on the bottom-right
-                      Click → opens an inline +/- popover so the player
-                      can record damage from Shield Block. The whole
-                      tile is keyboard-focusable so the popover can be
-                      driven via Enter/Space too. */}
-                  {equippedShields.map((sh) => {
-                    const hpMax = getShieldHpMax(sh);
-                    const hp = Math.min(getShieldHp(sh), hpMax || getShieldHp(sh));
-                    const hardness = getShieldHardness(sh);
-                    const acBonus = getShieldAcBonus(sh);
-                    const broken = hpMax > 0 && hp <= hpMax / 2;
-                    return (
-                      <div
-                        key={`shield-${sh.id}`}
-                        className={`vital shield${broken ? ' broken' : ''}`}
-                        style={{ cursor: 'pointer' }}
-                        title={`Shield: ${sh.item.name} — HP ${hp}/${hpMax}, hardness ${hardness}, +${acBonus} AC · click to open description + HP tracker`}
-                        onClick={() => openShieldDrawer(sh)}
-                      >
-                        <div className='label'>
-                          Shield{equippedShields.length > 1 ? ` ${equippedShields.indexOf(sh) + 1}` : ''}
-                        </div>
-                        <div
-                          className='num'
-                          style={{
-                            fontSize: vitalsCols === 4 ? 13 : vitalsCols === 3 ? 15 : 22,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {hp}
-                          <small> / {hpMax || '?'}</small>
-                        </div>
-                        {/* Hardness + AC bonus on one line so it stays
-                            inside the narrow 3-col/4-col cells. */}
-                        <div
-                          style={{
-                            fontFamily: "'Cinzel', serif",
-                            fontSize: vitalsCols >= 3 ? 7 : 8,
-                            letterSpacing: vitalsCols >= 3 ? '.08em' : '.18em',
-                            color: 'var(--ink-muted)',
-                            textTransform: 'uppercase',
-                            marginTop: 2,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          H{hardness} <span style={{ color: 'var(--gold)' }}>·</span> +{acBonus}AC
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
+                </section>
 
                 {/* Speed & Senses */}
-                <section className='sec'>
-                  <div className='sec-title compact'>
-                    <span className='lozenge'>➤</span>
-                    <span className='label'>Speed &amp; Senses</span>
+                <section className={`sec${isCollapsed('speed-senses') ? ' collapsed' : ''}`}>
+                  <div className='sec-title' onClick={() => toggleCollapsed('speed-senses')}>
+                    <div className='label'>
+                      <span className='lz'>→</span>Speed &amp; Senses
+                      <span className='sec-chevron'>▾</span>
+                    </div>
                   </div>
                   <div className='sec-body'>
-                    <div className='stat-strip'>
+                    <div className='stat-strip ss-row'>
                       <div
+                        className='item'
                         style={{ cursor: 'pointer' }}
-                        onClick={() => openDrawer({ type: 'stat-speed', data: { id: 'CHARACTER' }, extra: { addToHistory: true } })}
+                        onClick={() =>
+                          openDrawer({
+                            type: 'stat-speed',
+                            data: { id: 'CHARACTER' },
+                            extra: { addToHistory: true },
+                          })
+                        }
                       >
                         <div className='k'>Speed</div>
-                        <div className='v'>
-                          {speed} <small>ft</small>
-                          <VarCondMark varName='SPEED' />
+                        <div className='num v v-num'>
+                          {speed}
+                          <small> ft</small>
                         </div>
                       </div>
-                      <div>
+                      <div className='item'>
                         <div className='k'>Senses</div>
-                        <div
-                          className='v'
-                          style={{
-                            fontSize: 11,
-                            letterSpacing: '.04em',
-                            paddingTop: 3,
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: 4,
-                          }}
-                        >
+                        <div className='senses-row v-text'>
                           {sensesItems.length === 0 ? (
-                            <span style={{ color: 'var(--ink-muted)' }}>—</span>
+                            <span style={{ color: 'var(--wg4-ink-4)', fontStyle: 'italic' }}>—</span>
                           ) : (
                             sensesItems.map((s) => (
                               <span
                                 key={s.raw}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Resolve the sense's variable-name
-                                  // ("LOW_LIGHT_VISION", "DARKVISION",
-                                  // "GREATER_DARKVISION", "TREMORSENSE",
-                                  // "ECHOLOCATION", "SCENT",
-                                  // "LIFESENSE", "TRUESIGHT", …) to the
-                                  // matching ability-block row from the
-                                  // content cache. Without this the
-                                  // ActionDrawerContent fetcher
-                                  // (`enabled: !!id`) never fires and
-                                  // the drawer spins forever. Match by
-                                  // labelToVariable(block.name) === raw
-                                  // so name punctuation / case /
-                                  // whitespace differences don't trip
-                                  // the lookup.
-                                  const all = (getCachedContent<AbilityBlock>('ability-block') ?? [])
-                                    .filter((b) => b.type === 'sense');
-                                  // Normalise BOTH sides through labelToVariable.
-                                  // The value stored on SENSES_PRECISE is the
-                                  // raw operation payload — e.g. "low-light
-                                  // vision" — not the canonical
-                                  // upper-underscored form. Comparing the
-                                  // canonical ability-block name against the
-                                  // raw value never matched, so every sense
-                                  // fell through to the generic fallback.
-                                  const targetKey = labelToVariable(s.raw);
-                                  const hit = all.find(
-                                    (b) => labelToVariable(b.name) === targetKey
-                                  );
-                                  if (hit) {
-                                    openDrawer({
-                                      type: 'sense',
-                                      data: { id: hit.id },
-                                      extra: { addToHistory: true },
-                                    });
-                                  } else {
-                                    // Fall through to the generic
-                                    // drawer when there's no content
-                                    // row (homebrew senses, removed
-                                    // bundles, etc.). At least the
-                                    // player sees a real frame with
-                                    // the formatted name instead of an
-                                    // infinite loader.
-                                    openDrawer({
-                                      type: 'generic',
-                                      data: {
-                                        title: s.display,
-                                        description:
-                                          'No description registered for this sense in the current content pack.',
-                                      },
-                                      extra: { addToHistory: true },
-                                    });
-                                  }
-                                }}
-                                style={{
-                                  cursor: 'pointer',
-                                  color: 'var(--ink)',
-                                  borderBottom: '1px dotted var(--gold-deep)',
-                                  paddingBottom: 1,
-                                }}
+                                className='chip'
+                                onClick={() => openSenseDrawer(s)}
                                 title={`Open ${s.display} description`}
                               >
                                 {s.display}
@@ -1151,416 +677,215 @@ export default function CodexSheet(props: {
                 </section>
 
                 {/* Hero Points */}
-                <section className='sec'>
-                  <div className='sec-title compact'>
-                    <span className='lozenge'>★</span>
-                    <span className='label'>Hero Points</span>
-                    <span className='sub'>
-                      <b>{heroPoints}</b> / 3
-                    </span>
+                <section className={`sec${isCollapsed('hero-points') ? ' collapsed' : ''}`}>
+                  <div className='sec-title' onClick={() => toggleCollapsed('hero-points')}>
+                    <div className='label'>
+                      <span className='lz'>◇</span>Hero Points
+                      <span className='sec-chevron'>▾</span>
+                    </div>
                   </div>
                   <div className='sec-body'>
-                    <div className='hero-card'>
-                      <div className='pips'>
+                    <div className='hero hp-points'>
+                      <div className='hero-pips hp-pips'>
                         {[0, 1, 2].map((i) => (
-                          <div
+                          <span
                             key={i}
-                            className={i < heroPoints ? 'pip full' : 'pip'}
+                            className={`pip hp-pip${i < heroPoints ? ' on' : ''}`}
                             onClick={() => {
-                              // Clicking a full pip drops to its index;
-                              // clicking an empty pip fills up through it.
                               if (i < heroPoints) setHeroPoints(i);
                               else setHeroPoints(i + 1);
                             }}
-                          ></div>
+                          />
                         ))}
+                      </div>
+                      <div className='hero-count num hp-count'>
+                        <b>{heroPoints}</b> / 3
                       </div>
                     </div>
                   </div>
                 </section>
 
-                {/* Saves + Perception */}
-                <section className='sec'>
-                  <div className='sec-title compact'>
-                    <span className='lozenge'>✠</span>
-                    <span className='label'>Saves &amp; Perception</span>
+                {/* Saves & Perception */}
+                <section className={`sec${isCollapsed('saves-perception') ? ' collapsed' : ''}`}>
+                  <div className='sec-title' onClick={() => toggleCollapsed('saves-perception')}>
+                    <div className='label'>
+                      <span className='lz'>⊕</span>Saves &amp; Perception
+                      <span className='sec-chevron'>▾</span>
+                    </div>
                   </div>
                   <div className='sec-body'>
-                    {saves.map((s) => {
-                      const v = getVariable<VariableProf>('CHARACTER', s.var);
-                      const profLetter = v ? compileProficiencyType(v.value) : 'U';
-                      const value = getFinalProfValue('CHARACTER', s.var);
-                      const profDisplay =
-                        profLetter === 'U'
-                          ? 'untrained'
-                          : profLetter === 'T'
-                            ? 'trained'
-                            : profLetter === 'E'
-                              ? 'expert'
-                              : profLetter === 'M'
-                                ? 'master'
-                                : 'legendary';
-                      return (
-                        <div
-                          key={s.var}
-                          className='save-row'
-                          style={{ cursor: 'pointer' }}
-                          onClick={() =>
-                            openDrawer({
-                              type: s.var === 'PERCEPTION' ? 'stat-perception' : 'stat-prof',
-                              data: { id: 'CHARACTER', variableName: s.var },
-                              extra: { addToHistory: true },
-                            })
-                          }
-                        >
-                          <span className='lbl'>{s.label}</span>
-                          <span className='prof'>{profDisplay}</span>
-                          <span className='val'>
-                            {value}
-                            <ProfCondMark varName={s.var} />
-                          </span>
-                        </div>
-                      );
-                    })}
+                    <div className='row-list'>
+                      {saves.map((s) => {
+                        const v = getVariable<VariableProf>('CHARACTER', s.var);
+                        const profLetter = v ? compileProficiencyType(v.value) : 'U';
+                        const value = getFinalProfValue('CHARACTER', s.var);
+                        const hasConditionals = !!getProfValueParts(
+                          'CHARACTER',
+                          s.var
+                        )?.hasConditionals;
+                        return (
+                          <div
+                            key={s.var}
+                            className='row'
+                            onClick={() =>
+                              openDrawer({
+                                type: s.var === 'PERCEPTION' ? 'stat-perception' : 'stat-prof',
+                                data: { id: 'CHARACTER', variableName: s.var },
+                                extra: { addToHistory: true },
+                              })
+                            }
+                          >
+                            <div className='name'>
+                              {s.label}
+                              {hasConditionals && <span className='sub-note'>· conditional</span>}
+                            </div>
+                            <div className='prof' data-r={profLetter}>{profLetter}</div>
+                            <div className='mod num'>{value}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </section>
 
-                {/* Conditions (also displays active modes as chips
-                    — Rage / Mutate / Stances / custom toggles all
-                    share the same row as conditions so the player
-                    has one place to see every currently-applied
-                    effect. Modes get a `.mode` class for a distinct
-                    border tone vs. conditions.) */}
-                <section className='sec'>
-                  <div className='sec-title compact'>
-                    <span className='lozenge'>✤</span>
-                    <span className='label'>Conditions</span>
-                    {(conditions.length > 0 || activeModes.length > 0) && (
-                      <span className='sub'>
-                        <b>{conditions.length + activeModes.length}</b> active
-                      </span>
-                    )}
+                {/* Conditions */}
+                <section className={`sec${isCollapsed('conditions') ? ' collapsed' : ''}`}>
+                  <div className='sec-title' onClick={() => toggleCollapsed('conditions')}>
+                    <div className='label'>
+                      <span className='lz'>!</span>Conditions
+                      <span className='sec-chevron'>▾</span>
+                    </div>
+                    <button
+                      type='button'
+                      className='add'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCmModalOpen(true);
+                      }}
+                      title='Add condition or mode'
+                    >
+                      +
+                    </button>
                   </div>
                   <div className='sec-body'>
-                    <div className='cond-row'>
-                      {/* Active mode chips first — they're typically
-                          things the player intentionally turned on,
-                          so they belong before the (passively
-                          applied) conditions. */}
+                    <div className='cond-pills'>
+                      {conditions.length === 0 && activeModes.length === 0 && (
+                        <span className='cond-empty'>None</span>
+                      )}
                       {activeModes.map((m) => (
                         <span
                           key={`mode-${m.key}`}
-                          className='cond mode'
+                          className='cond-pill'
                           title='Click for description, ✕ to deactivate'
-                          style={{ cursor: 'pointer' }}
-                          onClick={(e) => {
-                            // Same UX as condition chips — click the
-                            // chip body (not the ✕) to open the small
-                            // description popover. Without this the
-                            // user has no way to see what a mode
-                            // actually does from the sheet.
-                            e.stopPropagation();
-                            setShowCondDesc({
-                              name: m.name,
-                              description: m.description,
-                            });
-                          }}
+                          onClick={() =>
+                            setShowCondDesc({ name: m.name, description: m.description })
+                          }
                         >
                           {m.name}
-                          <span
+                          <button
+                            type='button'
                             className='x'
                             onClick={(e) => {
                               e.stopPropagation();
                               deactivateMode(m.key);
                             }}
                           >
-                            ✕
-                          </span>
+                            ×
+                          </button>
                         </span>
                       ))}
                       {conditions.map((cond) => {
                         const hasValue = cond.value != null && cond.value > 0;
-                        const harmful = HARMFUL_CONDITIONS.has(cond.name);
                         return (
                           <span
                             key={cond.name}
-                            className={`cond${harmful ? ' harmful' : ''}`}
-                            onClick={(e) => {
-                              // Click the chip body (not -/+/x) → show
-                              // full description in a small popover.
-                              e.stopPropagation();
+                            className='cond-pill'
+                            onClick={() =>
                               setShowCondDesc({
                                 name: cond.name,
                                 description: cond.description || '',
-                              });
-                            }}
-                            style={{ cursor: 'pointer' }}
-                            title='Click for full description'
+                              })
+                            }
                           >
                             {cond.name}
                             {hasValue && (
                               <>
                                 <button
                                   type='button'
-                                  className='step'
+                                  className='pm'
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     adjustConditionValue(cond.name, -1);
                                   }}
-                                  aria-label='Decrease value'
-                                  title='Decrease value (removes at 0)'
                                 >
                                   −
                                 </button>
-                                <span className='val'>{cond.value}</span>
+                                <span className='v-count'>{cond.value}</span>
                                 <button
                                   type='button'
-                                  className='step'
+                                  className='pm'
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    adjustConditionValue(cond.name, +1);
+                                    adjustConditionValue(cond.name, 1);
                                   }}
-                                  aria-label='Increase value'
-                                  title='Increase value'
                                 >
                                   +
                                 </button>
                               </>
                             )}
-                            <span
+                            <button
+                              type='button'
                               className='x'
                               onClick={(e) => {
                                 e.stopPropagation();
                                 removeCondition(cond.name);
                               }}
                             >
-                              ✕
-                            </span>
+                              ×
+                            </button>
                           </span>
                         );
                       })}
-                      <span
-                        className='cond add'
-                        onClick={() => setCmModalOpen(true)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        + add
-                      </span>
                     </div>
                   </div>
                 </section>
 
                 {/* Languages */}
-                <section className='sec'>
-                  <div className='sec-title compact'>
-                    <span className='lozenge'>❡</span>
-                    <span className='label'>Languages</span>
+                <section className={`sec${isCollapsed('languages') ? ' collapsed' : ''}`}>
+                  <div className='sec-title' onClick={() => toggleCollapsed('languages')}>
+                    <div className='label'>
+                      <span className='lz'>¶</span>Languages
+                      <span className='sec-chevron'>▾</span>
+                    </div>
                   </div>
                   <div className='sec-body'>
                     <div className='lang-list'>
-                      {languages.length > 0 ? (
-                        languages.map((l) => (
-                          <span key={l} className='lang'>
-                            {l}
-                          </span>
-                        ))
+                      {languages.length === 0 ? (
+                        <span style={{ color: 'var(--wg4-ink-4)', fontStyle: 'italic' }}>—</span>
                       ) : (
-                        <span style={{ color: 'var(--ink-muted)', fontStyle: 'italic', fontSize: 12 }}>
-                          None
-                        </span>
+                        languages.map((l, i) => (
+                          <Fragment key={l}>
+                            {i > 0 && <span className='dot'>·</span>}
+                            <span>{l}</span>
+                          </Fragment>
+                        ))
                       )}
                     </div>
                   </div>
                 </section>
 
-                {/* Rest button moved to the topbar's .who block
-                    (next to the character name). The old section
-                    here was crowding the vitals column. */}
-
-                {/* Sidebar action bar — Campaign / Dice. */}
                 {props.sidebarActions && (
                   <div className='sidebar-actions'>{props.sidebarActions}</div>
                 )}
-              </div>
-
-          {/* ============ MAIN (only on Main tab) ============ */}
-          {activeTab === 'main' && (
-              <div className='col main'>
-                {/* Abilities & Skills */}
-                <section className='sec'>
-                  <div className='sec-title'>
-                    <span className='lozenge'>✦</span>
-                    <span className='label'>Abilities &amp; Skills</span>
-                    <span className='sub'>
-                      Key ·{' '}
-                      <b>
-                        {keyAttribute ? keyAttribute.replace('ATTRIBUTE_', '').slice(0, 3) : '—'}
-                      </b>{' '}
-                      · T E M L
-                    </span>
-                  </div>
-                  <div className='sec-body'>
-                    <div className='ab-sk'>
-                      <div className='abilities'>
-                        {ABILITIES.map((a) => {
-                          const v = getVariable<VariableAttr>('CHARACTER', a.var);
-                          const mod = v?.value?.value ?? 0;
-                          const score = 10 + mod * 2;
-                          const isKey = keyAttribute === a.var;
-                          return (
-                            <div
-                              key={a.var}
-                              className={`ab ${isKey ? 'key' : ''}`}
-                              style={{ cursor: 'pointer' }}
-                              onClick={() =>
-                                openDrawer({
-                                  type: 'stat-attr',
-                                  data: { id: 'CHARACTER', variableName: a.var },
-                                  extra: { addToHistory: true },
-                                })
-                              }
-                            >
-                              <div className='glyph'>{a.glyph}</div>
-                              <div className='mod'>{sign(mod)}</div>
-                              <div className='score'>{score}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className='skills'>
-                        {BASE_SKILLS.map((s) => {
-                          const v = getVariable<VariableProf>('CHARACTER', s.var);
-                          const profLetter = v ? compileProficiencyType(v.value) : 'U';
-                          const value = getFinalProfValue('CHARACTER', s.var);
-                          return (
-                            <div
-                              key={s.var}
-                              className='sk'
-                              style={{ cursor: 'pointer' }}
-                              onClick={() =>
-                                openDrawer({
-                                  type: 'stat-prof',
-                                  data: { id: 'CHARACTER', variableName: s.var },
-                                  extra: { addToHistory: true },
-                                })
-                              }
-                            >
-                              <span className={`pf ${profLetter}`}>{profLetter}</span>
-                              <span className='nm'>{s.name}</span>
-                              <span className='leader'></span>
-                              <span className='v'>
-                                {value}
-                                <ProfCondMark varName={s.var} />
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {/* Lore skills — discover dynamically from variables.
-                            Lore variable names look like SKILL_LORE_<TOPIC>. */}
-                        {discoverLoreSkills().map((lore) => {
-                          const v = getVariable<VariableProf>('CHARACTER', lore.var);
-                          const profLetter = v ? compileProficiencyType(v.value) : 'U';
-                          const value = getFinalProfValue('CHARACTER', lore.var);
-                          return (
-                            <div
-                              key={lore.var}
-                              className='sk'
-                              style={{ cursor: 'pointer' }}
-                              onClick={() =>
-                                openDrawer({
-                                  type: 'stat-prof',
-                                  data: { id: 'CHARACTER', variableName: lore.var },
-                                  extra: { addToHistory: true },
-                                })
-                              }
-                            >
-                              <span className={`pf ${profLetter}`}>{profLetter}</span>
-                              <span className='nm'>
-                                Lore <em>· {lore.topic}</em>
-                              </span>
-                              <span className='leader'></span>
-                              <span className='v'>
-                                {value}
-                                <ProfCondMark varName={lore.var} />
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Favorites — quick-access to anything the player has
-                    starred (feats, items, spells, actions, etc.) from
-                    any drawer's bottom-left star button. Sits between
-                    Abilities & Skills and Activities per request, so
-                    it's at the top of the action-y portion of the
-                    page. Hidden when no favorites yet to avoid clutter. */}
-                <CodexFavorites
-                  character={character}
-                  setCharacter={setCharacter}
-                  openDrawer={openDrawer as unknown as (next: unknown) => void}
-                />
-
-                {/* Activities — strikes (equipped weapons), universal/
-                    exploration/downtime actions in three modes. Fully
-                    codex-styled .act-grid / .act rows (no Mantine). */}
-                <section className='sec'>
-                  <div className='sec-title'>
-                    <span className='lozenge'>⚔</span>
-                    <span className='label'>Activities</span>
-                    <span className='sub'>strikes &amp; actions in three modes</span>
-                  </div>
-                  <div className='sec-body'>
-                    <CodexActivitiesPanel character={character} content={content} />
-                  </div>
-                </section>
-              </div>
+          </aside>
           )}
 
-          {/* Non-main tabs: most panels render full-width inside
-              .codex-tab-body, sitting next to the persistent left rail.
-              Notes and Details are special — their mockups expect the
-              .body grid to be 3-column (left + middle + right), so
-              their codex panels return TWO sibling .col divs that
-              slot directly into the body grid instead of being wrapped
-              in .codex-tab-body. */}
-          {activeTab !== 'main' && activeTab !== 'notes' && activeTab !== 'details' && (
-            <div className='codex-tab-body'>
-              {activeTab === 'spells' && (
-                <CodexSpellsPanel
-                  characterId={props.characterId}
-                  character={character}
-                  setCharacter={setCharacter}
-                  content={content}
-                />
-              )}
-              {activeTab === 'inventory' && (
-                <CodexInventoryPanel
-                  characterId={props.characterId}
-                  character={character}
-                  setCharacter={setCharacter}
-                />
-              )}
-              {activeTab === 'feats' && (
-                <CodexFeatsPanel
-                  characterId={props.characterId}
-                  character={character}
-                  content={content}
-                />
-              )}
-              {activeTab === 'companions' && (
-                <CompanionsPanel panelHeight={props.panelHeight} panelWidth={props.panelWidth} />
-              )}
-            </div>
-          )}
-          {activeTab === 'notes' && (
-            <CodexNotesPanel
-              character={character}
-              setCharacter={setCharacter as unknown as SetterOrUpdater<LivingEntity | null>}
-            />
-          )}
+          {/* DETAILS TAB — render the dossier directly as a sibling of
+              the left rail so the body--details 3-col grid lays
+              .col.left + .col.main.codex-details + .col.right.codex-details-rail
+              side-by-side. Skipping the .col.main wrapper avoids
+              nesting the two dossier columns inside a single main
+              cell. */}
           {activeTab === 'details' && (
             <CodexDetailsPanel
               character={character}
@@ -1568,12 +893,169 @@ export default function CodexSheet(props: {
               content={content}
             />
           )}
+
+          {/* MAIN COLUMN — content varies by tab; rail above is fixed.
+              On notes tab, CodexNotesPanel was rendered above directly
+              inside .body — skip the .col.main wrapper here so we
+              don't end up with an empty main column that confuses the
+              body--notes 2-col grid. Likewise on details tab we skip
+              the main wrapper since CodexDetailsPanel renders its own
+              .col.main.codex-details + .col.right.codex-details-rail
+              pair as siblings of .col.left above. */}
+          {activeTab !== 'notes' && activeTab !== 'details' && (
+          <main className='col main'>
+            {activeTab === 'main' && (
+              <>
+                {/* Abilities & Skills */}
+                <section className={`sec${isCollapsed('abilities-skills') ? ' collapsed' : ''}`}>
+                  <div className='sec-title' onClick={() => toggleCollapsed('abilities-skills')}>
+                    <div className='label'>
+                      <span className='lz'>α</span>Abilities &amp; Skills
+                      <span className='sec-chevron'>▾</span>
+                    </div>
+                    <div className='as-legend' onClick={(e) => e.stopPropagation()}>
+                      Key ·{' '}
+                      <b>
+                        {keyAttribute ? keyAttribute.replace('ATTRIBUTE_', '').slice(0, 3) : '—'}
+                      </b>
+                      <span className='ranks'>T E M L</span>
+                    </div>
+                  </div>
+                  <div className='as-body'>
+                    <div className='abilities'>
+                      {ABILITIES.map((a) => {
+                        const v = getVariable<VariableAttr>('CHARACTER', a.var);
+                        const mod = v?.value?.value ?? 0;
+                        const score = 10 + mod * 2;
+                        const isKey = keyAttribute === a.var;
+                        return (
+                          <button
+                            type='button'
+                            key={a.var}
+                            className={`ability${isKey ? ' key' : ''}`}
+                            onClick={() =>
+                              openDrawer({
+                                type: 'stat-attr',
+                                data: { id: 'CHARACTER', attributeName: a.var },
+                                extra: { addToHistory: true },
+                              })
+                            }
+                          >
+                            <div className='k'>{a.glyph}</div>
+                            <div className='num mod'>{sign(mod)}</div>
+                            <div className='num score'>{score}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className='skills'>
+                      {skillColumns.map((col, ci) => (
+                        <div key={ci}>
+                          {col.map((s) => {
+                            const v = getVariable<VariableProf>('CHARACTER', s.var);
+                            const profLetter = v ? compileProficiencyType(v.value) : 'U';
+                            const value = getFinalProfValue('CHARACTER', s.var);
+                            const isUntrained = profLetter === 'U';
+                            return (
+                              <div
+                                key={s.var}
+                                className='row'
+                                onClick={() =>
+                                  openDrawer({
+                                    type: 'stat-prof',
+                                    data: { id: 'CHARACTER', variableName: s.var },
+                                    extra: { addToHistory: true },
+                                  })
+                                }
+                              >
+                                <div className='prof' data-r={profLetter}>{profLetter}</div>
+                                <div className='name'>
+                                  {s.name}
+                                  {s.lore && (
+                                    <span className='sub-note'>· {s.lore}</span>
+                                  )}
+                                </div>
+                                <div className={`mod num${isUntrained ? ' u' : ''}`}>
+                                  {value}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                {/* Pinned (favorites) — same rendering as before, just
+                    inside the new column. CodexFavorites handles its own
+                    empty state. */}
+                <CodexFavorites
+                  character={character}
+                  setCharacter={setCharacter}
+                  openDrawer={openDrawer as unknown as (next: unknown) => void}
+                />
+
+                {/* Activities */}
+                <section className={`sec${isCollapsed('activities') ? ' collapsed' : ''}`}>
+                  <div className='sec-title' onClick={() => toggleCollapsed('activities')}>
+                    <div className='label'>
+                      <span className='lz'>⧉</span>Activities
+                      <span className='sec-chevron'>▾</span>
+                    </div>
+                    <span className='wg4-meta-link' onClick={(e) => e.stopPropagation()}>
+                      Strikes &amp; actions in three modes
+                      <span className='caret'> ›</span>
+                    </span>
+                  </div>
+                  <div className='sec-body'>
+                    <CodexActivitiesPanel character={character} content={content} />
+                  </div>
+                </section>
+              </>
+            )}
+
+            {activeTab === 'spells' && (
+              <CodexSpellsPanel
+                characterId={props.characterId}
+                character={character}
+                setCharacter={setCharacter}
+                content={content}
+              />
+            )}
+            {activeTab === 'inventory' && (
+              <CodexInventoryPanel
+                characterId={props.characterId}
+                character={character}
+                setCharacter={setCharacter}
+              />
+            )}
+            {activeTab === 'feats' && (
+              <CodexFeatsPanel
+                characterId={props.characterId}
+                character={character}
+                content={content}
+              />
+            )}
+            {activeTab === 'companions' && (
+              <CompanionsPanel
+                panelHeight={props.panelHeight}
+                panelWidth={props.panelWidth}
+              />
+            )}
+            {/* (Notes panel moved above — rendered directly under .body
+                so its 2-col layout becomes a sibling of the page-list
+                sidebar, not nested inside .col.main.) */}
+            {/* (Details panel also rendered above — as two siblings
+                under .body so the body--details 3-col grid can lay
+                the dossier center + right rail next to the left
+                vitals rail.) */}
+          </main>
+          )}
         </div>
       </div>
 
-      {/* Conditions + Modes modal — opens from the vitals "+ add"
-          chip. Rendered at the sheet root so it floats above all
-          tabs / drawers. */}
+      {/* Conditions + Modes modal */}
       <ConditionsModesModal
         opened={cmModalOpen}
         onClose={() => setCmModalOpen(false)}
@@ -1582,15 +1064,9 @@ export default function CodexSheet(props: {
         content={content}
       />
 
-      {/* Condition description popover. Triggered by clicking a chip
-          in the vitals condition row (not the -/+/x controls — those
-          stop propagation). Reuses the same overlay styles as the
-          modal's description popover for consistency. */}
+      {/* Condition description popover */}
       {showCondDesc && (
-        <div
-          className='cm-desc-overlay'
-          onClick={() => setShowCondDesc(null)}
-        >
+        <div className='cm-desc-overlay' onClick={() => setShowCondDesc(null)}>
           <div className='cm-desc-box' onClick={(e) => e.stopPropagation()}>
             <div className='cm-desc-head'>
               <span className='cm-desc-title'>{showCondDesc.name}</span>
@@ -1622,9 +1098,7 @@ export default function CodexSheet(props: {
 // --- Helper sub-components -------------------------------------------------
 
 /**
- * HP value input wrapped to look like the codex .vital.hp .num.
- * Renders as a non-editable display by default; clicking turns it
- * into an inline input. The parent handles confirmHealth via onChange.
+ * Inline-edit HP value. Renders the number; click swaps for an input.
  */
 function HpInput(props: { value: number; onChange: (next: string) => void }) {
   const [editing, setEditing] = useState(false);
@@ -1633,6 +1107,7 @@ function HpInput(props: { value: number; onChange: (next: string) => void }) {
   if (!editing) {
     return (
       <span
+        className='cur'
         onClick={(e) => {
           e.stopPropagation();
           setDraft(`${props.value}`);
@@ -1647,6 +1122,7 @@ function HpInput(props: { value: number; onChange: (next: string) => void }) {
   return (
     <input
       autoFocus
+      className='cur-input'
       type='text'
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
@@ -1662,27 +1138,13 @@ function HpInput(props: { value: number; onChange: (next: string) => void }) {
           setEditing(false);
         }
       }}
-      style={{
-        width: 60,
-        background: 'transparent',
-        border: 0,
-        outline: 0,
-        color: 'inherit',
-        font: 'inherit',
-        padding: 0,
-      }}
       onClick={(e) => e.stopPropagation()}
     />
   );
 }
 
 /**
- * Click-to-edit XP value. Displays the current XP in bold inline;
- * clicking it swaps for a number input that commits on blur or Enter.
- * The styling matches the surrounding `.xp .nums b` text so the
- * inline-edit experience is invisible — same font, same weight, same
- * width-ish (we cap the input width so the row layout doesn't jump
- * around as the user types).
+ * Inline-edit XP value. Renders the number; click swaps for an input.
  */
 function XpValueInput(props: { value: number; onChange: (next: number) => void }) {
   const [editing, setEditing] = useState(false);
@@ -1732,14 +1194,13 @@ function XpValueInput(props: { value: number; onChange: (next: number) => void }
 }
 
 /**
- * XP add form: small inline input + submit button. The codex aesthetic
- * is a thin gold-rule rectangle; styled by .add-xp in codex.css.
+ * Tiny XP-add form rendered into the topbar's xp-ctl slot.
  */
 function AddXpForm(props: { onAdd: (amount: number) => void }) {
   const [val, setVal] = useState('');
   return (
     <form
-      className='add-xp'
+      className='xp-ctl'
       onSubmit={(e) => {
         e.preventDefault();
         const n = parseInt(val, 10);
@@ -1750,70 +1211,62 @@ function AddXpForm(props: { onAdd: (amount: number) => void }) {
       }}
       title='Add XP — type a number and press Enter'
     >
-      <span className='glyph'>+</span>
+      <button type='submit'>+</button>
       <input
         type='number'
         min={0}
         placeholder='XP'
         value={val}
         onChange={(e) => setVal(e.target.value)}
+        style={{
+          width: 38,
+          background: 'transparent',
+          border: 0,
+          outline: 0,
+          color: 'inherit',
+          font: 'inherit',
+          padding: 0,
+          textAlign: 'center',
+        }}
       />
-      <button type='submit' title='Add to total'>
-        ▸
-      </button>
+      <button type='submit'>▸</button>
     </form>
   );
 }
 
 /**
- * Favorites — codex-styled quick-access section on the main tab.
- * Reads `meta_data.favorites` (saved via the drawer star button) and
- * renders each entry as a clickable row that reopens the source
- * drawer. Inv-items resolve through the inventory tree (including
- * nested containers); other types just reopen with `{id}`.
- *
- * Hidden when the favorites list is empty so it doesn't clutter the
- * page for new characters.
+ * Favorites — wg4 Pinned section. Renders quick-access action cards
+ * for any drawer the player has starred.
  */
 function CodexFavorites(props: {
   character: Character | null;
   setCharacter: SetterOrUpdater<Character | null>;
-  // The drawer-open atom setter. The strict type unifies poorly with
-  // useAtom's inferred generic; we accept any callable here and trust
-  // the call site to pass the right object shape.
   openDrawer: (next: unknown) => void;
 }) {
   const { character, openDrawer } = props;
+  const { isCollapsed, toggle: toggleCollapsed } = useCollapsedSections();
   const favs =
-    (character?.meta_data as { favorites?: { type: string; id: number | string; name: string }[] } | undefined)
-      ?.favorites ?? [];
+    (character?.meta_data as {
+      favorites?: { type: string; id: number | string; name: string }[];
+    } | undefined)?.favorites ?? [];
   if (favs.length === 0) return null;
   return (
-    <section className='sec'>
-      <div className='sec-title'>
-        <span className='lozenge'>★</span>
-        <span className='label'>Favorites</span>
-        <span className='sub'>
-          <b>{favs.length}</b>
+    <section className={`sec${isCollapsed('pinned') ? ' collapsed' : ''}`}>
+      <div className='sec-title' onClick={() => toggleCollapsed('pinned')}>
+        <div className='label'>
+          <span className='lz'>★</span>Pinned
+          <span className='sec-chevron'>▾</span>
+        </div>
+        <span className='wg4-meta-link' onClick={(e) => e.stopPropagation()}>
+          quick-access<span className='caret'> ›</span>
         </span>
       </div>
       <div className='sec-body'>
-        <div className='act-grid'>
+        <div className='wg4-grid-4' style={{ rowGap: 6 }}>
           {favs.map((fav) => {
-            // For action / spell favorites, look up the underlying
-            // content row so we can render the same cost-glyph + stat
-            // (MAP ladder, movement distance, skill bonus, spell
-            // range) that the activity / spell panels show. For
-            // other types (feat, item, ancestry, condition, etc.)
-            // fall back to the type label since those don't have a
-            // single useful numeric stat that fits in the card.
-            //
-            // Cache lookup is cheap (already warmed at sheet open)
-            // and returns the live row, so updates to mode bonuses
-            // / encumbrance / etc. flow through identically.
             let glyph: ReturnType<typeof actionCostToGlyph> = null;
             let statContent: React.ReactNode = null;
-            let statClass = ' dim';
+            let statClass = 'muted';
             if (fav.type === 'action' || fav.type === 'class-feature' || fav.type === 'feat') {
               const ab = (getCachedContent<AbilityBlock>('ability-block') ?? []).find(
                 (a) => a.id === Number(fav.id)
@@ -1832,13 +1285,10 @@ function CodexFavorites(props: {
               );
               if (sp) {
                 glyph = actionCostToGlyph(sp.cast ?? null);
-                // Spells show their range (or area if no range —
-                // common for emanations / bursts). Defense (Reflex /
-                // Will / Fort save) hints small underneath.
                 const range = sp.range || sp.area;
                 if (range) {
                   statContent = (
-                    <span className='move'>
+                    <span>
                       {range}
                       {sp.defense && <small> {sp.defense}</small>}
                     </span>
@@ -1847,23 +1297,15 @@ function CodexFavorites(props: {
                 }
               }
             }
-            // Fall-through stat for types that don't carry a numeric
-            // stat (item, condition, ancestry, etc.) — keep the type
-            // label dim so the row still has a visual right-rail
-            // value the way the activity-panel cards do.
             if (!statContent) {
               statContent = labelizeFavType(fav.type);
             }
             return (
               <div
                 key={`${fav.type}-${fav.id}`}
-                className='act'
-                style={{ cursor: 'pointer' }}
+                className='wg4-act-card'
                 onClick={() => {
                   if (fav.type === 'inv-item') {
-                    // Resolve inv-item id back to the live InventoryItem.
-                    // Walk containers too so an item inside a backpack
-                    // still opens correctly.
                     const flat: import('@schemas/content').InventoryItem[] = [];
                     for (const i of character?.inventory?.items ?? []) {
                       flat.push(i);
@@ -1879,15 +1321,27 @@ function CodexFavorites(props: {
                     return;
                   }
                   openDrawer({
-                    type: fav.type as 'spell' | 'feat' | 'action' | 'item' | 'class-feature' | 'condition',
+                    type: fav.type as
+                      | 'spell'
+                      | 'feat'
+                      | 'action'
+                      | 'item'
+                      | 'class-feature'
+                      | 'condition',
                     data: { id: fav.id },
                     extra: { addToHistory: true },
                   });
                 }}
               >
-                <div className='cost'>{glyph ? <ActionGlyph cost={glyph} /> : null}</div>
-                <div className='nm'>{fav.name}</div>
-                <div className={`stat${statClass}`}>{statContent}</div>
+                <div className='left'>
+                  <span className='ic'>{glyph ? <ActionGlyph cost={glyph} /> : null}</span>
+                  <div className='info'>
+                    <div className='name'>{fav.name}</div>
+                  </div>
+                </div>
+                <div className='right'>
+                  <div className={`r1 ${statClass}`}>{statContent}</div>
+                </div>
               </div>
             );
           })}
@@ -1897,8 +1351,6 @@ function CodexFavorites(props: {
   );
 }
 
-/** Human-readable label for a favorite's drawer type. Used as the
- *  trailing subtitle on each favorite row. */
 function labelizeFavType(type: string): string {
   switch (type) {
     case 'spell': return 'Spell';
@@ -1924,21 +1376,8 @@ function labelizeFavType(type: string): string {
   }
 }
 
-/**
- * Pull lore skills from the variable store. Each character can have
- * arbitrarily many — we scan for variable names starting with
- * SKILL_LORE_ and humanize the topic suffix.
- *
- * The variable manager doesn't expose a list method, so we cheat: peek
- * at the global store's window-exposed handle if available, else fall
- * back to empty. The result is sorted alphabetically.
- */
 function discoverLoreSkills(): { var: string; topic: string }[] {
   try {
-    // The variable system stores everything under a per-id store. Try
-    // calling getVariable with each candidate name from the known
-    // skill seed list, but for lore we don't know the names ahead of
-    // time. Use the underlying map if exposed.
     const w = window as unknown as {
       __wgVariableStore?: { CHARACTER?: Record<string, unknown> };
     };
@@ -1962,104 +1401,37 @@ function discoverLoreSkills(): { var: string; topic: string }[] {
 }
 
 /**
- * Custom min/max/close buttons for the codex winbar.
- *
- * Electron's titleBarOverlay is disabled in main.cjs so this codex-
- * styled strip is the only chrome at the top of the window. Each
- * button calls back into Electron through the wgElectron preload
- * bridge (window.wgElectron.window{Minimize,Maximize,Close}). The
- * outer .winbtns gets `-webkit-app-region: no-drag` from codex.css
- * so clicks don't get swallowed by the parent .winbar's drag region.
- *
- * The SVG paths match the codex mockup: dash for minimize, square
- * for maximize, X for close. On non-Electron environments
- * (window.wgElectron unavailable) the buttons are still rendered
- * but no-op gracefully.
+ * Hamburger nav menu — native HTML implementation, opens a positioned
+ * dropdown with quick links + Edit in Builder.
+ */
+/**
+ * Three small dots (min / max / close) shown at the right end of the
+ * winbar. Wire through Electron's preload bridge when available so
+ * clicks actually minimize/maximize/close the OS window. Falls back
+ * to no-ops in browser preview.
  */
 function WinButtons() {
-  const w = (window as unknown as {
-    wgElectron?: {
-      windowMinimize?: () => void;
-      windowMaximize?: () => void;
-      windowClose?: () => void;
-    };
-  }).wgElectron;
+  const w = (
+    window as unknown as {
+      wgElectron?: {
+        windowMinimize?: () => void;
+        windowMaximize?: () => void;
+        windowClose?: () => void;
+      };
+    }
+  ).wgElectron;
   return (
-    <div className='winbtns'>
-      <div className='winbtn' title='Minimize' onClick={() => w?.windowMinimize?.()}>
-        <svg viewBox='0 0 10 10'>
-          <path d='M1 8 L9 8' />
-        </svg>
-      </div>
-      <div className='winbtn' title='Maximize' onClick={() => w?.windowMaximize?.()}>
-        <svg viewBox='0 0 10 10'>
-          <path d='M1 1 L9 1 L9 9 L1 9 Z' />
-        </svg>
-      </div>
-      <div className='winbtn close' title='Close' onClick={() => w?.windowClose?.()}>
-        <svg viewBox='0 0 10 10'>
-          <path d='M1 1 L9 9 M9 1 L1 9' />
-        </svg>
-      </div>
-    </div>
+    <>
+      <button className='wbtn' aria-label='Minimize' onClick={() => w?.windowMinimize?.()} />
+      <button className='wbtn' aria-label='Maximize' onClick={() => w?.windowMaximize?.()} />
+      <button className='wbtn' aria-label='Close' onClick={() => w?.windowClose?.()} />
+    </>
   );
 }
 
-/**
- * Codex-styled hamburger menu in the topbar's right cluster.
- *
- * The visual shell is the codex `.menu` div (square gold-bordered
- * box with 3 horizontal lines). Mantine Menu.Target requires a ref-
- * forwarding element to inject its open/close click handler, but our
- * decorative div doesn't satisfy that — so we control the menu state
- * via useDisclosure and toggle it from a manual onClick. This is the
- * same pattern the import-character button uses on the Characters
- * page, where the Menu+Tooltip+ActionIcon double-wrapper broke
- * Mantine v9's automatic forwarding.
- *
- * The dropdown items navigate (no full reload) so route state stays
- * intact. Edit-in-Builder is the last entry — separated from the
- * nav items with a Divider since it's a sheet-specific shortcut
- * rather than a global navigation target.
- */
-/**
- * Hamburger menu for the codex topbar's right cluster.
- *
- * Uses Mantine's UNCONTROLLED Menu mode. The previous controlled
- * implementation raced the Menu's clickOutsideEvent (which fires on
- * mousedown before our toggle ran on click), causing the menu to
- * reopen the moment the user tried to close it. Uncontrolled lets
- * Mantine own the open/close state — wrapping a Mantine `Box` (which
- * forwards refs cleanly to its DOM node) means Menu.Target can
- * inject its own click handler without us fighting it.
- *
- * The trigger keeps the codex `.menu` className so it visually
- * matches the design (gold-bordered square with 3 horizontal lines).
- */
-/**
- * Hamburger nav menu — bare-metal native HTML implementation.
- *
- * The previous Mantine-based attempts (bare div / Box / UnstyledButton
- * / ActionIcon all wrapped in Menu.Target) all silently failed for
- * the user. Pressing the hamburger produced ZERO console output —
- * meaning the click event was never reaching the handler at all,
- * not even Mantine's internal one.
- *
- * Strategy here: zero Mantine wrapping for either the button or the
- * dropdown. Native `<button onClick>` (you can console.log it and
- * verify in DevTools); the dropdown is a positioned div inside a
- * relatively-positioned shell, closed via a document-level mousedown
- * listener. No ref forwarding, no clone, no portals, no transforms.
- * If THIS doesn't fire, the click is being eaten by an ancestor
- * (drag region, overlay) and we'll know exactly where to dig.
- */
-function CodexNavMenu(props: {
-  characterId: number;
-  navigate: (path: string) => void;
-}) {
+function CodexNavMenu(props: { characterId: number; navigate: (path: string) => void }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useState<HTMLDivElement | null>(null);
-  // Track ref + outside-click listener.
   const containerRef = (node: HTMLDivElement | null) => {
     wrapperRef[1](node);
   };
@@ -2077,9 +1449,6 @@ function CodexNavMenu(props: {
     { label: 'Characters', path: '/characters' },
     { label: 'Homebrew', path: '/homebrew' },
     { label: 'Settings', path: '/account' },
-    // ?tab=builder hint tells CharacterBuilderPage to open the
-    // Builder step (not Home). Without it the user has to manually
-    // click forward through Home → Builder every time.
     { label: 'Edit in Builder', path: `/builder/${props.characterId}?tab=builder`, divider: true },
   ];
 
@@ -2090,36 +1459,17 @@ function CodexNavMenu(props: {
     >
       <button
         type='button'
+        className='menu-btn'
         title='Menu'
         aria-label='Menu'
         aria-expanded={open}
         aria-haspopup='menu'
         onClick={(e) => {
           e.stopPropagation();
-          // eslint-disable-next-line no-console
-          console.log('[CodexNavMenu] hamburger clicked, open ->', !open);
           setOpen((o) => !o);
         }}
-        style={{
-          width: 38,
-          height: 38,
-          background: 'var(--bg-card)',
-          border: '1px solid var(--rule-soft)',
-          color: 'var(--gold)',
-          cursor: 'pointer',
-          padding: 0,
-          display: 'grid',
-          placeItems: 'center',
-          // High z-index so nothing in the codex topbar covers it.
-          position: 'relative',
-          zIndex: 50,
-        }}
       >
-        <svg width={18} height={14} viewBox='0 0 18 14' aria-hidden='true'>
-          <line x1='0' y1='1' x2='18' y2='1' stroke='currentColor' strokeWidth='1.6' />
-          <line x1='0' y1='7' x2='18' y2='7' stroke='currentColor' strokeWidth='1.6' />
-          <line x1='0' y1='13' x2='18' y2='13' stroke='currentColor' strokeWidth='1.6' />
-        </svg>
+        ≡
       </button>
       {open && (
         <div
@@ -2129,19 +1479,20 @@ function CodexNavMenu(props: {
             top: 'calc(100% + 6px)',
             right: 0,
             minWidth: 200,
-            background: 'var(--bg-2)',
-            border: '1px solid var(--rule)',
-            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.6)',
+            background: 'var(--wg4-surface)',
+            border: '1px solid var(--wg4-border)',
+            borderRadius: 'var(--wg4-r-2)',
+            boxShadow: 'var(--wg4-shadow-drawer)',
             zIndex: 9999,
             padding: '6px 0',
           }}
         >
-          {items.map((item, i) => (
+          {items.map((item) => (
             <div key={item.path}>
               {item.divider && (
                 <div
                   style={{
-                    borderTop: '1px solid var(--rule-soft)',
+                    borderTop: '1px solid var(--wg4-border-soft)',
                     margin: '6px 0',
                   }}
                 />
@@ -2157,22 +1508,22 @@ function CodexNavMenu(props: {
                   width: '100%',
                   background: 'transparent',
                   border: 0,
-                  color: 'var(--ink)',
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 14,
+                  color: 'var(--wg4-ink)',
+                  fontFamily: 'var(--wg4-font-sans)',
+                  fontSize: 13,
                   textAlign: 'left',
                   padding: '8px 14px',
                   cursor: 'pointer',
                 }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(176, 84, 47, 0.10)';
+                    'var(--wg4-surface-hover)';
                   (e.currentTarget as HTMLButtonElement).style.color =
-                    'var(--gold-bright)';
+                    'var(--wg4-accent)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                  (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink)';
+                  (e.currentTarget as HTMLButtonElement).style.color = 'var(--wg4-ink)';
                 }}
               >
                 {item.label}

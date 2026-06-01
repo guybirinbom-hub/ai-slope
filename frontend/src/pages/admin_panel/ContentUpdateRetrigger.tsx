@@ -1,4 +1,3 @@
-import BlurBox from '@common/BlurBox';
 import { findContentUpdates, submitContentUpdate } from '@content/content-update';
 import { Center, Group, Title, Select, Button, Text, Stack, Anchor } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
@@ -22,7 +21,7 @@ export default function ContentUpdateRetrigger() {
 
   return (
     <>
-      <BlurBox p='sm'>
+      <div className='card' style={{ padding: 12 }}>
         <Center p='sm'>
           <Stack>
             <Group>
@@ -57,7 +56,7 @@ export default function ContentUpdateRetrigger() {
             </Group>
           </Stack>
         </Center>
-      </BlurBox>
+      </div>
     </>
   );
 }

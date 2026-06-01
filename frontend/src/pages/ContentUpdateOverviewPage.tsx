@@ -15,7 +15,6 @@ import {
   SegmentedControl,
   TextInput,
   useMantineTheme,
-  useMantineColorScheme,
   Button,
   Select,
 } from '@mantine/core';
@@ -77,15 +76,15 @@ export function Component(props: {}) {
   });
 
   const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchState, setSearchState] = useState('PENDING');
 
   return (
-    <Center>
-      <CodexLoadingOverlay visible={isFetching} />
-      <Box maw={500} w='100%'>
-        <BlurBox w={'100%'} p='md'>
+    <div className='wg4 wg4-screen wg4-page-root' style={{ minHeight: '100%', padding: 16 }}>
+      <Center>
+        <CodexLoadingOverlay visible={isFetching} />
+        <Box maw={500} w='100%'>
+          <BlurBox w={'100%'} p='md'>
           <Stack gap={0} pb={10}>
             <Group wrap='nowrap' py='xs'>
               <Title order={4} ta='center'>
@@ -126,7 +125,7 @@ export function Component(props: {}) {
                 ]}
               />
             </Group>
-            <Divider color='gray.6' />
+            <Divider color='var(--wg4-border-soft)' />
           </Stack>
           <Group wrap='nowrap' grow>
             <DonutChart
@@ -226,8 +225,9 @@ export function Component(props: {}) {
               />
             </Stack>
           </Stack>
-        </BlurBox>
-      </Box>
-    </Center>
+          </BlurBox>
+        </Box>
+      </Center>
+    </div>
   );
 }

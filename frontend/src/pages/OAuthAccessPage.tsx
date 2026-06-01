@@ -1,28 +1,12 @@
-import BlurBox from '@common/BlurBox';
-import {
-  Box,
-  Text,
-  Button,
-  Center,
-  PasswordInput,
-  Stack,
-  Group,
-  Loader,
-  ActionIcon,
-  Title,
-  List,
-  ThemeIcon,
-} from '@mantine/core';
 import { useState } from 'react';
 import { setPageTitle } from '@utils/document-change';
-import { supabase } from '../main';
-import { useLoaderData, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { makeRequest } from '@requests/request-manager';
 import { Character, PublicUser } from '@schemas/content';
 import { useQuery } from '@tanstack/react-query';
 import { DisplayIcon } from '@common/IconDisplay';
-import { IconCheck, IconCircleCheck, IconCircleCheckFilled, IconDots } from '@tabler/icons-react';
-import { isEqual, uniqWith } from 'lodash-es';
+import { IconCheck, IconDots } from '@tabler/icons-react';
+import { uniqWith } from 'lodash-es';
 
 export function Component() {
   setPageTitle('Access Character');
@@ -58,72 +42,73 @@ export function Component() {
 
   if (!data || isFetching) {
     return (
-      <Loader
-        size='lg'
-        type='bars'
+      <div
+        className='wg4 wg4-screen wg4-page-root'
         style={{
-          position: 'absolute',
-          top: '30%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100dvh',
         }}
-      />
+      >
+        <div className='wg4-bars'>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div className='muted' style={{ fontStyle: 'italic' }}>
+          Taking you there…
+        </div>
+      </div>
     );
   }
 
   const getOAuthSection = () => {
     return (
-      <Stack>
-        <Group wrap='nowrap'>
+      <>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14 }}>
           <DisplayIcon strValue={data?.client?.image_url} radius={500} />
-          <ActionIcon variant='transparent' color='gray.6' size='lg'>
-            <IconDots style={{ width: '70%', height: '70%' }} stroke={1.5} />
-          </ActionIcon>
+          <IconDots style={{ color: 'var(--ink-4)' }} stroke={1.5} />
           <DisplayIcon strValue={data?.character?.details?.image_url ?? 'icon|||avatar|||#868e96'} radius={500} />
-        </Group>
-        <Stack gap={5}>
-          <Title order={3} ta='center'>
-            {data?.client?.name}
-          </Title>
-          <Text ta='center' fz='sm'>
-            wants to access your character
-          </Text>
-          <Text ta='center' fz='sm' fw='bold' fs='italic'>
-            {data?.character?.name}
-          </Text>
-        </Stack>
-        <BlurBox p='sm'>
-          <Stack>
-            <Text ta='center' fz='xs'>
-              This will allow the external service to:
-            </Text>
-            <List
-              spacing='xs'
-              size='sm'
-              center
-              icon={
-                <ThemeIcon color='gray.8' size={22} radius='xl'>
-                  <IconCheck size={18} />
-                </ThemeIcon>
-              }
-            >
-              <List.Item>Access your character information</List.Item>
-              <List.Item>Edit your character's stats</List.Item>
-              <List.Item>Manage your character's inventory</List.Item>
-            </List>
-          </Stack>
-        </BlurBox>
-        <Group grow>
-          <Button
-            variant='default'
+        </div>
+        <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 24, marginBottom: 4 }}>
+          {data?.client?.name}
+        </div>
+        <p className='muted' style={{ margin: '0 0 4px' }}>
+          wants to access your character
+        </p>
+        <p style={{ fontWeight: 'bold', fontStyle: 'italic', margin: '0 0 16px' }}>{data?.character?.name}</p>
+        <div className='statbox' style={{ textAlign: 'left', marginBottom: 20 }}>
+          <div className='k' style={{ marginBottom: 6 }}>
+            This will allow the external service to
+          </div>
+          <div className='v' style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconCheck size={16} style={{ color: 'var(--accent)', flex: '0 0 auto' }} />
+            Access your character information
+          </div>
+          <div className='v' style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconCheck size={16} style={{ color: 'var(--accent)', flex: '0 0 auto' }} />
+            Edit your character's stats
+          </div>
+          <div className='v' style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconCheck size={16} style={{ color: 'var(--accent)', flex: '0 0 auto' }} />
+            Manage your character's inventory
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <button
+            className='btn ghost'
             onClick={() => {
               navigate('/characters');
             }}
           >
             Cancel
-          </Button>
-          <Button
-            loading={loadingAuth}
+          </button>
+          <button
+            className='btn'
+            disabled={loadingAuth}
             onClick={async () => {
               setLoadingAuth(true);
               await makeRequest('update-character', {
@@ -158,37 +143,41 @@ export function Component() {
             }}
           >
             Authorize
-          </Button>
-        </Group>
-      </Stack>
+          </button>
+        </div>
+      </>
     );
   };
 
   const getCharacterNotFoundSection = () => {
     return (
-      <Stack gap={5}>
-        <Title order={3} ta='center'>
+      <>
+        <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 24, marginBottom: 8 }}>
           Not Found
-        </Title>
-        <Text ta='center' fz='sm'>
+        </div>
+        <p className='muted' style={{ margin: '0 0 4px' }}>
           Could not find the requested character (ID# {characterId}).
-        </Text>
-        <Text ta='center' fz='sm'>
+        </p>
+        <p className='muted' style={{ margin: 0 }}>
           This account must be the owner of the character to authorize access.
-        </Text>
-      </Stack>
+        </p>
+      </>
     );
   };
 
   return (
-    <>
-      <Center>
-        <BlurBox w={350} p='lg'>
-          <Center>
-            <Box w={250}>{data?.character ? getOAuthSection() : getCharacterNotFoundSection()}</Box>
-          </Center>
-        </BlurBox>
-      </Center>
-    </>
+    <div
+      className='wg4 wg4-screen wg4-page-root'
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100dvh',
+      }}
+    >
+      <div className='card' style={{ width: 380, maxWidth: '90%', padding: 30, textAlign: 'center' }}>
+        {data?.character ? getOAuthSection() : getCharacterNotFoundSection()}
+      </div>
+    </div>
   );
 }

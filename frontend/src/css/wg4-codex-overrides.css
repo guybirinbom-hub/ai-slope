@@ -19,12 +19,48 @@
 
 /* ============================== WINBAR ============================== */
 .wg4 .winbar {
-  background: linear-gradient(180deg, var(--wg4-surface) 0%, var(--wg4-surface-2) 100%) !important;
-  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  background: transparent !important;
+  border-bottom: 0 !important;
   font-family: var(--wg4-font-sans) !important;
-  font-size: 10px !important;
-  letter-spacing: 0.16em !important;
+  font-size: 11px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--wg4-ink-4) !important;
+  padding: 4px 8px 8px !important;
+  height: auto !important;
+}
+.wg4 .winbar * {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .winbar .brand .name em {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .winbar .brand .mark {
+  background: var(--wg4-accent) !important;
+  width: 6px !important; height: 6px !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+.wg4 .winbar .crumbs {
   color: var(--wg4-ink-3) !important;
+}
+.wg4 .winbar .crumbs b {
+  color: var(--wg4-ink-2) !important;
+  font-weight: 500 !important;
+}
+.wg4 .winbar .wbtn {
+  width: 11px !important; height: 11px !important;
+  border-radius: 50% !important;
+  background: var(--wg4-border) !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+.wg4 .winbar .wbtn:hover {
+  background: var(--wg4-border-strong) !important;
 }
 .wg4 .winbar .title b {
   font-family: var(--wg4-font-sans) !important;
@@ -59,12 +95,18 @@
 }
 
 /* ============================== ACTION ICONS ============================== */
-.wg4 .ai {
-  color: var(--wg4-ink) !important;
+/* All action-cost glyphs render in the rust accent — matches the wg4
+ * design, where the small action diamonds, reaction curve, and free
+ * diamond all read as rust against parchment. The ActionGlyph JSX
+ * sets the color via inline style on the .ai span, so we need
+ * !important to override it. */
+.wg4 .ai,
+.wg4 .ai.ar,
+.wg4 .ai.af {
+  color: var(--wg4-accent) !important;
   filter: none !important;
+  text-shadow: none !important;
 }
-.wg4 .ai.ar { color: var(--wg4-accent) !important; filter: none !important; }
-.wg4 .ai.af { color: var(--wg4-accent) !important; filter: none !important; }
 
 /* ============================== TOP BAR ============================== */
 .wg4 .topbar {
@@ -97,15 +139,18 @@
   color: var(--wg4-ink) !important;
   text-transform: none !important;
 }
-.wg4 .who .label .sub {
-  font-family: var(--wg4-font-mono) !important;
-  font-size: 10.5px !important;
-  letter-spacing: 0.12em !important;
+.wg4 .who .label .sub,
+.wg4 .who .sub {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0 !important;
   color: var(--wg4-ink-3) !important;
-  text-transform: uppercase !important;
+  text-transform: none !important;
 }
-.wg4 .who .label .sub i {
-  color: var(--wg4-accent) !important;
+.wg4 .who .label .sub i,
+.wg4 .who .sub i {
+  color: var(--wg4-ink-5) !important;
+  font-style: normal !important;
 }
 
 /* ============================== TABS ============================== */
@@ -117,12 +162,12 @@
 }
 .wg4 .tab {
   font-family: var(--wg4-font-sans) !important;
-  font-size: 11px !important;
-  letter-spacing: 0.14em !important;
-  text-transform: uppercase !important;
-  font-weight: 600 !important;
+  font-size: 12px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
   color: var(--wg4-ink-3) !important;
-  border-right: 1px solid var(--wg4-border-soft) !important;
+  border-right: 0 !important;
 }
 .wg4 .tab:hover { color: var(--wg4-ink) !important; }
 .wg4 .tab.on {
@@ -382,18 +427,56 @@
 }
 
 /* ============================== HERO PIPS ============================== */
+.wg4 .hero-pips {
+  gap: 6px !important;
+}
 .wg4 .hero-pips .pip {
-  border: 1.5px solid var(--wg4-accent) !important;
+  width: 9px !important;
+  height: 9px !important;
+  border: 1px solid var(--wg4-ink-4) !important;
   background: transparent !important;
   border-radius: 50% !important;
   transform: none !important;
+  transition: all .12s ease !important;
+}
+.wg4 .hero-pips .pip:hover {
+  border-color: var(--wg4-accent) !important;
 }
 .wg4 .hero-pips .pip.on {
   background: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  box-shadow: 0 0 0 2px rgba(123, 79, 49, 0.12) !important;
 }
 .wg4 .hero-count {
   font-family: var(--wg4-font-mono) !important;
-  color: var(--wg4-ink-2) !important;
+  color: var(--wg4-ink-3) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* ============================== SEC-TITLE ADD BUTTON (+) ============================== */
+.wg4 .sec-title button.add {
+  appearance: none !important;
+  background: transparent !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  color: var(--wg4-ink-3) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  width: 16px !important;
+  height: 16px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  transition: all .12s ease !important;
+  padding: 0 !important;
+}
+.wg4 .sec-title button.add:hover {
+  background: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  color: #fff !important;
 }
 
 /* ============================== SAVES + ROW LIST ============================== */
@@ -516,71 +599,71 @@
 }
 
 /* ============================== GENERIC SHEET ELEMENTS ============================== */
-.wg4 .codex-root [class*='label'],
-.wg4 .codex-root [class*='-label'],
-.wg4 .codex-root .k {
+.wg4 [class*='label'],
+.wg4 [class*='-label'],
+.wg4 .k {
   font-family: var(--wg4-font-sans);
 }
-.wg4 .codex-root [class*='-num'],
-.wg4 .codex-root .num,
-.wg4 .codex-root .mono {
+.wg4 [class*='-num'],
+.wg4 .num,
+.wg4 .mono {
   font-family: var(--wg4-font-mono) !important;
   letter-spacing: -0.01em !important;
 }
 
 /* Kill all gold glow shadows globally inside wg4. */
 .wg4 [class*='glow'],
-.wg4 .codex-root [style*='box-shadow'] {
+.wg4 [style*='box-shadow'] {
   /* Targeted via specific selectors above where needed. */
 }
 
 /* ============================== CARDS / FAVORITES / FEATS / SPELLS ============================== */
-.wg4 .codex-root .card,
-.wg4 .codex-root [class*='-card'],
-.wg4 .codex-root .row,
-.wg4 .codex-root .sk-row,
-.wg4 .codex-root .sp-row,
-.wg4 .codex-root .inv-row,
-.wg4 .codex-root .feat,
-.wg4 .codex-root .act {
+.wg4 .card,
+.wg4 [class*='-card'],
+.wg4 .row,
+.wg4 .sk-row,
+.wg4 .sp-row,
+.wg4 .inv-row,
+.wg4 .feat,
+.wg4 .act {
   background: var(--wg4-surface) !important;
   border-color: var(--wg4-border-soft) !important;
 }
-.wg4 .codex-root .card:hover,
-.wg4 .codex-root [class*='-card']:hover,
-.wg4 .codex-root .row:hover,
-.wg4 .codex-root .sk-row:hover,
-.wg4 .codex-root .sp-row:hover,
-.wg4 .codex-root .inv-row:hover,
-.wg4 .codex-root .feat:hover,
-.wg4 .codex-root .act:hover {
+.wg4 .card:hover,
+.wg4 [class*='-card']:hover,
+.wg4 .row:hover,
+.wg4 .sk-row:hover,
+.wg4 .sp-row:hover,
+.wg4 .inv-row:hover,
+.wg4 .feat:hover,
+.wg4 .act:hover {
   background: var(--wg4-surface-hover) !important;
   border-color: var(--wg4-border-strong) !important;
 }
 
 /* Highlight / accent fills inside cards */
-.wg4 .codex-root [class*='accent'],
-.wg4 .codex-root .accent {
+.wg4 [class*='accent'],
+.wg4 .accent {
   color: var(--wg4-accent) !important;
 }
 
 /* Feat cards — :hover, :feature gradient, .nm small, .meta b
  * specifics that codex hardcoded with rgba(201,161,59,.0X) gold. */
-.wg4 .codex-root .feat:hover {
+.wg4 .feat:hover {
   background: linear-gradient(180deg, rgba(176,84,47,0.06), var(--wg4-surface)) !important;
   border-color: var(--wg4-accent) !important;
 }
-.wg4 .codex-root .feat.feature {
+.wg4 .feat.feature {
   background: linear-gradient(180deg, rgba(176,84,47,0.04), var(--wg4-surface)) !important;
   border-left-color: var(--wg4-accent) !important;
 }
-.wg4 .codex-root .feat .nm small {
+.wg4 .feat .nm small {
   font-family: 'Newsreader', ui-serif, Georgia, serif !important;
   font-style: italic !important;
   font-weight: 400 !important;
   color: var(--wg4-ink-3) !important;
 }
-.wg4 .codex-root .feat .meta {
+.wg4 .feat .meta {
   font-family: var(--wg4-font-mono) !important;
   font-size: 9.5px !important;
   letter-spacing: 0.12em !important;
@@ -588,28 +671,28 @@
   text-transform: uppercase !important;
   font-weight: 600 !important;
 }
-.wg4 .codex-root .feat .meta b {
+.wg4 .feat .meta b {
   color: var(--wg4-accent) !important;
   font-weight: 500 !important;
 }
 /* Feat group accents — color-code by feat source (class/ancestry/skill/general/feature) */
-.wg4 .codex-root .feat.class { border-left: 2px solid var(--wg4-accent) !important; }
-.wg4 .codex-root .feat.ancestry { border-left: 2px solid #5b7148 !important; }
-.wg4 .codex-root .feat.skill { border-left: 2px solid var(--wg4-ink-4) !important; }
-.wg4 .codex-root .feat.general { border-left: 2px solid #a83a25 !important; }
+.wg4 .feat.class { border-left: 2px solid var(--wg4-accent) !important; }
+.wg4 .feat.ancestry { border-left: 2px solid #5b7148 !important; }
+.wg4 .feat.skill { border-left: 2px solid var(--wg4-ink-4) !important; }
+.wg4 .feat.general { border-left: 2px solid #a83a25 !important; }
 
 /* Spell rows + cantrips — match wg4 trade dress. */
-.wg4 .codex-root .sp-row {
+.wg4 .sp-row {
   background: var(--wg4-surface) !important;
   border: 1px solid var(--wg4-border-soft) !important;
   border-radius: var(--wg4-r-2) !important;
   padding: 7px 10px !important;
 }
-.wg4 .codex-root .sp-row:hover {
+.wg4 .sp-row:hover {
   background: var(--wg4-surface-hover) !important;
   border-color: var(--wg4-border-strong) !important;
 }
-.wg4 .codex-root .sp-add {
+.wg4 .sp-add {
   background: transparent !important;
   border: 1px dashed var(--wg4-border-strong) !important;
   color: var(--wg4-ink-3) !important;
@@ -621,41 +704,41 @@
   border-radius: var(--wg4-r-2) !important;
   padding: 7px 10px !important;
 }
-.wg4 .codex-root .sp-add:hover {
+.wg4 .sp-add:hover {
   border-color: var(--wg4-accent) !important;
   color: var(--wg4-accent) !important;
   background: rgba(176, 84, 47, 0.04) !important;
 }
-.wg4 .codex-root .sp-add .plus {
+.wg4 .sp-add .plus {
   color: var(--wg4-accent) !important;
 }
 
 /* Activities bar — flat parchment bar, no codex gold border. */
-.wg4 .codex-root .activities-bar {
+.wg4 .activities-bar {
   background: var(--wg4-surface) !important;
   border: 1px solid var(--wg4-border) !important;
   border-radius: var(--wg4-r-2) !important;
 }
-.wg4 .codex-root .activities-bar .field {
+.wg4 .activities-bar .field {
   background: transparent !important;
 }
-.wg4 .codex-root .activities-bar .field input {
+.wg4 .activities-bar .field input {
   background: transparent !important;
   color: var(--wg4-ink) !important;
   font-family: var(--wg4-font-sans) !important;
 }
 
 /* Inventory toolbar (.inv-toolbar). */
-.wg4 .codex-root .inv-toolbar {
+.wg4 .inv-toolbar {
   background: var(--wg4-surface) !important;
   border: 1px solid var(--wg4-border) !important;
   border-radius: var(--wg4-r-2) !important;
 }
 
 /* ============================== PIN / GROUP HEADERS ============================== */
-.wg4 .codex-root .sub-head,
-.wg4 .codex-root .act-group-label,
-.wg4 .codex-root [class*='-group-label'] {
+.wg4 .sub-head,
+.wg4 .act-group-label,
+.wg4 [class*='-group-label'] {
   font-family: var(--wg4-font-sans) !important;
   font-size: 11px !important;
   text-transform: uppercase !important;
@@ -666,11 +749,11 @@
   border-bottom: 1px solid var(--wg4-border-soft) !important;
   padding: 8px 0 !important;
 }
-.wg4 .codex-root .sub-head .lz,
-.wg4 .codex-root .act-group-label .lz {
+.wg4 .sub-head .lz,
+.wg4 .act-group-label .lz {
   color: var(--wg4-accent) !important;
 }
-.wg4 .codex-root .sub-head .accent {
+.wg4 .sub-head .accent {
   font-family: 'Newsreader', ui-serif, Georgia, serif !important;
   font-style: italic !important;
   text-transform: none !important;
@@ -680,9 +763,8 @@
 }
 
 /* ============================== FILTER PILLS (Feats / Activities toolbar) ============================== */
-.wg4 .codex-root .filter,
-.wg4 .codex-root [class*='filter-pill'],
-.wg4 .codex-root .cost-filter {
+.wg4 .filter,
+.wg4 [class*='filter-pill'] {
   background: var(--wg4-surface) !important;
   border: 1px solid var(--wg4-border) !important;
   color: var(--wg4-ink-3) !important;
@@ -693,35 +775,45 @@
   font-weight: 600 !important;
   border-radius: 999px !important;
 }
-.wg4 .codex-root .filter.on,
-.wg4 .codex-root .cost-filter.on {
+/* .cost-filter — DO NOT set font-family here. The child .ai span
+ * needs ActionIcons font to render the glyph. Parent font-family
+ * with !important would override the child's inline font-family
+ * via inheritance. */
+.wg4 .cost-filter {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink-3) !important;
+  border-radius: 999px !important;
+}
+.wg4 .filter.on,
+.wg4 .cost-filter.on {
   background: var(--wg4-accent) !important;
   border-color: var(--wg4-accent) !important;
   color: #fff !important;
 }
 
 /* ============================== SEARCH INPUT ============================== */
-.wg4 .codex-root input[type='text'],
-.wg4 .codex-root input[type='search'],
-.wg4 .codex-root .search,
-.wg4 .codex-root [class*='search'] input {
+.wg4 input[type='text'],
+.wg4 input[type='search'],
+.wg4 .search,
+.wg4 [class*='search'] input {
   background: var(--wg4-surface) !important;
   border: 1px solid var(--wg4-border) !important;
   color: var(--wg4-ink) !important;
   font-family: var(--wg4-font-sans) !important;
   border-radius: var(--wg4-r-2) !important;
 }
-.wg4 .codex-root input[type='text']:focus,
-.wg4 .codex-root input[type='search']:focus {
+.wg4 input[type='text']:focus,
+.wg4 input[type='search']:focus {
   border-color: var(--wg4-accent) !important;
   outline: none !important;
 }
 
 /* ============================== MODE TABS (Activities) ============================== */
-.wg4 .codex-root .mode-tabs {
+.wg4 .mode-tabs {
   border-bottom: 1px solid var(--wg4-border-soft) !important;
 }
-.wg4 .codex-root .mode-tab {
+.wg4 .mode-tab {
   font-family: var(--wg4-font-sans) !important;
   font-size: 11px !important;
   letter-spacing: 0.12em !important;
@@ -730,11 +822,11 @@
   color: var(--wg4-ink-4) !important;
   border-bottom: 2px solid transparent !important;
 }
-.wg4 .codex-root .mode-tab.on {
+.wg4 .mode-tab.on {
   color: var(--wg4-ink) !important;
   border-bottom-color: var(--wg4-accent) !important;
 }
-.wg4 .codex-root .mode-tab small {
+.wg4 .mode-tab small {
   color: var(--wg4-ink-4) !important;
   font-family: 'Newsreader', ui-serif, Georgia, serif !important;
   font-style: italic !important;
@@ -743,13 +835,13 @@
 }
 
 /* ============================== ABILITIES / SKILLS rows ============================== */
-.wg4 .codex-root .ab,
-.wg4 .codex-root .sk {
+.wg4 .ab,
+.wg4 .sk {
   background: var(--wg4-surface) !important;
   border-color: var(--wg4-border-soft) !important;
 }
-.wg4 .codex-root .ab .k,
-.wg4 .codex-root .sk .k {
+.wg4 .ab .k,
+.wg4 .sk .k {
   font-family: var(--wg4-font-mono) !important;
   font-size: 9px !important;
   letter-spacing: 0.18em !important;
@@ -757,49 +849,49 @@
   color: var(--wg4-ink-4) !important;
   font-weight: 600 !important;
 }
-.wg4 .codex-root .ab .v,
-.wg4 .codex-root .sk .v {
+.wg4 .ab .v,
+.wg4 .sk .v {
   font-family: var(--wg4-font-mono) !important;
   font-weight: 500 !important;
   color: var(--wg4-ink) !important;
   letter-spacing: -0.01em !important;
 }
-.wg4 .codex-root .ab .v.accent,
-.wg4 .codex-root .sk .v.accent {
+.wg4 .ab .v.accent,
+.wg4 .sk .v.accent {
   color: var(--wg4-accent) !important;
 }
 
 /* ============================== INVENTORY rows / currency ============================== */
-.wg4 .codex-root .currency,
-.wg4 .codex-root .coin {
+.wg4 .currency,
+.wg4 .coin {
   background: var(--wg4-surface) !important;
   border-color: var(--wg4-border-soft) !important;
 }
 
 /* ============================== Specific glow / shadow killers ============================== */
-.wg4 .codex-root [class] {
+.wg4 [class] {
   text-shadow: none !important;
 }
-.wg4 .codex-root .lz,
-.wg4 .codex-root [class*='glyph'] {
+.wg4 .lz,
+.wg4 [class*='glyph'] {
   filter: none !important;
 }
 
 /* ============================== Anchor links inside codex pages ============================== */
-.wg4 .codex-root a {
+.wg4 a {
   color: var(--wg4-accent) !important;
   text-decoration: none;
   border-bottom: 1px dotted var(--wg4-accent);
 }
-.wg4 .codex-root a:hover {
+.wg4 a:hover {
   color: var(--wg4-accent-ink) !important;
 }
 
 /* ============================== ScrollArea / scrollbars inside codex pages ============================== */
-.wg4 .codex-root *::-webkit-scrollbar { width: 6px; height: 6px; }
-.wg4 .codex-root *::-webkit-scrollbar-track { background: transparent; }
-.wg4 .codex-root *::-webkit-scrollbar-thumb { background: var(--wg4-border-strong); border-radius: 3px; }
-.wg4 .codex-root *::-webkit-scrollbar-thumb:hover { background: var(--wg4-accent); }
+.wg4 *::-webkit-scrollbar { width: 6px; height: 6px; }
+.wg4 *::-webkit-scrollbar-track { background: transparent; }
+.wg4 *::-webkit-scrollbar-thumb { background: var(--wg4-border-strong); border-radius: 3px; }
+.wg4 *::-webkit-scrollbar-thumb:hover { background: var(--wg4-accent); }
 
 /* ============================== Notes / Details / Builder shells inside .wg4 ============================== */
 .wg4 .codex-notes-shell,
@@ -815,7 +907,7 @@
 }
 
 /* ============================== Catch-all: kill drop-shadows on all icons inside wg4 ============================== */
-.wg4 .codex-root svg {
+.wg4 svg {
   filter: none !important;
 }
 
@@ -828,25 +920,25 @@
 /* Every element inside a wg4-scoped codex page uses Geist sans as the
  * baseline. Per-class restorations below upgrade headings to Newsreader
  * italic, and numeric spans to Geist Mono. */
-.wg4 .codex-root,
-.wg4 .codex-root *:not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon) {
+.wg4,
+.wg4 *:not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon) {
   font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif !important;
 }
 
 /* Newsreader italic for character / spell / feat names and titles
  * inside codex panels (the .nm / [class*="-name"] / h1-h3 selectors). */
-.wg4 .codex-root h1,
-.wg4 .codex-root h2,
-.wg4 .codex-root h3,
-.wg4 .codex-root .nm,
-.wg4 .codex-root [class*='-nm'],
-.wg4 .codex-root .sec-title h3,
-.wg4 .codex-root [class*='title']:not([class*='label']):not([class*='tab']):not([class*='filter']),
-.wg4 .codex-root .feat .nm,
-.wg4 .codex-root .sp-row .nm,
-.wg4 .codex-root .inv-row .nm,
-.wg4 .codex-root .act .nm,
-.wg4 .codex-root .card .nm {
+.wg4 h1,
+.wg4 h2,
+.wg4 h3,
+.wg4 .nm,
+.wg4 [class*='-nm'],
+.wg4 .sec-title h3,
+.wg4 [class*='title']:not([class*='label']):not([class*='tab']):not([class*='filter']),
+.wg4 .feat .nm,
+.wg4 .sp-row .nm,
+.wg4 .inv-row .nm,
+.wg4 .act .nm,
+.wg4 .card .nm {
   font-family: 'Newsreader', ui-serif, Georgia, serif !important;
   font-style: italic !important;
   font-weight: 500 !important;
@@ -855,96 +947,126 @@
 }
 
 /* Mono numerics — every .num / .mono / .v inside numeric cells. */
-.wg4 .codex-root .num,
-.wg4 .codex-root .mono,
-.wg4 .codex-root [class*='-num'],
-.wg4 .codex-root .tile .v,
-.wg4 .codex-root .hp-num,
-.wg4 .codex-root .hp-num *,
-.wg4 .codex-root .stat-strip .v,
-.wg4 .codex-root .ab .v,
-.wg4 .codex-root .sk .v,
-.wg4 .codex-root .save-row .val,
-.wg4 .codex-root .row-list .mod,
-.wg4 .codex-root .coin .v,
-.wg4 .codex-root .bulk-block .v,
-.wg4 .codex-root .lv-chip .v,
-.wg4 .codex-root .xp .row .nums,
-.wg4 .codex-root .xp .row .nums input,
-.wg4 .codex-root .hero-count {
+.wg4 .num,
+.wg4 .mono,
+.wg4 [class*='-num'],
+.wg4 .tile .v,
+.wg4 .hp-num,
+.wg4 .hp-num *,
+.wg4 .stat-strip .v,
+.wg4 .ab .v,
+.wg4 .sk .v,
+.wg4 .save-row .val,
+.wg4 .row-list .mod,
+.wg4 .coin .v,
+.wg4 .bulk-block .v,
+.wg4 .lv-chip .v,
+.wg4 .xp .row .nums,
+.wg4 .xp .row .nums input,
+.wg4 .hero-count {
   font-family: var(--wg4-font-mono), ui-monospace, monospace !important;
   font-variant-numeric: tabular-nums !important;
   letter-spacing: -0.01em !important;
 }
 
 /* Mono uppercase labels — .k cells / .lbl / sub-labels. */
-.wg4 .codex-root .k,
-.wg4 .codex-root .lbl,
-.wg4 .codex-root [class*='-label'],
-.wg4 .codex-root .sub,
-.wg4 .codex-root .meta,
-.wg4 .codex-root .eyebrow,
-.wg4 .codex-root .tile .k,
-.wg4 .codex-root .ab .k,
-.wg4 .codex-root .sk .k,
-.wg4 .codex-root .stat-strip .k,
-.wg4 .codex-root .coin .k,
-.wg4 .codex-root .bulk-block .k,
-.wg4 .codex-root .lv-chip .k {
+/* Small caps labels (.k cells inside tiles/stat-strip/coins/bulk-block/lv-chip) — design uses uppercase letterspaced caps for these.
+ * But generic .sub and .meta (used in topbar subtitle, section meta, etc) follow the design which uses MIXED case. */
+.wg4 .lbl,
+.wg4 .tile .k,
+.wg4 .ab .k,
+.wg4 .sk .k,
+.wg4 .stat-strip .k,
+.wg4 .coin .k,
+.wg4 .bulk-block .k,
+.wg4 .lv-chip .k,
+.wg4 .eyebrow {
   font-family: var(--wg4-font-mono), ui-monospace, monospace !important;
   text-transform: uppercase !important;
   letter-spacing: 0.14em !important;
   font-weight: 600 !important;
 }
+/* Topbar subtitle, section meta — mixed case per design */
+.wg4 .who .sub,
+.wg4 .who .label .sub {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
 
 /* Italic Newsreader prose inside any "description" / "prose" block,
  * including character description, spell descriptions, item flavor. */
-.wg4 .codex-root [class*='desc'],
-.wg4 .codex-root [class*='prose'],
-.wg4 .codex-root .body-text,
-.wg4 .codex-root .flavor,
-.wg4 .codex-root [class*='note-body'] {
+.wg4 [class*='desc'],
+.wg4 [class*='prose'],
+.wg4 .body-text,
+.wg4 .flavor,
+.wg4 [class*='note-body'] {
   font-family: 'Newsreader', ui-serif, Georgia, serif !important;
   font-style: normal !important;
   font-weight: 400 !important;
   color: var(--wg4-ink) !important;
 }
 
-/* Tab / button labels keep Geist sans uppercase letterspaced. */
-.wg4 .codex-root .tab,
-.wg4 .codex-root button[role='tab'],
-.wg4 .codex-root .mode-tab,
-.wg4 .codex-root .filter,
-.wg4 .codex-root .cost-filter {
+/* Tab / button labels — design uses mixed-case, lighter weight.
+ * Old codex used uppercase letterspaced caps; the wg4 design uses
+ * sentence-case tabs with subtle weight. */
+.wg4 .tab,
+.wg4 button[role='tab'] {
+  font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 500 !important;
+}
+/* Mode tabs (Encounter/Exploration/Downtime) and cost filters stay
+ * uppercase since the design renders them that way. */
+.wg4 .mode-tab,
+.wg4 .filter {
   font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif !important;
   text-transform: uppercase !important;
   letter-spacing: 0.14em !important;
   font-weight: 600 !important;
 }
+/* Cost-filter PILLS only style the parent — NOT the inner .ai span.
+ * The .ai span uses the PF2e ActionIcons font for the action glyph.
+ * If we set font-family on .cost-filter, the .ai child inherits it
+ * (despite its own inline font-family, because the inheriting parent
+ * uses !important). So scope the font rule to .cost-filter itself
+ * and force the .ai child back to ActionIcons. */
+.wg4 .cost-filter {
+  text-transform: uppercase !important;
+  letter-spacing: 0.14em !important;
+  font-weight: 600 !important;
+}
+.wg4 .cost-filter .ai,
+.wg4 .cost-filter span.ai,
+.wg4 .cost-filters .ai {
+  font-family: ActionIcons, sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
 
 /* Kill all dark linear-gradient backgrounds — sweep all CSS background
  * gradients inside codex panels that reference codex's dark tones. */
-.wg4 .codex-root .sec-title,
-.wg4 .codex-root .tab.on,
-.wg4 .codex-root [class*='-strip'],
-.wg4 .codex-root [class*='gold-strip'],
-.wg4 .codex-root .currency-bar,
-.wg4 .codex-root .progress-bar {
+.wg4 .sec-title,
+.wg4 .tab.on,
+.wg4 [class*='-strip'],
+.wg4 [class*='gold-strip'],
+.wg4 .currency-bar,
+.wg4 .progress-bar {
   background-image: none !important;
 }
 
 /* Coin disks (currency badges) — repaint to wg4 palette so they read
  * as warm parchment metals rather than dark codex coins. */
-.wg4 .codex-root .coin.pp .disk { background: linear-gradient(180deg, #e9e8e2, #cfcec8) !important; color: #4a4a4f !important; }
-.wg4 .codex-root .coin.gp .disk { background: linear-gradient(180deg, #d8b878, #b18a3e) !important; color: #4a3a16 !important; }
-.wg4 .codex-root .coin.sp .disk { background: linear-gradient(180deg, #d2d0c8, #adaba2) !important; color: #2a2a2f !important; }
-.wg4 .codex-root .coin.cp .disk { background: linear-gradient(180deg, #c19071, #8e5d3f) !important; color: #fff !important; }
+.wg4 .coin.pp .disk { background: linear-gradient(180deg, #e9e8e2, #cfcec8) !important; color: #4a4a4f !important; }
+.wg4 .coin.gp .disk { background: linear-gradient(180deg, #d8b878, #b18a3e) !important; color: #4a3a16 !important; }
+.wg4 .coin.sp .disk { background: linear-gradient(180deg, #d2d0c8, #adaba2) !important; color: #2a2a2f !important; }
+.wg4 .coin.cp .disk { background: linear-gradient(180deg, #c19071, #8e5d3f) !important; color: #fff !important; }
 
 /* Progress / HP / XP fill bars — match wg4 design: thin pill, solid
  * rust fill, no tick marks, no glow. */
-.wg4 .codex-root .progress-bar,
-.wg4 .codex-root .hpbar,
-.wg4 .codex-root .xp .bar {
+.wg4 .progress-bar,
+.wg4 .hpbar,
+.wg4 .xp .bar {
   background: var(--wg4-border-soft) !important;
   border: none !important;
   border-radius: var(--wg4-r-pill) !important;
@@ -952,29 +1074,29 @@
   height: 5px !important;
   overflow: hidden !important;
 }
-.wg4 .codex-root .progress-bar .fill,
-.wg4 .codex-root .hpbar .fill,
-.wg4 .codex-root .xp .bar .fill {
+.wg4 .progress-bar .fill,
+.wg4 .hpbar .fill,
+.wg4 .xp .bar .fill {
   background: var(--wg4-accent) !important;
   border-radius: var(--wg4-r-pill) !important;
   box-shadow: none !important;
 }
 /* Kill codex hpbar tick marks (every 1/13 vertical line drawn via ::after). */
-.wg4 .codex-root .hpbar::after,
-.wg4 .codex-root .progress-bar::after {
+.wg4 .hpbar::after,
+.wg4 .progress-bar::after {
   display: none !important;
   content: none !important;
 }
 
 /* Spell rank slot diamonds (sp-pip etc.) — rust outline / fill. */
-.wg4 .codex-root [class*='pip'],
-.wg4 .codex-root .sp-pip,
-.wg4 .codex-root .slot-pip {
+.wg4 [class*='pip'],
+.wg4 .sp-pip,
+.wg4 .slot-pip {
   border-color: var(--wg4-accent) !important;
   background: transparent !important;
 }
-.wg4 .codex-root [class*='pip'].used,
-.wg4 .codex-root [class*='pip'].on {
+.wg4 [class*='pip'].used,
+.wg4 [class*='pip'].on {
   background: var(--wg4-accent) !important;
 }
 
@@ -1041,13 +1163,15 @@
   font-family: var(--wg4-font-sans) !important;
 }
 
-/* Mantine Spotlight — searchbar palette. Mantine renders this into
- * a portal, so its root needs to be checked for .wg4 class via
- * SearchSpotlight's classNames prop. We style the chrome here. */
+/* Mantine Spotlight — parchment command palette. Mantine renders this
+ * into a portal, so its root carries the `.wg4` class via
+ * SearchSpotlight's classNames prop and we style the chrome here to
+ * match the mockup `spot` panel: rust-tinted selected/hovered row,
+ * mono shortcuts, ink-4 description. */
 .wg4 [class*='Spotlight-root'],
 .wg4 [class*='Spotlight-content'] {
   background-color: var(--wg4-surface) !important;
-  border: 1px solid var(--wg4-border) !important;
+  border: 1px solid var(--wg4-border-strong) !important;
   color: var(--wg4-ink) !important;
 }
 .wg4 [class*='Spotlight-search'],
@@ -1059,7 +1183,3239 @@
 .wg4 .mantine-Spotlight-action {
   color: var(--wg4-ink) !important;
 }
+/* Rust-tinted hovered + keyboard-selected rows (the mockup `.ri.sel`). */
 .wg4 .mantine-Spotlight-action:hover,
-.wg4 .mantine-Spotlight-action[data-hovered] {
-  background-color: var(--wg4-surface-hover) !important;
+.wg4 .mantine-Spotlight-action[data-hovered],
+.wg4 .mantine-Spotlight-action[data-selected] {
+  background-color: var(--wg4-accent-soft) !important;
+  color: var(--wg4-accent-ink) !important;
+}
+/* Left icon section reads in the rust accent. */
+.wg4 .mantine-Spotlight-actionSection {
+  color: var(--wg4-accent) !important;
+}
+/* Description + right-side shortcut: muted ink-4 mono (mockup `.meta`). */
+.wg4 .mantine-Spotlight-actionDescription {
+  color: var(--wg4-ink-4) !important;
+  font-family: var(--wg4-font-mono) !important;
+}
+/* Keep the description legible on the rust selected/hovered row. */
+.wg4 .mantine-Spotlight-action[data-hovered] .mantine-Spotlight-actionDescription,
+.wg4 .mantine-Spotlight-action[data-selected] .mantine-Spotlight-actionDescription,
+.wg4 .mantine-Spotlight-action:hover .mantine-Spotlight-actionDescription {
+  color: var(--wg4-accent-ink) !important;
+  opacity: 0.8 !important;
+}
+
+/* ============================== INVENTORY: bulk indicator ============================== */
+/* Match the wg4 reference exactly:
+     BULK CARRIED              (eyebrow, uppercase, ink-3)
+     3.5 / 5 (max 5)            (cur / max — big mono; "(max 5)" small)
+     ──────                     (rust 1px rule, ~80px wide)
+     ENCUMBERED > 5 · MAX 5     (small caption) */
+.wg4 .bulk-indicator {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 4px !important;
+  padding: 6px 14px !important;
+  min-width: 180px !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.wg4 .bulk-indicator .eyebrow {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+  font-weight: 600 !important;
+}
+.wg4 .bulk-indicator .line {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 4px !important;
+}
+.wg4 .bulk-indicator .cur {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.5px !important;
+}
+.wg4 .bulk-indicator .sep {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 16px !important;
+  color: var(--wg4-ink-4) !important;
+  margin: 0 2px !important;
+}
+.wg4 .bulk-indicator .max {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 18px !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .bulk-indicator .hint {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  color: var(--wg4-ink-4) !important;
+  margin-left: 4px !important;
+}
+.wg4 .bulk-indicator .rule {
+  width: 90px !important;
+  height: 1px !important;
+  background: var(--wg4-ink) !important;
+  margin: 2px 0 !important;
+}
+.wg4 .bulk-indicator .caption {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+  font-weight: 600 !important;
+}
+.wg4 .bulk-indicator.over .cur {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .bulk-indicator.over .caption {
+  color: var(--wg4-accent) !important;
+}
+
+/* ============================== INVENTORY: inv-card / .it row aliases ============================== */
+/* The JSX emits both .inv-card.it ... and the legacy .inv-row variant.
+ * Match wg4 design vocabulary on either marker. */
+.wg4 .inv-card,
+.wg4 .it.inv-card {
+  display: grid !important;
+  grid-template-columns: 28px 1fr auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 12px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .inv-card .icon-cell,
+.wg4 .it .icon-cell,
+.wg4 .inv-card > .icon {
+  width: 24px !important;
+  height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .inv-card.equipped .icon-cell,
+.wg4 .inv-card.equipped > .icon {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .inv-card .info .name,
+.wg4 .inv-card .nm {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 13.5px !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.wg4 .inv-card .info .sub,
+.wg4 .inv-card .sub {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10.5px !important;
+  color: var(--wg4-ink-4) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .inv-card .bulk-pill,
+.wg4 .inv-card .bulk {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 0 !important;
+}
+.wg4 .inv-card .bulk-pill b,
+.wg4 .inv-card .bulk b {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .inv-card .bulk-pill .lbl,
+.wg4 .inv-card .bulk .lbl {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 8px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+}
+
+/* ============================== ABILITIES GRID FIX ============================== */
+/* The .abilities grid is `1fr 1fr` so each tile should be 50% of the
+ * container width. Previous CSS fixes alone weren't enough — the
+ * Cha key tile kept rendering as a narrow vertical strip. Apply the
+ * most aggressive possible reset: force grid + force every child
+ * to fill its cell + force display:block so the <button> default
+ * intrinsic sizing can't shrink it. */
+/* ROOT CAUSE of the "Cha key tile is narrow" bug — fixed here.
+ * The JSX in CodexSheet.tsx renders the abilities+skills wrapper as
+ * <div class="as-body">, NOT <div class="ab-sk"> like the design
+ * HTML uses. The 188px abilities-column rule in wg4-character-sheet.css
+ * targets .ab-sk so it never applied. Result: the .as-body grid
+ * auto-computed columns from content, collapsing every ability tile
+ * to ~44px wide (the min-content width). Set the explicit 2-col grid
+ * on both class names so whichever the JSX emits gets the right
+ * 188px abilities + 1fr skills layout. */
+.wg4 .ab-sk,
+.wg4 .as-body {
+  display: grid !important;
+  grid-template-columns: 188px 1fr !important;
+  gap: 24px !important;
+  align-items: start !important;
+}
+.wg4 .abilities {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  align-content: start !important;
+  width: 100% !important;
+}
+.wg4 .abilities > .ability,
+.wg4 .abilities > button.ability,
+.wg4 .abilities > .ability.key,
+.wg4 .abilities > button.ability.key {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 8px 10px !important;
+  position: relative !important;
+  text-align: left !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  cursor: pointer !important;
+  /* Reset button user-agent styles that can collapse intrinsic width */
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  margin: 0 !important;
+  height: auto !important;
+  white-space: normal !important;
+}
+.wg4 .abilities > .ability.key,
+.wg4 .abilities > button.ability.key {
+  background: var(--wg4-ink) !important;
+  border-color: var(--wg4-ink) !important;
+}
+.wg4 .abilities > .ability .k,
+.wg4 .abilities > button.ability .k {
+  font-size: 10px !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .abilities > .ability .num.mod,
+.wg4 .abilities > button.ability .num.mod {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.4px !important;
+  line-height: 1.05 !important;
+  margin-top: 1px !important;
+}
+.wg4 .abilities > .ability .num.score,
+.wg4 .abilities > button.ability .num.score {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10.5px !important;
+  color: var(--wg4-ink-4) !important;
+  margin-top: 0 !important;
+}
+.wg4 .abilities > .ability.key .k,
+.wg4 .abilities > button.ability.key .k {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.wg4 .abilities > .ability.key .num.mod,
+.wg4 .abilities > button.ability.key .num.mod {
+  color: #fff !important;
+}
+.wg4 .abilities > .ability.key .num.score,
+.wg4 .abilities > button.ability.key .num.score {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+/* ============================== MODE TABS (Activities) — plain text ============================== */
+/* Reference shows mode tabs as plain text labels in a row with the
+ * active one a slightly darker shade. NO rust border, NO chip box,
+ * NO sub-labels. The user app was rendering them as rust-bordered
+ * pills with "(combat)/(travel)/(rest)" beneath — strip those. */
+.wg4 .mode-tabs {
+  display: inline-flex !important;
+  gap: 18px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+.wg4 .mode-tab {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 6px 10px !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink-3) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  border-radius: var(--wg4-r-pill) !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+}
+.wg4 .mode-tab.on {
+  background: var(--wg4-surface) !important;
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+  box-shadow: inset 0 -2px 0 0 var(--wg4-ink) !important;
+}
+.wg4 .mode-tab small {
+  display: none !important;
+}
+
+/* ============================== ACTIVITY SUBTITLES ============================== */
+/* New <small class="desc"> child of .nm renders the trait/desc line
+ * beneath each activity name. */
+.wg4 .act .nm small.desc,
+.wg4 .act .nm .desc {
+  display: block !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  font-size: 10.5px !important;
+  font-weight: 400 !important;
+  color: var(--wg4-ink-4) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin-top: 2px !important;
+  line-height: 1.3 !important;
+}
+
+/* ============================== NOTES PANEL — wg4 vocabulary ============================== */
+/* The notes panel CSS in codex-notes-details.css uses --gold accents
+ * + Cormorant Garamond + Cinzel — old codex vocabulary. Override
+ * everything for the wg4 parchment look: rust accents, Newsreader
+ * italic titles, Geist for UI labels. */
+.wg4 .notes-pages,
+.wg4 .col.main.notes-pages {
+  background: var(--wg4-surface) !important;
+  border-right: 1px solid var(--wg4-border) !important;
+}
+.wg4 .notes-side-head {
+  background: transparent !important;
+  border-bottom: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .notes-side-head::after {
+  display: none !important;
+}
+.wg4 .notes-side-head .ic {
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .notes-side-head .ic svg {
+  filter: none !important;
+}
+.wg4 .notes-side-head .label {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+  font-weight: 600 !important;
+}
+.wg4 .notes-side-head .count {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  color: var(--wg4-ink-4) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .notes-side-head .count b {
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+}
+
+/* Search input */
+.wg4 .notes-search input {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink) !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 12.5px !important;
+}
+
+/* Page list items */
+.wg4 .np {
+  background: transparent !important;
+  border-left: 3px solid transparent !important;
+  padding: 10px 16px !important;
+}
+.wg4 .np:hover {
+  background: var(--wg4-surface-hover) !important;
+}
+.wg4 .np.on {
+  background: var(--wg4-accent-soft) !important;
+  border-left-color: var(--wg4-accent) !important;
+}
+.wg4 .np-ic {
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .np.on .np-ic {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .np-nm {
+  font-family: var(--wg4-font-sans) !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .np.on .np-nm {
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+}
+.wg4 .np-sub {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: 11px !important;
+  color: var(--wg4-ink-4) !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .np-meta {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 600 !important;
+}
+.wg4 .np.on .np-meta {
+  color: var(--wg4-accent) !important;
+}
+
+/* "+ Add Page" footer button */
+.wg4 .notes-side-foot {
+  border-top: 1px solid var(--wg4-border) !important;
+  background: transparent !important;
+}
+.wg4 .np-add {
+  background: transparent !important;
+  border: 1px dashed var(--wg4-border-strong) !important;
+  color: var(--wg4-ink-3) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  padding: 10px 16px !important;
+  margin: 8px 14px !important;
+  border-radius: var(--wg4-r-2) !important;
+  justify-content: center !important;
+}
+.wg4 .np-add:hover {
+  background: var(--wg4-surface-hover) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .np-add .plus {
+  border: 0 !important;
+  color: var(--wg4-accent) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+/* Notes editor (right column) */
+.wg4 .notes-editor {
+  background: var(--wg4-page) !important;
+  border-left: 0 !important;
+}
+.wg4 .notes-toolbar {
+  background: transparent !important;
+  border-bottom: 0 !important;
+  padding: 14px 24px !important;
+}
+.wg4 .notes-toolbar .save-state {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  color: var(--wg4-ink-3) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .notes-toolbar .save-state .dot {
+  background: var(--wg4-accent) !important;
+  box-shadow: 0 0 0 2px var(--wg4-accent-soft) !important;
+}
+.wg4 .notes-toolbar .gear {
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .notes-toolbar .gear:hover {
+  color: var(--wg4-ink) !important;
+}
+
+/* Parchment leaf (the page itself) */
+.wg4 .notes-stage {
+  background: transparent !important;
+  padding: 0 24px 24px !important;
+}
+.wg4 .leaf {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  background-image: none !important;
+}
+/* Corner brackets — rust */
+.wg4 .leaf-corner-tr,
+.wg4 .leaf-corner-bl {
+  border-color: var(--wg4-accent) !important;
+}
+.wg4 .leaf-margin {
+  display: none !important;
+}
+.wg4 .leaf-title {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 24px !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.5px !important;
+  background: transparent !important;
+  border: 0 !important;
+  text-transform: none !important;
+}
+.wg4 .leaf-stamp {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+  font-weight: 600 !important;
+  text-align: right !important;
+}
+.wg4 .leaf-stamp b {
+  color: var(--wg4-ink) !important;
+}
+.wg4 .leaf-stamp .dim {
+  color: var(--wg4-ink-4) !important;
+  font-weight: 500 !important;
+}
+
+/* Section markers (np-section dividers between page categories) */
+.wg4 .np-section {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.14em !important;
+  color: var(--wg4-ink-4) !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+}
+.wg4 .np-section .folder {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .np-section .ct {
+  color: var(--wg4-ink) !important;
+}
+.wg4 .np-section .rule {
+  background: linear-gradient(90deg, var(--wg4-border-soft), transparent) !important;
+}
+
+/* ============================== KILL EXTRA GRAY BACKGROUNDS ============================== */
+/* Multiple grouping containers (.row-list, .skills, .tiles, .lz, .activities-bar)
+ * inherited surface-2 / page bg from codex / wg4-character-sheet.css. Those
+ * darker shades stacked beneath the actual cards/tiles/rows make the page
+ * look "messy" with random gray boxes. The wg4 reference renders these
+ * containers as transparent group wrappers — the visual structure comes
+ * from the children's own surface bg plus gaps/borders between them.
+ * Force every grouping container transparent so only intentional surfaces
+ * (.sec, .ability, .tile, .row inside an inv-card, etc.) carry color. */
+.wg4 .row-list,
+.wg4 .skills,
+.wg4 .tiles,
+.wg4 .vitals-pair,
+.wg4 .stat-strip,
+.wg4 .ss-row,
+.wg4 .hero-pips,
+.wg4 .cost-filters,
+.wg4 .mode-tabs,
+.wg4 .inv-filter-pills,
+.wg4 .coins-row,
+.wg4 .wealth-strip,
+.wg4 .inv-top,
+.wg4 .inv-toolbar,
+.wg4 .feat-search,
+.wg4 .ab-sk,
+.wg4 .as-body,
+.wg4 .act-grid,
+.wg4 .feat-grid,
+.wg4 .sp-grid,
+.wg4 .feat-summary,
+.wg4 .sp-tradition,
+.wg4 .sp-section-head,
+.wg4 .pin-grid,
+.wg4 .wg4-grid-4,
+.wg4 .grid-4 {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* Lozenge icon (the ♥/✦/⊕/⚔ glyphs in section titles) — just a glyph,
+ * no chip box around it. */
+.wg4 .lz,
+.wg4 .lozenge {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: var(--wg4-accent) !important;
+}
+
+/* The activities-bar already has its surface bg set above (line ~1685);
+ * make sure no inherited rule adds a darker color. */
+.wg4 .activities-bar {
+  background-color: var(--wg4-surface) !important;
+}
+
+/* Skill rows that previously had their own bg get a clean transparent
+ * row look. Their parent .skills (now transparent) means each row sits
+ * flat on the parent .sec surface. */
+.wg4 .skills > div,
+.wg4 .skills .row {
+  background: transparent !important;
+}
+
+/* ============================== ACTIVITIES BAR — search + filters + modes ============================== */
+/* Single-row toolbar containing:
+     .field.act-search-field   — search icon + input (flex-grows to fill)
+     .cost-filters              — 5 action-cost glyph pills
+     .mode-tabs                 — Encounter / Exploration / Downtime (active = chip)
+   Match the wg4 reference's compact 44px-tall row with sane spacing. */
+.wg4 .activities-bar {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 4px 8px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  margin-bottom: 8px !important;
+}
+/* Kill the gold magnifier ::before circle from codex-panels.css */
+.wg4 .activities-bar .field::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Search field — flex grows to consume the empty space the design
+ * shows. Holds the magnifying-glass icon + input as a single chip.
+ * IMPORTANT: must force flex-direction: row because wg4-modals.css
+ * has a generic `.wg4 .field { flex-direction: column }` that would
+ * otherwise stack the icon above the input. */
+.wg4 .activities-bar .field,
+.wg4 .activities-bar .act-search-field {
+  flex: 1 1 0% !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  align-self: center !important;
+  gap: 8px !important;
+  padding: 0 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-right: 1px solid var(--wg4-border-soft) !important;
+  border-radius: 0 !important;
+  min-width: 0 !important;
+  height: 36px !important;
+}
+.wg4 .activities-bar .act-search-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 14px !important;
+  height: 14px !important;
+  color: var(--wg4-ink-4) !important;
+  flex: 0 0 auto !important;
+}
+.wg4 .activities-bar .act-search-icon svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+.wg4 .activities-bar .field input,
+.wg4 .activities-bar .act-search-field input {
+  flex: 1 1 0% !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 6px 0 !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 13.5px !important;
+  color: var(--wg4-ink) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.wg4 .activities-bar .field input::placeholder {
+  color: var(--wg4-ink-4) !important;
+  font-style: italic !important;
+}
+
+/* Cost filter group — 5 small inline glyph pills, no border-radius
+ * pill-shape, just a tight chip cluster with a thin separator. */
+.wg4 .activities-bar .cost-filters {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 8px !important;
+  border-right: 1px solid var(--wg4-border-soft) !important;
+}
+/* Visible parchment chip — `transparent border` was invisible against
+ * the surface bg, so the user couldn't see the filter pills until they
+ * hovered. Give them a real parchment surface + hairline border at
+ * rest so the clickable target is always visible. */
+.wg4 .activities-bar .cost-filter {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: background 0.1s, border-color 0.1s !important;
+}
+.wg4 .activities-bar .cost-filter:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+.wg4 .activities-bar .cost-filter.on {
+  background: var(--wg4-accent-soft) !important;
+  border-color: var(--wg4-accent) !important;
+}
+.wg4 .activities-bar .cost-filter .ai {
+  font-family: ActionIcons, sans-serif !important;
+  font-size: 16px !important;
+  color: var(--wg4-accent) !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+/* Mode tabs — Encounter / Exploration / Downtime. Active = pill chip
+ * with surface bg + ink text. Inactive = plain ink-3 text. */
+.wg4 .activities-bar .mode-tabs {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  padding: 0 6px 0 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.wg4 .activities-bar .mode-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--wg4-r-pill) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink-3) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+}
+.wg4 .activities-bar .mode-tab:hover {
+  color: var(--wg4-ink) !important;
+}
+.wg4 .activities-bar .mode-tab.on {
+  background: var(--wg4-surface) !important;
+  border-color: var(--wg4-border-strong) !important;
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+}
+.wg4 .activities-bar .mode-tab small {
+  display: none !important;
+}
+
+/* =============================================================================
+   APPROVED PROPOSALS (implemented from C:\wonderers guide 2\proposals.html)
+============================================================================= */
+
+/* ───── Proposal 01: Topbar character chip — refined avatar ───── */
+.wg4 .topbar .who .crest {
+  width: 38px !important;
+  min-width: 38px !important;
+  max-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(180deg, #f1ddc8 0%, #e8c8a8 100%) !important;
+  background-color: #e8c8a8 !important;
+  border: 2px solid #c89d76 !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 19px !important;
+  font-weight: 500 !important;
+  color: var(--wg4-accent-ink) !important;
+  /* Single tight outer ring instead of the double ring that pushed
+   * the crest past the topbar height. */
+  box-shadow:
+    0 0 0 2px var(--wg4-surface),
+    inset 0 -2px 5px rgba(138, 63, 31, 0.15) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 38px !important;
+  margin: 0 6px 0 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Topbar — give it enough vertical room for the 38px avatar + 4px
+ * outer ring on each side = ~46px minimum content height. */
+.wg4 .topbar {
+  min-height: 68px !important;
+}
+.wg4 .topbar .who {
+  align-items: center !important;
+}
+
+/* Page-edge padding — body grid was flush against the window edge,
+ * which made the left rail look like it was being cut off. Add a
+ * gutter on both sides of the body so cards aren't kissing the
+ * window border. The topbar + winbar already had 16px x-padding. */
+.wg4 .body {
+  padding: 0 16px 16px !important;
+}
+.wg4 .topbar .who .label .nm {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 17px !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.2px !important;
+  line-height: 1.1 !important;
+  text-transform: none !important;
+}
+.wg4 .topbar .who .label .sub {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink-3) !important;
+  margin-top: 2px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .topbar .who .label .sub a {
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .topbar .who .label .sub .dot,
+.wg4 .topbar .who .label .sub i {
+  color: var(--wg4-accent) !important;
+  font-style: normal !important;
+  margin: 0 4px !important;
+}
+.wg4 .topbar .who .rest-btn,
+.wg4 .topbar .who .rest-btn-compact {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 12px !important;
+  background: transparent !important;
+  border: 1px solid var(--wg4-border-strong) !important;
+  border-radius: var(--wg4-r-pill) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink-3) !important;
+  cursor: pointer !important;
+  margin-left: 8px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+.wg4 .topbar .who .rest-btn:hover,
+.wg4 .topbar .who .rest-btn-compact:hover {
+  background: var(--wg4-surface-2) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .topbar .who .rest-btn > span:first-child,
+.wg4 .topbar .who .rest-btn-compact > span:first-child {
+  color: var(--wg4-accent) !important;
+  font-size: 12px !important;
+}
+
+/* ───── Proposal 02: Lv chip + XP bar — unified pill strip ───── */
+/* JSX actual class names (per live DOM): the right group contains
+ *   .lv-chip, .xp, .xp-ctl (FORM with +/input/play), and a wrapper
+ *   <div> containing .menu-btn. My earlier targets (.add-xp, .icon-btn)
+ *   were wrong — replaced with .xp-ctl and .menu-btn here. */
+.wg4 .topbar .right {
+  display: inline-flex !important;
+  align-items: center !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-pill) !important;
+  padding: 4px 6px 4px 4px !important;
+  gap: 12px !important;
+}
+.wg4 .topbar .right > .lv-chip,
+.wg4 .topbar .right > .xp,
+.wg4 .topbar .right > .xp-ctl,
+.wg4 .topbar .right > div {
+  background: transparent !important;
+  border: 0 !important;
+}
+.wg4 .topbar .right .lv-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 6px 12px !important;
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-strong) !important;
+  border-radius: var(--wg4-r-pill) !important;
+}
+.wg4 .topbar .right .lv-chip .k {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .topbar .right .lv-chip .v {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.5px !important;
+}
+.wg4 .topbar .right .xp {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  min-width: 180px !important;
+}
+.wg4 .topbar .right .xp .row {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 8px !important;
+}
+.wg4 .topbar .right .xp .row > span:first-child {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .topbar .right .xp .row .nums {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink) !important;
+  margin-left: auto !important;
+}
+.wg4 .topbar .right .xp .row .nums input {
+  width: 36px !important;
+  background: transparent !important;
+  border: 0 !important;
+  text-align: right !important;
+  color: var(--wg4-accent) !important;
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  outline: none !important;
+  padding: 0 !important;
+}
+.wg4 .topbar .right .xp .bar {
+  height: 4px !important;
+  background: var(--wg4-surface-2) !important;
+  border-radius: var(--wg4-r-pill) !important;
+  overflow: hidden !important;
+}
+.wg4 .topbar .right .xp .bar .fill {
+  height: 100% !important;
+  background: linear-gradient(90deg, var(--wg4-accent-ink), var(--wg4-accent)) !important;
+  border-radius: var(--wg4-r-pill) !important;
+}
+/* The actual JSX renders an .xp-ctl FORM with: button(+) + input + button(▸) */
+.wg4 .topbar .right .xp-ctl {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin: 0 !important;
+}
+.wg4 .topbar .right .xp-ctl input {
+  width: 50px !important;
+  padding: 5px 6px !important;
+  background: transparent !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 11px !important;
+  color: var(--wg4-ink) !important;
+  outline: none !important;
+  text-align: center !important;
+}
+.wg4 .topbar .right .xp-ctl input::placeholder {
+  color: var(--wg4-ink-5) !important;
+}
+.wg4 .topbar .right .xp-ctl button {
+  width: 24px !important;
+  height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  color: var(--wg4-ink-3) !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 0 !important;
+}
+.wg4 .topbar .right .xp-ctl button:hover {
+  background: var(--wg4-surface-2) !important;
+  border-color: var(--wg4-border-strong) !important;
+  color: var(--wg4-ink) !important;
+}
+/* The + button gets a filled rust look (it's the primary add-XP action) */
+.wg4 .topbar .right .xp-ctl button[type='submit']:first-of-type {
+  background: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  color: #fff !important;
+  font-size: 14px !important;
+}
+.wg4 .topbar .right .xp-ctl button[type='submit']:first-of-type:hover {
+  background: var(--wg4-accent-ink) !important;
+  border-color: var(--wg4-accent-ink) !important;
+  color: #fff !important;
+}
+.wg4 .topbar .right .menu-btn,
+.wg4 .topbar .right .icon-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  background: transparent !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  color: var(--wg4-ink-3) !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  padding: 0 !important;
+}
+.wg4 .topbar .right .menu-btn:hover,
+.wg4 .topbar .right .icon-btn:hover {
+  background: var(--wg4-surface-2) !important;
+  color: var(--wg4-ink) !important;
+}
+
+/* ───── Proposal 03: Inventory currency + inline bulk + Add Item filled ───── */
+.wg4 .wealth-strip,
+.wg4 .inv-top {
+  display: flex !important;
+  align-items: center !important;
+  gap: 24px !important;
+  padding: 12px 16px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .coins,
+.wg4 .coins-row {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.wg4 .coin {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 12px 5px 6px !important;
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-pill) !important;
+}
+.wg4 .coin .pic.disk,
+.wg4 .coin .disk {
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  color: #fff !important;
+}
+.wg4 .coin.pp .pic.disk,
+.wg4 .coin.pp .disk { background: linear-gradient(180deg, #cfcfd0, #8a8a8d) !important; }
+.wg4 .coin.gp .pic.disk,
+.wg4 .coin.gp .disk { background: linear-gradient(180deg, #e6c067, #b08738) !important; }
+.wg4 .coin.sp .pic.disk,
+.wg4 .coin.sp .disk { background: linear-gradient(180deg, #c8c8ca, #888a90) !important; }
+.wg4 .coin.cp .pic.disk,
+.wg4 .coin.cp .disk { background: linear-gradient(180deg, #d4a274, #8a4f2a) !important; }
+.wg4 .coin .v {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .coin .k {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+}
+/* Bulk indicator becomes inline-right of coins instead of its own block */
+.wg4 .wealth-strip .bulk-indicator,
+.wg4 .inv-top .bulk-indicator {
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 2px !important;
+  padding: 0 !important;
+}
+.wg4 .bulk-indicator .eyebrow {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .bulk-indicator .line {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 4px !important;
+}
+.wg4 .bulk-indicator .cur {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.4px !important;
+}
+.wg4 .bulk-indicator .sep {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 14px !important;
+  color: var(--wg4-ink-4) !important;
+  margin: 0 2px !important;
+}
+.wg4 .bulk-indicator .max {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 14px !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .bulk-indicator .hint {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  color: var(--wg4-ink-4) !important;
+  margin-left: 4px !important;
+}
+.wg4 .bulk-indicator .rule {
+  display: none !important;
+}
+.wg4 .bulk-indicator .caption {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .bulk-indicator .caption b {
+  color: var(--wg4-ink-2) !important;
+  font-weight: 600 !important;
+}
+.wg4 .bulk-indicator.over .cur,
+.wg4 .bulk-indicator.over .caption {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .bulk-indicator.over .caption b {
+  color: var(--wg4-accent) !important;
+}
+
+/* Inventory Add Item button: filled rust pill instead of dashed outline */
+.wg4 .inv-add-btn,
+.wg4 .inv-toolbar .add,
+.wg4 .inv-toolbar .inv-add-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 14px !important;
+  background: var(--wg4-accent) !important;
+  border: 1px solid var(--wg4-accent) !important;
+  border-radius: var(--wg4-r-pill) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: #fff !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+}
+.wg4 .inv-add-btn:hover,
+.wg4 .inv-toolbar .inv-add-btn:hover {
+  background: var(--wg4-accent-ink) !important;
+  border-color: var(--wg4-accent-ink) !important;
+  color: #fff !important;
+}
+.wg4 .inv-add-btn .plus {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  font-weight: 500 !important;
+  color: #fff !important;
+}
+
+/* ───── Proposal 04: Feats filter pills — text only on inactive ───── */
+.wg4 .feat-search .filter {
+  padding: 5px 12px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--wg4-r-pill) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+  cursor: pointer !important;
+}
+.wg4 .feat-search .filter:hover {
+  background: var(--wg4-surface-hover) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .feat-search .filter.on {
+  background: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  color: #fff !important;
+}
+
+/* ───── Proposal 05: Details — borderless underline form fields ───── */
+.wg4 .codex-details .field-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr 1fr !important;
+  gap: 0 24px !important;
+  padding: 16px 18px !important;
+  background: transparent !important;
+}
+.wg4 .codex-details .field {
+  padding: 6px 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  display: block !important;
+}
+.wg4 .codex-details .field-label,
+.wg4 .codex-details .field .field-label,
+.wg4 .codex-details .field > label {
+  display: block !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  margin-bottom: 4px !important;
+}
+.wg4 .codex-details .field input[type='text'],
+.wg4 .codex-details .field input[type='number'],
+.wg4 .codex-details input.mantine-Input-input,
+.wg4 .codex-details textarea.mantine-Textarea-input {
+  width: 100% !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 14px !important;
+  color: var(--wg4-ink) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.wg4 .codex-details .field input:hover,
+.wg4 .codex-details input.mantine-Input-input:hover {
+  border-bottom-color: var(--wg4-border-strong) !important;
+}
+.wg4 .codex-details .field input:focus,
+.wg4 .codex-details input.mantine-Input-input:focus {
+  border-bottom-color: var(--wg4-accent) !important;
+}
+.wg4 .codex-details .field input::placeholder,
+.wg4 .codex-details textarea::placeholder {
+  color: var(--wg4-ink-5) !important;
+  font-style: italic !important;
+}
+.wg4 .codex-details textarea.mantine-Textarea-input {
+  border-bottom: 0 !important;
+  padding: 8px 18px 16px !important;
+  resize: vertical !important;
+  min-height: 60px !important;
+}
+/* Details section parchment — clean surface, hairline head separator */
+.wg4 .codex-details .sec {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-3) !important;
+  padding: 0 0 16px !important;
+  margin-bottom: 12px !important;
+}
+.wg4 .codex-details .sec > .sec-title {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 8px !important;
+  padding: 12px 18px !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  background: transparent !important;
+}
+.wg4 .codex-details .sec > .sec-body {
+  background: transparent !important;
+  padding: 8px 0 0 !important;
+}
+/* Beliefs/Creed cell — rust left border, clean parchment bg */
+.wg4 .codex-details .creed-cell,
+.wg4 .codex-details .belief-cell {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-left: 3px solid var(--wg4-accent) !important;
+  border-radius: var(--wg4-r-2) !important;
+  margin: 4px 18px 0 !important;
+  padding: 10px 14px !important;
+}
+.wg4 .codex-details .creed-cell .k,
+.wg4 .codex-details .belief-cell .k {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-accent) !important;
+  margin-bottom: 4px !important;
+}
+.wg4 .codex-details .creed-cell .v,
+.wg4 .codex-details .belief-cell .v {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 14px !important;
+  color: var(--wg4-ink) !important;
+}
+
+/* ───── Follow-up fix: Pinned action cost glyphs ─────
+ * .wg4-act-card > .ic > <span class="ai" style="font-family: ActionIcons">1</span>
+ * The inline font-family wasn't winning over the @scope :scope * reset
+ * `font-family: var(--font-sans)` in wg4-character-sheet.css. Force the
+ * ActionIcons font on the .ai child with !important so the action glyph
+ * renders instead of the raw digit. */
+.wg4 .wg4-act-card .ic .ai,
+.wg4 .wg4-act-card .ic > span,
+.wg4 .wg4-act-card .ic {
+  font-family: ActionIcons, sans-serif !important;
+}
+.wg4 .wg4-act-card .ic .ai {
+  font-size: 18px !important;
+  color: var(--wg4-accent) !important;
+  filter: none !important;
+  text-shadow: none !important;
+  line-height: 1 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+/* ───── Fix the vertical rust/tan line between vitals and main column ─────
+ * codex.css line 380 sets `.col.main { border-left: 1px solid var(--rule-soft) }`
+ * which paints a 1px line between the persistent left rail and the
+ * tab content area on every non-notes tab. With the new 16px body
+ * gutter that visual divider isn't needed and the user reported the
+ * line "overlapping the vitals" because it sits right against the
+ * vitals card's right edge. Remove the border entirely. */
+.wg4 .col.main {
+  border-left: 0 !important;
+}
+/* Also kill any stray .leaf-margin / .leaf-corner pseudo-elements that
+ * codex-notes-details.css would absolute-position relative to <html>
+ * if those classes ever leak outside a .leaf parent. Scoping them to
+ * inside .leaf ensures they only paint when on the notes tab. */
+.wg4 .leaf-margin {
+  position: static !important;
+  display: none !important;
+}
+.wg4 .leaf-corner-tr,
+.wg4 .leaf-corner-bl,
+.wg4 .leaf-corner-tl,
+.wg4 .leaf-corner-br {
+  display: none !important;
+}
+.wg4 .notes-editor .leaf .leaf-corner-tl,
+.wg4 .notes-editor .leaf .leaf-corner-tr,
+.wg4 .notes-editor .leaf .leaf-corner-bl,
+.wg4 .notes-editor .leaf .leaf-corner-br {
+  display: block !important;
+}
+
+/* ============================================================================
+   NOTES TAB — FULL REDESIGN (matches C:\wonderers guide 2\notes-proposal.html)
+   Replaces the older Notes CSS earlier in this file. These rules sit at
+   the END of the cascade so they win against everything above and
+   against codex-notes-details.css.
+============================================================================ */
+
+/* Body layout — 2 cols (sidebar + editor), gutter on both sides */
+.wg4 .body.body--notes {
+  display: grid !important;
+  grid-template-columns: 300px 1fr !important;
+  gap: 16px !important;
+  padding: 0 16px 16px !important;
+  background: transparent !important;
+}
+
+/* ───── Sidebar ───── */
+.wg4 .col.main.notes-pages {
+  display: flex !important;
+  flex-direction: column !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-right: 1px solid var(--wg4-border-soft) !important;
+  padding: 0 4px 0 0 !important;
+  min-width: 0 !important;
+  overflow: hidden auto !important;
+}
+
+.wg4 .notes-side-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 12px 14px 16px !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.wg4 .notes-side-head::after { display: none !important; }
+.wg4 .notes-side-head .ic {
+  width: 18px !important;
+  height: 18px !important;
+  color: var(--wg4-ink-3) !important;
+  filter: none !important;
+}
+.wg4 .notes-side-head .ic svg {
+  width: 18px !important;
+  height: 18px !important;
+  filter: none !important;
+}
+.wg4 .notes-side-head .label {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .notes-side-head .count {
+  margin-left: auto !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  color: var(--wg4-ink-4) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+}
+.wg4 .notes-side-head .count b {
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+}
+
+/* Search field */
+.wg4 .notes-search {
+  padding: 0 14px 12px !important;
+  display: block !important;
+}
+.wg4 .notes-search input {
+  width: 100% !important;
+  padding: 8px 12px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 13px !important;
+  color: var(--wg4-ink) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.wg4 .notes-search input::placeholder {
+  color: var(--wg4-ink-5) !important;
+  font-style: italic !important;
+}
+
+/* Page rows */
+.wg4 .notes-list {
+  display: flex !important;
+  flex-direction: column !important;
+  background: transparent !important;
+}
+.wg4 .np {
+  display: grid !important;
+  grid-template-columns: 24px 1fr auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 14px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-left: 3px solid transparent !important;
+  cursor: pointer !important;
+  transition: background 0.12s, border-color 0.12s !important;
+}
+.wg4 .np:hover {
+  background: var(--wg4-surface-hover) !important;
+}
+.wg4 .np.on {
+  background: var(--wg4-accent-soft) !important;
+  border-left-color: var(--wg4-accent) !important;
+}
+.wg4 .np-ic {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--wg4-ink-4) !important;
+  font-size: 14px !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+.wg4 .np.on .np-ic {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .np-body {
+  min-width: 0 !important;
+  background: transparent !important;
+}
+.wg4 .np-nm {
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  text-transform: none !important;
+}
+.wg4 .np.on .np-nm { font-weight: 600 !important; }
+.wg4 .np-sub {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: 11px !important;
+  color: var(--wg4-ink-4) !important;
+  letter-spacing: 0 !important;
+  margin-top: 2px !important;
+  text-transform: none !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.wg4 .np-meta {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .np.on .np-meta {
+  color: var(--wg4-accent) !important;
+}
+
+/* + Add Page footer button */
+.wg4 .notes-side-foot {
+  margin-top: auto !important;
+  padding: 14px 12px 4px !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.wg4 .np-add {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding: 10px !important;
+  background: transparent !important;
+  border: 1px dashed var(--wg4-border-strong) !important;
+  border-radius: var(--wg4-r-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+  cursor: pointer !important;
+  height: auto !important;
+  box-shadow: none !important;
+}
+.wg4 .np-add:hover {
+  background: var(--wg4-surface-hover) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .np-add .plus {
+  width: auto !important;
+  height: auto !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--wg4-accent) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+}
+
+/* ───── Editor (right column) ───── */
+.wg4 .col.right.notes-editor {
+  display: flex !important;
+  flex-direction: column !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  min-width: 0 !important;
+}
+
+/* Top toolbar — only save state + theme toggle, no leftover chrome */
+.wg4 .notes-editor .notes-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 4px 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  grid-template-columns: none !important;
+}
+.wg4 .notes-editor .notes-toolbar > div:first-child {
+  display: none !important;
+}
+.wg4 .notes-editor .notes-toolbar .tb-end {
+  margin-left: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+.wg4 .notes-editor .save-state {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .notes-editor .save-state .dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: var(--wg4-accent) !important;
+  box-shadow: 0 0 0 2px var(--wg4-accent-soft) !important;
+}
+.wg4 .notes-editor .gear {
+  width: 24px !important;
+  height: 24px !important;
+  color: var(--wg4-ink-3) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.wg4 .notes-editor .gear:hover {
+  color: var(--wg4-ink) !important;
+}
+
+/* Notes stage = container for the parchment leaf — fill the available
+ * vertical space so the leaf can stretch to occupy the rest of the
+ * editor column (not just sit at its content height). */
+.wg4 .notes-editor .notes-stage {
+  background: transparent !important;
+  padding: 0 !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Parchment LEAF — sized to 3/5 of the viewport width (per user
+ * request), centered in the editor column. Stretches to fill the
+ * stage vertically; padding is bumped to 48px sides + 56px top/bot
+ * so the writing surface feels like a real page. Min-height 800px
+ * so even on short pages it still reads as a sheet of parchment. */
+.wg4 .notes-editor .leaf {
+  position: relative !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-3) !important;
+  padding: 56px 56px 48px !important;
+  background-image: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  flex: 1 1 auto !important;
+  min-height: 800px !important;
+  width: 60vw !important;
+  max-width: 60vw !important;
+  margin: 0 auto !important;
+}
+.wg4 .notes-editor .leaf .leaf-body {
+  min-height: 500px !important;
+}
+/* TipTap editor inside leaf — give it room to grow */
+.wg4 .notes-editor .leaf .ProseMirror,
+.wg4 .notes-editor .leaf .mantine-RichTextEditor-content {
+  min-height: 500px !important;
+}
+
+/* Four rust L-shaped corner brackets */
+.wg4 .notes-editor .leaf .leaf-corner {
+  position: absolute !important;
+  width: 16px !important;
+  height: 16px !important;
+  border: 2px solid var(--wg4-accent) !important;
+  background: transparent !important;
+  display: block !important;
+}
+.wg4 .notes-editor .leaf .leaf-corner-tl {
+  top: 12px !important;
+  left: 12px !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+}
+.wg4 .notes-editor .leaf .leaf-corner-tr {
+  top: 12px !important;
+  right: 12px !important;
+  left: auto !important;
+  border-left: 0 !important;
+  border-bottom: 0 !important;
+}
+.wg4 .notes-editor .leaf .leaf-corner-bl {
+  bottom: 12px !important;
+  left: 12px !important;
+  top: auto !important;
+  border-right: 0 !important;
+  border-top: 0 !important;
+}
+.wg4 .notes-editor .leaf .leaf-corner-br {
+  bottom: 12px !important;
+  right: 12px !important;
+  top: auto !important;
+  left: auto !important;
+  border-left: 0 !important;
+  border-top: 0 !important;
+}
+.wg4 .notes-editor .leaf .leaf-margin {
+  display: none !important;
+}
+
+/* Leaf head: title + PAGE N OF M · PRIVATE CODEX */
+.wg4 .notes-editor .leaf-head {
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: space-between !important;
+  gap: 24px !important;
+  margin-bottom: 16px !important;
+  padding: 0 !important;
+}
+.wg4 .notes-editor .leaf-title {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 28px !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.5px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  outline: none !important;
+  text-transform: none !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+.wg4 .notes-editor .leaf-stamp {
+  text-align: right !important;
+  flex: 0 0 auto !important;
+  font-family: var(--wg4-font-sans) !important;
+  color: var(--wg4-ink-3) !important;
+  background: transparent !important;
+}
+.wg4 .notes-editor .leaf-stamp > span:first-child {
+  display: block !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .notes-editor .leaf-stamp > span:first-child b {
+  color: var(--wg4-accent) !important;
+  font-weight: 600 !important;
+}
+.wg4 .notes-editor .leaf-stamp .dim {
+  display: block !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  font-style: normal !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  margin-top: 2px !important;
+}
+
+/* Leaf body (where RichTextInput renders) */
+.wg4 .notes-editor .leaf-body {
+  background: transparent !important;
+  padding: 0 !important;
+  margin-bottom: 24px !important;
+}
+
+/* TipTap rich-text content typography */
+.wg4 .notes-editor .leaf-body .ProseMirror,
+.wg4 .notes-editor .leaf-body .tiptap,
+.wg4 .notes-editor .leaf-body .mantine-RichTextEditor-content {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 15px !important;
+  line-height: 1.6 !important;
+  color: var(--wg4-ink-2) !important;
+}
+.wg4 .notes-editor .leaf-body p {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: 15px !important;
+  line-height: 1.6 !important;
+  color: var(--wg4-ink-2) !important;
+  margin: 0 0 10px !important;
+}
+.wg4 .notes-editor .leaf-body p strong,
+.wg4 .notes-editor .leaf-body p b,
+.wg4 .notes-editor .leaf-body strong,
+.wg4 .notes-editor .leaf-body b {
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+  font-style: italic !important;
+}
+.wg4 .notes-editor .leaf-body h1,
+.wg4 .notes-editor .leaf-body h2,
+.wg4 .notes-editor .leaf-body h3,
+.wg4 .notes-editor .leaf-body h4,
+.wg4 .notes-editor .leaf-body h5,
+.wg4 .notes-editor .leaf-body h6 {
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin: 18px 0 8px !important;
+  line-height: 1.3 !important;
+}
+.wg4 .notes-editor .leaf-body h1 { font-size: 18px !important; }
+.wg4 .notes-editor .leaf-body h2 { font-size: 16px !important; }
+.wg4 .notes-editor .leaf-body h3 { font-size: 15px !important; }
+.wg4 .notes-editor .leaf-body h4 { font-size: 14px !important; }
+.wg4 .notes-editor .leaf-body ul,
+.wg4 .notes-editor .leaf-body ol {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 15px !important;
+  line-height: 1.6 !important;
+  color: var(--wg4-ink-2) !important;
+  margin: 0 0 12px !important;
+  padding-left: 24px !important;
+}
+.wg4 .notes-editor .leaf-body ul li {
+  list-style: disc !important;
+}
+.wg4 .notes-editor .leaf-body ol li {
+  list-style: decimal !important;
+}
+.wg4 .notes-editor .leaf-body a {
+  color: var(--wg4-accent) !important;
+  text-decoration: underline !important;
+  text-decoration-color: var(--wg4-accent-soft) !important;
+  text-underline-offset: 2px !important;
+}
+.wg4 .notes-editor .leaf-body a:hover {
+  text-decoration-color: var(--wg4-accent) !important;
+}
+.wg4 .notes-editor .leaf-body blockquote {
+  margin: 16px 0 !important;
+  padding: 6px 0 6px 14px !important;
+  border-left: 3px solid var(--wg4-accent) !important;
+  background: transparent !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 14px !important;
+  color: var(--wg4-ink-3) !important;
+}
+
+/* TipTap toolbar inside the leaf — matched to the Edit Item modal's
+   RichTextEditor toolbar (the wg4 .rti look the user approved):
+   a self-contained surface-2 bar with a hairline border + radius,
+   evenly-spaced controls that go dark-ink-filled when active (not
+   rust-tinted). The editor root stays transparent so the parchment
+   leaf shows through — only the toolbar is a contained bar. */
+.wg4 .notes-editor .mantine-RichTextEditor-root {
+  border: 0 !important;
+  background: transparent !important;
+}
+.wg4 .notes-editor .mantine-RichTextEditor-toolbar {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 4px 8px !important;
+  gap: 2px !important;
+  box-shadow: none !important;
+}
+.wg4 .notes-editor .mantine-RichTextEditor-controlsGroup {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  gap: 2px !important;
+}
+.wg4 .notes-editor .mantine-RichTextEditor-control,
+.wg4 .notes-editor button.mantine-RichTextEditor-control {
+  width: 26px !important;
+  height: 26px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: var(--wg4-r-1) !important;
+  color: var(--wg4-ink-3) !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.wg4 .notes-editor .mantine-RichTextEditor-control:hover {
+  background: var(--wg4-surface-hover) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .notes-editor .mantine-RichTextEditor-control[data-active],
+.wg4 .notes-editor .mantine-RichTextEditor-control[data-active='true'] {
+  background: var(--wg4-ink) !important;
+  color: var(--wg4-surface) !important;
+}
+
+/* Page footer (PAGE N OF M bottom-right) */
+.wg4 .notes-editor .leaf-pagenum {
+  margin-top: 32px !important;
+  text-align: right !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .notes-editor .leaf-pagenum b {
+  color: var(--wg4-accent) !important;
+  font-weight: 600 !important;
+}
+
+/* Empty state */
+.wg4 .notes-editor .notes-empty {
+  padding: 40px !important;
+  text-align: center !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  color: var(--wg4-ink-4) !important;
+}
+
+/* ============================================================================
+   DETAILS TAB — FULL REDESIGN (matches D:\Inst\wg4 reference)
+   These rules sit at the END of the cascade so they win against
+   wg4-codex-overrides.css earlier rules and against
+   codex-notes-details.css which only ever knew about a 2-col details
+   grid (the old design). The new design uses three columns:
+     [ persistent left rail ] [ dossier center ] [ origins/profs rail ]
+============================================================================ */
+
+/* ── Body layout — 3-col grid, gutter on both sides ─────────────── */
+.wg4 .body.body--details {
+  display: grid !important;
+  grid-template-columns: 300px 1fr 340px !important;
+  gap: 16px !important;
+  padding: 0 16px 16px !important;
+  background: transparent !important;
+}
+
+/* Reset .col padding/gap for the details main + right cols — we put
+ * a tighter wg4 vertical rhythm on each section instead. The left
+ * vitals rail keeps its own .col.left padding from earlier rules. */
+.wg4 .col.main.codex-details,
+.wg4 .col.right.codex-details-rail {
+  padding: 4px 0 !important;
+  gap: 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-left: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--wg4-accent) transparent !important;
+}
+.wg4 .col.main.codex-details::-webkit-scrollbar,
+.wg4 .col.right.codex-details-rail::-webkit-scrollbar { width: 4px; }
+.wg4 .col.main.codex-details::-webkit-scrollbar-thumb,
+.wg4 .col.right.codex-details-rail::-webkit-scrollbar-thumb {
+  background: var(--wg4-accent);
+}
+
+/* ── Section card — parchment surface, 1px border, generous radius ── */
+.wg4 .codex-details .sec,
+.wg4 .codex-details-rail .sec {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-3) !important;
+  box-shadow: var(--wg4-shadow-card) !important;
+  padding: 0 0 14px !important;
+  margin: 0 !important;
+}
+
+/* ── Section title — left lozenge + label, right sub-meta ──────────
+ * Selectors here use .sec.cd-sec-title-anchor-style — wait, simpler:
+ * we use .sec > .cd-sec-title to match the older
+ * `.codex-details .sec > .sec-title` rule's specificity (3 classes
+ * + 1 child combinator) and then add cd-sec-title to bump it up. */
+.wg4 .codex-details .sec > .cd-sec-title,
+.wg4 .codex-details-rail .sec > .cd-sec-title {
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 11px 16px 10px !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  background: transparent !important;
+}
+.wg4 .codex-details .sec > .cd-sec-title .label,
+.wg4 .codex-details-rail .sec > .cd-sec-title .label {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .codex-details .sec > .cd-sec-title .label .lz,
+.wg4 .codex-details-rail .sec > .cd-sec-title .label .lz {
+  display: inline-block !important;
+  margin-right: 8px !important;
+  color: var(--wg4-accent) !important;
+  font-size: 13px !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .codex-details .sec > .cd-sec-title .cd-sec-sub,
+.wg4 .codex-details-rail .sec > .cd-sec-title .cd-sec-sub {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 12px !important;
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .codex-details .sec > .cd-sec-body,
+.wg4 .codex-details-rail .sec > .cd-sec-body {
+  padding: 12px 16px 0 !important;
+  background: transparent !important;
+}
+
+/* ── HERO — portrait card + name block + chip pills ──────────────── */
+.wg4 .codex-details .cd-hero {
+  padding: 0 !important;
+}
+.wg4 .codex-details .cd-hero-grid {
+  display: grid !important;
+  grid-template-columns: 140px 1fr !important;
+  gap: 22px !important;
+  padding: 18px !important;
+}
+.wg4 .codex-details .cd-portrait {
+  width: 140px;
+  height: 180px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  overflow: hidden;
+}
+.wg4 .codex-details .cd-portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.wg4 .codex-details .cd-portrait-mono {
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 72px;
+  line-height: 1;
+  color: var(--wg4-ink-2);
+}
+.wg4 .codex-details .cd-portrait-pose {
+  font-family: var(--wg4-font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-4);
+}
+.wg4 .codex-details .cd-id {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+.wg4 .codex-details .cd-eyebrow {
+  font-family: var(--wg4-font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--wg4-accent);
+}
+.wg4 .codex-details .cd-name {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: 36px !important;
+  line-height: 1.05 !important;
+  color: var(--wg4-ink) !important;
+  margin: 0 !important;
+  letter-spacing: -0.01em !important;
+}
+.wg4 .codex-details .cd-sub {
+  font-family: var(--wg4-font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-3);
+}
+.wg4 .codex-details .cd-sub i {
+  font-style: normal;
+  color: var(--wg4-ink-5);
+  margin: 0 2px;
+}
+.wg4 .codex-details .cd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.wg4 .codex-details .cd-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-pill);
+  font-family: var(--wg4-font-sans);
+  font-size: 11px;
+  color: var(--wg4-ink-2);
+}
+
+/* ── VITAL STATISTICS — 3-col field grid, hairline underline inputs ── */
+.wg4 .codex-details .cd-field-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr 1fr !important;
+  column-gap: 24px !important;
+  row-gap: 14px !important;
+  padding: 6px 2px 12px !important;
+}
+.wg4 .codex-details .cd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.wg4 .codex-details .cd-field-lbl {
+  font-family: var(--wg4-font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-4);
+}
+.wg4 .codex-details .cd-field-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--wg4-border-soft);
+  border-radius: 0;
+  padding: 4px 0 5px;
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--wg4-ink);
+  outline: none;
+  box-shadow: none;
+  transition: border-color 0.12s;
+}
+.wg4 .codex-details .cd-field-input:hover {
+  border-bottom-color: var(--wg4-border-strong);
+}
+.wg4 .codex-details .cd-field-input:focus {
+  border-bottom-color: var(--wg4-accent);
+}
+.wg4 .codex-details .cd-field-input::placeholder {
+  color: var(--wg4-ink-5);
+  font-style: italic;
+}
+
+/* ── APPEARANCE / PERSONALITY — borderless italic textarea ──────── */
+.wg4 .codex-details .cd-prose {
+  width: 100%;
+  min-height: 96px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 4px 2px 14px;
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--wg4-ink);
+  resize: vertical;
+  outline: none;
+  box-shadow: none;
+}
+.wg4 .codex-details .cd-prose::placeholder {
+  color: var(--wg4-ink-5);
+  font-style: italic;
+}
+
+/* ── BELIEFS & BONDS — Creed cell with rust left border ─────────── */
+.wg4 .codex-details .cd-creed {
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border-soft);
+  border-left: 3px solid var(--wg4-accent);
+  border-radius: var(--wg4-r-2);
+  padding: 10px 14px 12px;
+  margin: 2px 0 8px;
+}
+.wg4 .codex-details .cd-creed-k {
+  font-family: var(--wg4-font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--wg4-accent);
+  margin-bottom: 4px;
+}
+.wg4 .codex-details .cd-creed-v {
+  width: 100%;
+  min-height: 28px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--wg4-ink);
+  resize: vertical;
+  outline: none;
+  box-shadow: none;
+}
+.wg4 .codex-details .cd-creed-v::placeholder {
+  color: var(--wg4-ink-5);
+  font-style: italic;
+}
+
+/* ============================================================================
+   RIGHT RAIL — Origins / Proficiencies / Traits & Size
+============================================================================ */
+
+/* ── ORIGINS — three big cards, icon + label + value ────────────── */
+.wg4 .codex-details-rail .cd-origin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 4px;
+}
+.wg4 .codex-details-rail .cd-origin-card {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-2);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.wg4 .codex-details-rail .cd-origin-card:hover {
+  background: var(--wg4-surface);
+  border-color: var(--wg4-border-strong);
+}
+.wg4 .codex-details-rail .cd-origin-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--wg4-accent-soft);
+  border: 1px solid #d8b9a4;
+  border-radius: var(--wg4-r-2);
+  color: var(--wg4-accent);
+  font-size: 18px;
+  line-height: 1;
+}
+.wg4 .codex-details-rail .cd-origin-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.wg4 .codex-details-rail .cd-origin-k {
+  font-family: var(--wg4-font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-4);
+}
+.wg4 .codex-details-rail .cd-origin-v {
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.2;
+  color: var(--wg4-ink);
+}
+.wg4 .codex-details-rail .cd-origin-sub {
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--wg4-ink-3);
+  margin-top: 2px;
+}
+
+/* ── PROFICIENCIES — grouped rows with prof-letter badge ─────────── */
+.wg4 .codex-details-rail .cd-prof-group {
+  margin-top: 6px;
+}
+.wg4 .codex-details-rail .cd-prof-group:first-child {
+  margin-top: 0;
+}
+.wg4 .codex-details-rail .cd-prof-group-h {
+  font-family: var(--wg4-font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-4);
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--wg4-border-soft);
+  margin-bottom: 4px;
+}
+.wg4 .codex-details-rail .cd-prof-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  cursor: pointer;
+  border-radius: var(--wg4-r-1);
+  transition: background 0.1s;
+}
+.wg4 .codex-details-rail .cd-prof-row:hover {
+  background: var(--wg4-surface-hover);
+}
+.wg4 .codex-details-rail .cd-prof-k {
+  font-family: var(--wg4-font-sans);
+  font-size: 12px;
+  color: var(--wg4-ink-2);
+}
+.wg4 .codex-details-rail .cd-prof-k em {
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--wg4-ink-4);
+}
+.wg4 .codex-details-rail .cd-prof-v {
+  font-family: var(--wg4-font-mono);
+  font-size: 12px;
+  color: var(--wg4-ink-2);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.wg4 .codex-details-rail .cd-prof-row .prof {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-family: var(--wg4-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--wg4-surface-2);
+  color: var(--wg4-ink-3);
+}
+.wg4 .codex-details-rail .cd-prof-row .prof[data-r="U"] { color: var(--wg4-ink-5); }
+.wg4 .codex-details-rail .cd-prof-row .prof[data-r="T"] { color: var(--wg4-ink-3); }
+.wg4 .codex-details-rail .cd-prof-row .prof[data-r="E"] {
+  color: var(--wg4-accent);
+  background: var(--wg4-accent-soft);
+}
+.wg4 .codex-details-rail .cd-prof-row .prof[data-r="M"] {
+  color: #f6f3eb;
+  background: var(--wg4-ink);
+}
+.wg4 .codex-details-rail .cd-prof-row .prof[data-r="L"] {
+  color: var(--wg4-accent);
+  background: var(--wg4-accent-soft);
+}
+
+/* ── TRAITS & SIZE — parchment pills + size summary ──────────────── */
+.wg4 .codex-details-rail .cd-trait-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 10px;
+}
+.wg4 .codex-details-rail .cd-trait-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: var(--wg4-accent-soft);
+  border: 1px solid #d8b9a4;
+  border-radius: 3px;
+  font-family: var(--wg4-font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wg4-accent-ink);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.wg4 .codex-details-rail .cd-trait-pill:hover {
+  background: #e3c8b2;
+  border-color: var(--wg4-accent);
+}
+.wg4 .codex-details-rail .cd-size {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--wg4-border-soft);
+  margin-top: 4px;
+}
+.wg4 .codex-details-rail .cd-size-k {
+  font-family: var(--wg4-font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-4);
+}
+.wg4 .codex-details-rail .cd-size-v {
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--wg4-ink);
+}
+.wg4 .codex-details-rail .cd-size-foot {
+  font-family: var(--wg4-font-sans);
+  font-size: 11px;
+  color: var(--wg4-ink-4);
+  margin-top: 2px;
+}
+
+/* =====================================================================
+ * INVENTORY REWRITE — wg4 reference design (Burial Oil screenshot)
+ *
+ * Replaces the older legacy section blocks (.sec / .sec-title) for the
+ * inventory panel with the new structure emitted by CodexInventoryPanel:
+ *   .inv-stack
+ *   ├─ .wealth-strip.inv-top   (coins + bulk indicator)
+ *   ├─ .inv-toolbar            (search + filter pills + Add Item)
+ *   └─ .inv-sec*               (one per section: Equipped / Carried / per-container)
+ *      ├─ .inv-section-head    (small rust icon + uppercase label + italic count)
+ *      └─ .inv-grid            (4-col grid of .inv-card items)
+ *
+ * Everything below is scoped under `.wg4` so it does not leak to other
+ * tabs or to legacy non-codex character sheets.
+ * =================================================================== */
+
+/* ─── 0. Outer stack ──────────────────────────────────────────────── */
+.wg4 .codex-tab-body.inv-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+}
+
+/* ─── 1. Top strip — wealth + bulk ────────────────────────────────── */
+/* Override / replace any earlier .inv-top rules. These are last in
+ * the file so they win at the same specificity. */
+.wg4 .codex-tab-body .wealth-strip,
+.wg4 .codex-tab-body .inv-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  padding: 12px 16px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  box-shadow: var(--wg4-shadow-card) !important;
+}
+.wg4 .codex-tab-body .coins-row {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+}
+.wg4 .codex-tab-body .coin {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 12px 5px 6px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-pill) !important;
+  flex: 0 0 auto !important;
+  cursor: default !important;
+}
+.wg4 .codex-tab-body .coin:hover {
+  background: var(--wg4-surface-2) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+/* 18×18 rounded disk with the P/G/S/C letter inside. */
+.wg4 .codex-tab-body .coin .pic,
+.wg4 .codex-tab-body .coin .pic.disk,
+.wg4 .codex-tab-body .coin .disk {
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  color: #fff !important;
+  border: 1px solid var(--wg4-border-strong) !important;
+  flex-shrink: 0 !important;
+}
+.wg4 .codex-tab-body .coin.pp .pic,
+.wg4 .codex-tab-body .coin.pp .disk {
+  background: linear-gradient(135deg, #e9e8e2, #cfcec8) !important;
+  color: #4a4845 !important;
+  border-color: #b9b5a8 !important;
+}
+.wg4 .codex-tab-body .coin.gp .pic,
+.wg4 .codex-tab-body .coin.gp .disk {
+  background: linear-gradient(135deg, #d8b878, #b18a3e) !important;
+  color: #4a3a16 !important;
+  border-color: #a08446 !important;
+}
+.wg4 .codex-tab-body .coin.sp .pic,
+.wg4 .codex-tab-body .coin.sp .disk {
+  background: linear-gradient(135deg, #d2d0c8, #adaba2) !important;
+  color: #383735 !important;
+  border-color: #9c9990 !important;
+}
+.wg4 .codex-tab-body .coin.cp .pic,
+.wg4 .codex-tab-body .coin.cp .disk {
+  background: linear-gradient(135deg, #c19071, #8e5d3f) !important;
+  color: #fff !important;
+  border-color: #7d4d31 !important;
+}
+.wg4 .codex-tab-body .coin .v {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1 !important;
+  font-style: normal !important;
+}
+.wg4 .codex-tab-body .coin .k {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  line-height: 1 !important;
+  font-style: normal !important;
+}
+
+/* Bulk indicator — right-aligned column inside the top strip. */
+.wg4 .codex-tab-body .wealth-strip .bulk-indicator,
+.wg4 .codex-tab-body .inv-top .bulk-indicator {
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 3px !important;
+  padding: 0 !important;
+  min-width: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.wg4 .codex-tab-body .bulk-indicator .eyebrow {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .codex-tab-body .bulk-indicator .line {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 4px !important;
+  line-height: 1 !important;
+}
+.wg4 .codex-tab-body .bulk-indicator .cur {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.02em !important;
+  font-style: normal !important;
+}
+.wg4 .codex-tab-body .bulk-indicator .sep {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 14px !important;
+  color: var(--wg4-ink-4) !important;
+  margin: 0 1px !important;
+  font-style: normal !important;
+}
+.wg4 .codex-tab-body .bulk-indicator .max {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 14px !important;
+  color: var(--wg4-ink-3) !important;
+  font-weight: 500 !important;
+  font-style: normal !important;
+}
+.wg4 .codex-tab-body .bulk-indicator .hint {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  color: var(--wg4-ink-4) !important;
+  margin-left: 4px !important;
+  font-style: normal !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .codex-tab-body .bulk-indicator .rule {
+  display: block !important;
+  width: 100% !important;
+  min-width: 80px !important;
+  height: 1px !important;
+  background: var(--wg4-border) !important;
+  margin: 2px 0 1px !important;
+}
+.wg4 .codex-tab-body .bulk-indicator .caption {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .codex-tab-body .bulk-indicator .caption b {
+  color: var(--wg4-ink) !important;
+  font-weight: 700 !important;
+}
+.wg4 .codex-tab-body .bulk-indicator.over .cur,
+.wg4 .codex-tab-body .bulk-indicator.over .caption,
+.wg4 .codex-tab-body .bulk-indicator.over .caption b {
+  color: var(--wg4-accent) !important;
+}
+
+/* ─── 2. Toolbar ──────────────────────────────────────────────────── */
+.wg4 .codex-tab-body .inv-toolbar {
+  display: flex !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  height: 44px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+/* Search strip — flex-grow icon + input. */
+.wg4 .codex-tab-body .inv-toolbar .search-strip {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 14px !important;
+  margin: 0 !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .codex-tab-body .inv-toolbar .search-strip .icon {
+  color: var(--wg4-ink-4) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+}
+.wg4 .codex-tab-body .inv-toolbar .search-strip input {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  background: transparent !important;
+  border: 0 !important;
+  outline: none !important;
+  padding: 0 !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 13px !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .codex-tab-body .inv-toolbar .search-strip input::placeholder {
+  color: var(--wg4-ink-4) !important;
+  font-style: italic !important;
+}
+
+/* Filter pill group — ALL / EQUIPPED. */
+.wg4 .codex-tab-body .inv-filter-pills {
+  display: inline-flex !important;
+  align-items: stretch !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-accent) !important;
+  border-radius: var(--wg4-r-pill) !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  flex: 0 0 auto !important;
+}
+.wg4 .codex-tab-body .inv-filter-pills .filter,
+.wg4 .codex-tab-body .inv-filter-pills button {
+  appearance: none !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 18px !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-accent) !important;
+  cursor: pointer !important;
+  border-radius: 0 !important;
+}
+.wg4 .codex-tab-body .inv-filter-pills .filter + .filter,
+.wg4 .codex-tab-body .inv-filter-pills button + button {
+  border-left: 1px solid var(--wg4-accent-soft) !important;
+}
+.wg4 .codex-tab-body .inv-filter-pills .filter.on,
+.wg4 .codex-tab-body .inv-filter-pills button.on {
+  background: var(--wg4-accent) !important;
+  color: #fff !important;
+}
+
+/* Add Item — rust-filled pill on the far right. */
+.wg4 .codex-tab-body .inv-add-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 22px !important;
+  border: 1px solid var(--wg4-accent) !important;
+  background: var(--wg4-accent) !important;
+  border-radius: var(--wg4-r-pill) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: #fff !important;
+  cursor: pointer !important;
+  flex: 0 0 auto !important;
+  box-shadow: none !important;
+}
+.wg4 .codex-tab-body .inv-add-btn:hover {
+  background: var(--wg4-accent-ink) !important;
+  border-color: var(--wg4-accent-ink) !important;
+}
+.wg4 .codex-tab-body .inv-add-btn .plus {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: #fff !important;
+}
+
+/* ─── 3. Section blocks ──────────────────────────────────────────── */
+.wg4 .codex-tab-body .inv-sec {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+.wg4 .codex-tab-body .inv-sec.drop-target {
+  outline: 1px dashed var(--wg4-accent) !important;
+  outline-offset: 4px !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .codex-tab-body .inv-section-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 16px 6px !important;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+  background: transparent !important;
+}
+.wg4 .codex-tab-body .inv-section-head .label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink) !important;
+  font-style: normal !important;
+}
+.wg4 .codex-tab-body .inv-section-head .label .ico {
+  color: var(--wg4-accent) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: 0 !important;
+}
+.wg4 .codex-tab-body .inv-section-head .meta {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 11.5px !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.wg4 .codex-tab-body .inv-section-head .meta .bulk-meta {
+  font-family: var(--wg4-font-mono) !important;
+  font-style: normal !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.05em !important;
+  color: var(--wg4-ink-3) !important;
+  text-transform: uppercase !important;
+}
+.wg4 .codex-tab-body .inv-section-head .meta .bulk-meta b {
+  color: var(--wg4-ink) !important;
+  font-weight: 700 !important;
+}
+.wg4 .codex-tab-body .inv-section-head .meta .bulk-meta.over,
+.wg4 .codex-tab-body .inv-section-head .meta .bulk-meta.over b {
+  color: var(--wg4-accent) !important;
+}
+.wg4 .codex-tab-body .inv-section-head .meta .magic-mark {
+  color: var(--wg4-accent) !important;
+  margin-left: 4px !important;
+  font-size: 11px !important;
+}
+.wg4 .codex-tab-body .inv-section-head .meta .items {
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 11.5px !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 400 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.wg4 .codex-tab-body .inv-section-head .meta .items i {
+  font-style: italic !important;
+}
+
+/* ─── 4. Item grid + cards ───────────────────────────────────────── */
+.wg4 .codex-tab-body .inv-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+@media (max-width: 1300px) {
+  .wg4 .codex-tab-body .inv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 1000px) {
+  .wg4 .codex-tab-body .inv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 700px) {
+  .wg4 .codex-tab-body .inv-grid { grid-template-columns: 1fr !important; }
+}
+
+.wg4 .codex-tab-body .inv-card {
+  display: grid !important;
+  grid-template-columns: 28px 1fr auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 12px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  min-height: 56px !important;
+  position: relative !important;
+  cursor: pointer !important;
+  transition: background .1s, border-color .1s !important;
+}
+.wg4 .codex-tab-body .inv-card:hover {
+  background: var(--wg4-surface-2) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+.wg4 .codex-tab-body .inv-card.dragging {
+  opacity: 0.5 !important;
+}
+/* Special highlight (invested / bound / implanted) — rust left border. */
+.wg4 .codex-tab-body .inv-card.invested {
+  border-left: 3px solid var(--wg4-accent) !important;
+  padding-left: 10px !important;
+}
+
+/* Icon cell — 28×28 box. Default: plain ink-4 svg. */
+.wg4 .codex-tab-body .inv-card .icon-cell {
+  width: 28px !important;
+  height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--wg4-ink-4) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  flex-shrink: 0 !important;
+}
+.wg4 .codex-tab-body .inv-card .icon-cell svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+/* Equipped: rust-outlined circle around the icon. */
+.wg4 .codex-tab-body .inv-card.equipped .icon-cell {
+  color: var(--wg4-accent) !important;
+  border: 1.5px solid var(--wg4-accent) !important;
+  border-radius: 50% !important;
+}
+
+/* Info — name (sans 13.5px medium, NOT italic) + sub (sans 11px ink-4). */
+.wg4 .codex-tab-body .inv-card .info {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.wg4 .codex-tab-body .inv-card .info .name {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  font-weight: 500 !important;
+  font-size: 13.5px !important;
+  letter-spacing: -0.005em !important;
+  text-transform: none !important;
+  color: var(--wg4-ink) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.wg4 .codex-tab-body .inv-card .info .name .qty {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink-4) !important;
+  padding: 1px 5px !important;
+  background: var(--wg4-surface-2) !important;
+  border-radius: 3px !important;
+  font-style: normal !important;
+}
+.wg4 .codex-tab-body .inv-card .info .sub {
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  font-size: 11px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--wg4-ink-4) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-weight: 400 !important;
+}
+
+/* Meta — bulk pill + optional badge. */
+.wg4 .codex-tab-body .inv-card .meta {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+}
+.wg4 .codex-tab-body .inv-card .bulk-pill {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 0 !important;
+  line-height: 1.1 !important;
+}
+.wg4 .codex-tab-body .inv-card .bulk-pill b {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink) !important;
+  font-style: normal !important;
+}
+.wg4 .codex-tab-body .inv-card .bulk-pill .lbl {
+  display: block !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 8px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  font-style: normal !important;
+}
+
+/* Action badges (Equip / Equipped / Invest / Invested / Implant / Implanted).
+ * Filled black pill when the state is "on" (Equipped / Invested);
+ * outlined pill when it's the action (Equip / Invest). */
+.wg4 .codex-tab-body .inv-card .badge,
+.wg4 .codex-tab-body .inv-card .pill-btn {
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 3px 10px !important;
+  border-radius: var(--wg4-r-pill) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  line-height: 1.25 !important;
+  font-style: normal !important;
+}
+/* "Equip" / "Invest" — outlined action pill (not yet active). */
+.wg4 .codex-tab-body .inv-card .badge.equip,
+.wg4 .codex-tab-body .inv-card .badge.invest {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border-strong) !important;
+  color: var(--wg4-ink-2) !important;
+}
+.wg4 .codex-tab-body .inv-card .badge.equip:hover,
+.wg4 .codex-tab-body .inv-card .badge.invest:hover {
+  background: var(--wg4-surface-2) !important;
+  border-color: var(--wg4-ink-4) !important;
+  color: var(--wg4-ink) !important;
+}
+/* "Equipped" / "Invested" / "Implanted" — black filled pill. */
+.wg4 .codex-tab-body .inv-card .badge.equipped,
+.wg4 .codex-tab-body .inv-card .badge.invested,
+.wg4 .codex-tab-body .inv-card .pill-btn.on {
+  background: var(--wg4-ink) !important;
+  color: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-ink) !important;
+}
+.wg4 .codex-tab-body .inv-card .badge.equipped:hover,
+.wg4 .codex-tab-body .inv-card .badge.invested:hover,
+.wg4 .codex-tab-body .inv-card .pill-btn.on:hover {
+  background: #2a2a2a !important;
+  border-color: #2a2a2a !important;
+}
+.wg4 .codex-tab-body .inv-card .badge:disabled,
+.wg4 .codex-tab-body .inv-card .pill-btn:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+}
+
+/* ─── 5. Empty-state messages ───────────────────────────────────── */
+.wg4 .codex-tab-body .inv-empty {
+  padding: 8px 4px 0 !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 11.5px !important;
+  color: var(--wg4-ink-5) !important;
+}
+.wg4 .codex-tab-body .inv-empty.inv-empty-page {
+  padding: 40px !important;
+  text-align: center !important;
+  color: var(--wg4-ink-4) !important;
+}
+
+/* ============================================================================
+   Hide native browser number-spinner arrows globally inside .wg4. The XP
+   add-input is a `<input type='number'>` and Chromium renders up/down
+   spinner buttons on hover. User asked them hidden everywhere — the
+   visible '+' submit button in the .xp-ctl form covers the same intent.
+============================================================================ */
+.wg4 input[type='number']::-webkit-outer-spin-button,
+.wg4 input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+.wg4 input[type='number'] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+/* ============================================================================
+   Page-level scroll for the character sheet. Per user request, the WHOLE
+   main page scrolls as one (document-level scroll) instead of each column
+   getting its own scrollbar. Cols are no longer height-pinned; they grow
+   to their content and the surrounding .codex-sheet-page + .codex-sheet-
+   root handle visibility via the document scrollbar.                    */
+.wg4 .body {
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+.wg4 .col.main,
+.wg4 .col.left {
+  overflow: visible !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  height: auto !important;
+}
+.wg4 .col.main { padding-bottom: 24px !important; }
+.wg4.codex-sheet-page,
+.codex-sheet-page.wg4 {
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 100dvh !important;
+}
+/* Thin parchment-tone scrollbar */
+.wg4 .col.main::-webkit-scrollbar,
+.wg4 .col.left::-webkit-scrollbar,
+.wg4.codex-sheet-page::-webkit-scrollbar {
+  width: 8px !important;
+  background: transparent !important;
+}
+.wg4 .col.main::-webkit-scrollbar-thumb,
+.wg4 .col.left::-webkit-scrollbar-thumb,
+.wg4.codex-sheet-page::-webkit-scrollbar-thumb {
+  background: var(--wg4-border-strong) !important;
+  border-radius: 4px !important;
+}
+.wg4 .col.main::-webkit-scrollbar-thumb:hover,
+.wg4 .col.left::-webkit-scrollbar-thumb:hover,
+.wg4.codex-sheet-page::-webkit-scrollbar-thumb:hover {
+  background: var(--wg4-ink-4) !important;
+}
+
+/* ============================== COLLAPSIBLE SECTIONS ==============================
+   Every section header on the character sheet is clickable: clicking the
+   header toggles whether the body is shown. State is persisted via
+   localStorage and keyed by a stable section ID (see useCollapsedSections).
+
+   Targets three header flavors:
+     .sec-title           — left-rail sections + main-column sections
+                            (CodexSheet, CodexFeatsPanel, CodexDetailsPanel
+                            via .cd-sec-title)
+     .sp-section-head     — spell-rank headers inside the Spells panel
+     .inv-section-head    — inventory container headers inside Inventory
+
+   The wrapping section gets a `.collapsed` modifier when closed. The CSS
+   below hides the matching body (.sec-body, .as-body, .hp-card,
+   .vitals-body, .sp-grid, .sp-body, .inv-body, .inv-grid, .row-list,
+   .cd-sec-body) via display: none.
+================================================================================== */
+.wg4 .sec-title,
+.wg4 .sp-section-head,
+.wg4 .inv-section-head {
+  cursor: pointer !important;
+  user-select: none !important;
+}
+.wg4 .sec-title:hover .label,
+.wg4 .sp-section-head:hover .label,
+.wg4 .inv-section-head:hover .label {
+  color: var(--wg4-ink-1) !important;
+}
+.wg4 .sec-chevron {
+  display: inline-block;
+  font-family: var(--wg4-font-mono);
+  font-size: 9px;
+  color: var(--wg4-ink-4);
+  margin-left: 6px;
+  transition: transform .15s ease;
+  transform: rotate(0deg); /* default = open, glyph points down (▾) */
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.wg4 .sec.collapsed .sec-chevron,
+.wg4 .sp-sec.collapsed .sec-chevron,
+.wg4 .inv-sec.collapsed .sec-chevron,
+.wg4 .cd-sec.collapsed .sec-chevron {
+  transform: rotate(-90deg); /* collapsed = glyph points right (▸) */
+}
+.wg4 .sec.collapsed > .sec-body,
+.wg4 .sec.collapsed > .as-body,
+.wg4 .sec.collapsed > .vitals-body,
+.wg4 .sec.collapsed > .hp-card,
+.wg4 .cd-sec.collapsed > .sec-body,
+.wg4 .cd-sec.collapsed > .cd-sec-body,
+.wg4 .sp-sec.collapsed > .sp-grid,
+.wg4 .sp-sec.collapsed > .sp-body,
+.wg4 .sp-sec.collapsed > .sp-empty-line,
+.wg4 .inv-sec.collapsed > .inv-body,
+.wg4 .inv-sec.collapsed > .inv-grid,
+.wg4 .inv-sec.collapsed > .row-list {
+  display: none !important;
 }

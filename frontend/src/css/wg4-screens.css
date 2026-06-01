@@ -1,0 +1,653 @@
+/* wg4-screens.css — component styles ported VERBATIM from
+ * proposals/wg4-redesigns.html.
+ *
+ * Every previously-dark, never-wg4 screen (Account, Homebrew, Stat-Block
+ * viewer, Content tools, Admin, OAuth, Error/404/401, redirects, window
+ * bar, Spotlight) and the dark-patch components now render with these
+ * exact classes. Each redesigned surface wraps its content in
+ * `<div className='wg4 wg4-screen'>`; the `.wg4` ancestor supplies the
+ * --wg4-* tokens, which we alias to the mockup's local token names here
+ * so the ported rules are byte-for-byte the mockup's.
+ *
+ * Class names match the mockup (`btn`, `card`, `acc`, `row`, `statbox`,
+ * `trait`, `sb`, `bundle`, `hero`, `winbar`, `menu`, `spot`, `tbl`, …).
+ * Every selector is prefixed with `.wg4-screen` so these generic names
+ * can't leak into the rest of the app.
+ *
+ * Portaled widgets (Spotlight, dropdown menus, modals) render outside
+ * `.wg4-screen`; those carry the `wg4-screen` class on their own
+ * root/dropdown so the same rules still apply.
+ */
+
+.wg4-screen {
+  --page: var(--wg4-page);
+  --surface: var(--wg4-surface);
+  --surface-2: var(--wg4-surface-2);
+  --surface-hover: var(--wg4-surface-hover);
+  --border: var(--wg4-border);
+  --border-strong: var(--wg4-border-strong);
+  --border-soft: var(--wg4-border-soft);
+  --ink: var(--wg4-ink);
+  --ink-2: var(--wg4-ink-2);
+  --ink-3: var(--wg4-ink-3);
+  --ink-4: var(--wg4-ink-4);
+  --ink-5: var(--wg4-ink-5);
+  --accent: var(--wg4-accent);
+  --accent-soft: var(--wg4-accent-soft);
+  --accent-ink: var(--wg4-accent-ink);
+  --accent-edge: #d8b9a4;
+  --danger: #9b3b2f;
+  --danger-soft: #f0dcd6;
+  --font-sans: var(--wg4-font-sans);
+  --font-mono: var(--wg4-font-mono);
+  --font-serif: var(--wg4-font-serif);
+  --r1: 4px;
+  --r2: 6px;
+  --r3: 8px;
+  --rpill: 999px;
+  --shadow: 0 1px 2px rgba(60, 50, 35, 0.06), 0 8px 24px rgba(60, 50, 35, 0.07);
+
+  font-family: var(--font-sans);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.wg4-screen *,
+.wg4-screen *::before,
+.wg4-screen *::after {
+  box-sizing: border-box;
+}
+
+/* ── buttons ─────────────────────────────────────────────────────── */
+.wg4-screen .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: var(--rpill);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.wg4-screen .btn:hover {
+  background: var(--accent-ink);
+}
+.wg4-screen .btn.ghost {
+  background: transparent;
+  color: var(--accent-ink);
+  border-color: var(--accent-edge);
+}
+.wg4-screen .btn.ghost:hover {
+  background: var(--accent-soft);
+}
+.wg4-screen .btn.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: #dcc0b8;
+}
+.wg4-screen .btn.sm {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+/* ── primitives ──────────────────────────────────────────────────── */
+.wg4-screen .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r3);
+  box-shadow: var(--shadow);
+}
+.wg4-screen .lbl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.wg4-screen .input {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r2);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+.wg4-screen .input::placeholder {
+  color: var(--ink-5);
+}
+.wg4-screen .muted {
+  color: var(--ink-3);
+}
+.wg4-screen .divider {
+  height: 1px;
+  background: var(--border-soft);
+  border: 0;
+  margin: 0;
+}
+
+/* ── switch ──────────────────────────────────────────────────────── */
+.wg4-screen .sw {
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  position: relative;
+  cursor: pointer;
+  flex: 0 0 40px;
+  border: 0;
+  padding: 0;
+}
+.wg4-screen .sw.on {
+  background: var(--accent);
+}
+.wg4-screen .sw::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  transition: 0.15s;
+}
+.wg4-screen .sw.on::after {
+  left: 20px;
+}
+
+/* ── accordion ───────────────────────────────────────────────────── */
+.wg4-screen .acc {
+  border: 1px solid var(--border);
+  border-radius: var(--r3);
+  overflow: hidden;
+  background: var(--surface);
+}
+.wg4-screen .acc-item {
+  border-bottom: 1px solid var(--border-soft);
+}
+.wg4-screen .acc-item:last-child {
+  border-bottom: 0;
+}
+.wg4-screen .acc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+.wg4-screen .acc-head .ic {
+  color: var(--accent);
+  display: inline-flex;
+}
+.wg4-screen .acc-head .chev {
+  margin-left: auto;
+  color: var(--ink-4);
+  transition: transform 0.15s;
+}
+.wg4-screen .acc-item.open .acc-head .chev {
+  transform: rotate(90deg);
+}
+.wg4-screen .acc-body {
+  padding: 4px 16px 16px;
+}
+.wg4-screen .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px dotted var(--border-soft);
+}
+.wg4-screen .row:last-child {
+  border-bottom: 0;
+}
+.wg4-screen .row .g {
+  flex: 1;
+}
+.wg4-screen .row .g .nm {
+  font-size: 13px;
+}
+.wg4-screen .row .g .ds {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* ── trait chips ─────────────────────────────────────────────────── */
+.wg4-screen .trait {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  padding: 3px 8px;
+  border-radius: var(--r1);
+  display: inline-block;
+}
+.wg4-screen .trait.rare {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-color: var(--accent-edge);
+}
+
+/* ── stat box (drawers) ──────────────────────────────────────────── */
+.wg4-screen .statbox {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r2);
+  padding: 9px 12px;
+}
+.wg4-screen .statbox .k {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.wg4-screen .statbox .v {
+  font-size: 13px;
+  color: var(--ink);
+  margin-top: 2px;
+}
+
+/* ── stat-block (stat-block viewer + creature panels) ────────────── */
+.wg4-screen .sb {
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r3);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.wg4-screen .sb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 2px solid var(--accent);
+}
+.wg4-screen .sb-name {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 24px;
+  font-weight: 500;
+  margin: 0;
+}
+.wg4-screen .sb-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--accent);
+  padding: 3px 11px;
+  border-radius: var(--rpill);
+}
+.wg4-screen .sb-traits {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding: 11px 20px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-soft);
+}
+.wg4-screen .sb-body {
+  padding: 14px 20px 20px;
+}
+.wg4-screen .sb-line {
+  padding: 6px 0;
+  border-bottom: 1px dotted var(--border-soft);
+  font-size: 13px;
+}
+.wg4-screen .sb-line:last-child {
+  border-bottom: 0;
+}
+.wg4-screen .sb-line .key {
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  margin-right: 8px;
+}
+.wg4-screen .sb-line .acc {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+.wg4-screen .sb-line .num {
+  font-family: var(--font-mono);
+}
+.wg4-screen .sb-line .sep {
+  color: var(--ink-5);
+  margin: 0 6px;
+}
+
+/* ── bundle grid (Homebrew) ──────────────────────────────────────── */
+.wg4-screen .grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.wg4-screen .bundle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r3);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.wg4-screen .bundle .tt {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 18px;
+  margin: 0 0 2px;
+}
+.wg4-screen .bundle .meta {
+  font-size: 11.5px;
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+}
+.wg4-screen .bundle .acts {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* ── hero (error / 404 / 401) ────────────────────────────────────── */
+.wg4-screen .hero {
+  text-align: center;
+  padding: 48px 20px;
+}
+.wg4-screen .hero .big {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 72px;
+  font-weight: 500;
+  color: var(--accent);
+  line-height: 1;
+}
+.wg4-screen .hero .ttl {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 26px;
+  margin: 10px 0 6px;
+}
+.wg4-screen .hero p {
+  color: var(--ink-3);
+  max-width: 440px;
+  margin: 0 auto 18px;
+}
+
+/* ── window bar + dropdown menu ──────────────────────────────────── */
+.wg4-screen .winbar {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+.wg4-screen .winbar .drag {
+  flex: 1;
+  font-size: 10px;
+  color: var(--ink-5);
+  font-family: var(--font-mono);
+  padding-left: 6px;
+}
+.wg4-screen .winbar .ham {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r1);
+  border: 1px solid var(--border-strong);
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  cursor: pointer;
+  background: var(--surface-2);
+}
+/* The dropdown menu carries `wg4-screen` on its own root (it portals). */
+.wg4-screen.menu,
+.wg4-screen .menu {
+  width: 190px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  box-shadow: var(--shadow);
+  padding: 5px;
+}
+.wg4-screen.menu .mi,
+.wg4-screen .menu .mi {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--r1);
+  font-size: 13px;
+  cursor: pointer;
+}
+.wg4-screen.menu .mi:hover,
+.wg4-screen .menu .mi:hover {
+  background: var(--surface-hover);
+}
+.wg4-screen .menu .mi .gi {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+}
+
+/* ── spotlight / command palette ─────────────────────────────────── */
+.wg4-screen.spot,
+.wg4-screen .spot {
+  max-width: 520px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r3);
+  box-shadow: 0 18px 60px rgba(60, 50, 35, 0.22);
+  overflow: hidden;
+}
+.wg4-screen .spot .si {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.wg4-screen .spot .si input {
+  border: 0;
+  background: transparent;
+  outline: 0;
+  font-size: 16px;
+  width: 100%;
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+.wg4-screen .spot .res {
+  padding: 6px;
+}
+.wg4-screen .spot .ri {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border-radius: var(--r2);
+  cursor: pointer;
+}
+.wg4-screen .spot .ri.sel,
+.wg4-screen .spot .ri:hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.wg4-screen .spot .ri .ic {
+  width: 18px;
+  color: var(--accent);
+}
+.wg4-screen .spot .ri .meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+}
+
+/* ── table (admin / content tools) ───────────────────────────────── */
+.wg4-screen .tbl {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r3);
+  overflow: hidden;
+}
+.wg4-screen .tbl th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.wg4-screen .tbl td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13px;
+}
+.wg4-screen .tbl tr:last-child td {
+  border-bottom: 0;
+}
+.wg4-screen .badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--rpill);
+}
+.wg4-screen .badge.ok {
+  background: #dcebdc;
+  color: #3c6b3c;
+}
+.wg4-screen .badge.warn {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.wg4-screen .progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+}
+.wg4-screen .progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* ── slider + swatch (Settings appearance) ───────────────────────── */
+.wg4-screen .slider {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  position: relative;
+  margin: 10px 0 26px;
+}
+.wg4-screen .slider .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+  border-radius: 999px;
+}
+.wg4-screen .slider .knob {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--accent);
+  transform: translate(-50%, -50%);
+}
+.wg4-screen .slider .marks {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--ink-4);
+}
+.wg4-screen .swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--border-strong);
+  cursor: pointer;
+}
+
+/* ── note callout ────────────────────────────────────────────────── */
+.wg4-screen .note {
+  font-size: 12px;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r2);
+  padding: 10px 13px;
+  margin-top: 18px;
+}
+
+/* ── bars loader (redirect / loading pages) ──────────────────────── */
+.wg4-screen .wg4-bars {
+  display: flex;
+  gap: 5px;
+  align-items: flex-end;
+  height: 34px;
+}
+.wg4-screen .wg4-bars span {
+  width: 6px;
+  background: var(--accent);
+  border-radius: 3px;
+  animation: wg4-bars 1s infinite;
+}
+.wg4-screen .wg4-bars span:nth-child(1) {
+  height: 18px;
+}
+.wg4-screen .wg4-bars span:nth-child(2) {
+  height: 30px;
+  animation-delay: 0.15s;
+}
+.wg4-screen .wg4-bars span:nth-child(3) {
+  height: 22px;
+  animation-delay: 0.3s;
+}
+@keyframes wg4-bars {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* A redesigned full page fills the viewport with parchment. */
+.wg4-screen.wg4-page-root {
+  min-height: 100%;
+  background: var(--page);
+}

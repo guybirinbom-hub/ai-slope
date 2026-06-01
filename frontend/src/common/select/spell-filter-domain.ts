@@ -15,6 +15,12 @@ import type { Spell } from '@schemas/content';
 
 const MILE_FT = 5280;
 const ROUND_SEC = 6;
+// Wanderer's Guide v4 slider labels use single-letter unit codes so a
+// "5 ft – 30 ft" range packs into the narrow slider track. The "K" used
+// for kilometers below is metric (≈ 1.61 mi); we still parse the
+// underlying spell text in miles via MILE_FT but display kilometers
+// because that's what the approved wg4 mockup shows.
+const KM_FT = 3280.84;
 
 // Distance text → feet. Returns null if unparseable.
 export function parseDistanceFt(s: string | null | undefined): number | null {
@@ -76,30 +82,40 @@ export function parseDurationSec(s: string | null | undefined): number | null {
 }
 
 // Pretty-print a duration in seconds. Used for slider labels.
+// Abbreviated to single-letter unit codes for the wg4 sliders:
+//   rd = round, M = minute, H = hour, D = day, W = week.
 export function formatDurationSec(sec: number): string {
   if (sec < 60) {
     const r = Math.round(sec / ROUND_SEC);
-    return r === 1 ? '1 round' : `${r} rounds`;
+    return r === 1 ? '1 rd' : `${r} rd`;
   }
   if (sec < 3600) {
     const m = Math.round(sec / 60);
-    return m === 1 ? '1 min' : `${m} min`;
+    return `${m} M`;
   }
   if (sec < 86_400) {
     const h = Math.round(sec / 3600);
-    return h === 1 ? '1 hr' : `${h} hr`;
+    return `${h} H`;
   }
-  const d = Math.round(sec / 86_400);
-  return d === 1 ? '1 day' : `${d} days`;
+  if (sec < 604_800) {
+    const d = Math.round(sec / 86_400);
+    return `${d} D`;
+  }
+  const w = Math.round(sec / 604_800);
+  return `${w} W`;
 }
 
 // Pretty-print feet (used for both Range and Area sliders).
+// "F" for feet, "K" for kilometers — anything beyond a kilometer rounds
+// to 1 decimal place. Note we display kilometers (not miles) per the
+// approved wg4 mockup; the underlying data is still parsed in feet/miles
+// via parseDistanceFt above.
 export function formatFeet(ft: number): string {
-  if (ft >= MILE_FT) {
-    const m = Math.round((ft / MILE_FT) * 10) / 10;
-    return m === 1 ? '1 mi' : `${m} mi`;
+  if (ft >= KM_FT) {
+    const k = Math.round((ft / KM_FT) * 10) / 10;
+    return k === 1 ? '1 K' : `${k} K`;
   }
-  return `${ft} ft`;
+  return `${ft} F`;
 }
 
 // Build the slider domain — sorted, unique numeric values for each of

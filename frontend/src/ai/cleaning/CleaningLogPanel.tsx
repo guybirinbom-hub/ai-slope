@@ -152,7 +152,7 @@ function LogEntry({
                   fontSize: '0.7rem',
                   maxHeight: 240,
                   overflow: 'auto',
-                  backgroundColor: colorScheme === 'dark' ? theme.colors.dark[7] : theme.colors.gray[1],
+                  backgroundColor: 'var(--wg4-surface-2)',
                 }}
               >
                 {entry.detail}

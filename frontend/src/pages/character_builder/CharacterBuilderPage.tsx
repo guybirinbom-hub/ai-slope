@@ -87,7 +87,12 @@ export function Component() {
   const initial = (character?.name?.trim() || 'W')[0].toUpperCase();
   const ancestryName = character?.details?.ancestry?.name ?? '—';
   const className = character?.details?.class?.name ?? '—';
-  const rootClass = active === 1 ? 'codex-builder-page' : 'codex-home-page';
+  // Wrap the page in both `.wg4` (so the wg4-builder.css rules apply
+  // — every selector in that file is scoped under .wg4) AND the
+  // mockup-specific `.codex-builder-page` / `.codex-home-page` class
+  // so the children paint correctly. Children no longer carry their
+  // own wg4 wrapper / topbar — the parent owns those.
+  const rootClass = `wg4 ${active === 1 ? 'codex-builder-page' : 'codex-home-page'}`;
   // TS narrows `active` aggressively because handleStepChange typings;
   // widen for the JSX comparisons below.
   const step: number = active;
@@ -139,11 +144,13 @@ export function Component() {
         </div>
       </div>
 
-      {/* Topbar — character crest + Home/Build/Sheet nav. No
-          hamburger here; window controls live in the .winbar above
-          and the app-level menu (the "big" floating hamburger) lives
-          elsewhere. */}
-      <div className='topbar'>
+      {/* Topbar — character crest + Home/Build/Sheet nav as 3 column
+          buttons that span the full width. Uses `.builder-topbar` so
+          the wg4-builder.css styling kicks in (grid columns, hairline
+          dividers, accent underline on `.on`). Same layout regardless
+          of which step is active — Home / Build / Sheet are always
+          rendered as nav-step columns, never as pill buttons. */}
+      <div className='builder-topbar'>
         <div className='who'>
           <div className='crest'>{initial}</div>
           <div className='label'>
@@ -154,37 +161,7 @@ export function Component() {
           </div>
         </div>
 
-        {step === 1 ? (
-          // Builder mode: 3 mode buttons in a flex .mode-row (matches
-          // codex-builder mockup). Inside this branch TS knows step
-          // is 1, so the middle button is always 'on'.
-          <div className='mode-row'>
-            <button
-              type='button'
-              className='m-btn'
-              onClick={() => handleStepChange(0)}
-            >
-              <IconHome size={14} /> Home
-            </button>
-            <button
-              type='button'
-              className='m-btn on'
-              onClick={() => handleStepChange(1)}
-            >
-              <IconHammer size={14} /> Build
-            </button>
-            <button
-              type='button'
-              className='m-btn'
-              disabled={!isPlayable(character)}
-              onClick={() => handleStepChange(2)}
-            >
-              <IconUser size={14} /> Sheet
-            </button>
-          </div>
-        ) : (
-          // Home mode: 3 nav-step columns (matches codex-home mockup).
-          <>
+        <>
             <button
               type='button'
               className={`nav-step${step === 0 ? ' on' : ''}`}
@@ -207,8 +184,7 @@ export function Component() {
             >
               <IconUser size={18} /> Sheet
             </button>
-          </>
-        )}
+        </>
 
         {/* Hamburger menu — lives INSIDE the topbar's right cluster so
             the codex shell owns the navigation surface end-to-end. The
@@ -254,10 +230,11 @@ export function Component() {
       </div>
 
       {/* Step content. Home and Builder each own their inner shell
-          (.crumb-strip + .home-wrap for home; .levels + .body for
-          builder). We render the active step only — others are
-          unmounted. */}
-      <div style={{ minHeight: pageHeight }}>
+          (.home-wrap for home; .levels + .body for builder). We render
+          the active step only — others are unmounted. The container's
+          min-height is removed so the page sizes to its actual content
+          height — no scrolling on shorter level pages. */}
+      <div>
         {step === 0 && character && !isLoading && (
           <CharBuilderHome
             characterId={character.id}

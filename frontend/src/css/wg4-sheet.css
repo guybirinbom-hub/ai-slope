@@ -1,0 +1,1697 @@
+/* wg4-sheet.css — markup for the wg4 sheet redesign.
+ *
+ * Mirrors the structure in wg4-mockups/sheet-main.html. Loaded AFTER
+ * wg4.css + wg4-codex-overrides.css so these selectors win.
+ *
+ * Scoped under .wg4 so the codex pages that aren't opted in (Builder,
+ * Homebrew, Account, Content Update) keep their existing styling.
+ */
+
+/* ─── TOPBAR ────────────────────────────────────────────────── */
+.wg4 .wg4-sheet-topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 18px 14px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--wg4-border);
+  background: transparent !important;
+}
+.wg4 .wg4-sheet-topbar > .who { flex: 0 0 auto; min-width: 0; }
+.wg4 .wg4-sheet-topbar > .tabs { margin: 0 auto; flex: 0 0 auto; }
+.wg4 .wg4-sheet-topbar > .right-cluster { flex: 0 0 auto; }
+.wg4 .wg4-sheet-topbar::after { display: none !important; }
+
+.wg4 .wg4-sheet-topbar .who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-right: 0 !important;
+  white-space: nowrap;
+  min-width: 180px;
+}
+.wg4 .wg4-sheet-topbar .who > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.wg4 .wg4-sheet-topbar .crest {
+  width: 44px; height: 44px;
+  border-radius: 50% !important;
+  background: linear-gradient(145deg, var(--wg4-accent-soft) 0%, #d3b7a0 70%) !important;
+  border: 1px solid var(--wg4-border-strong) !important;
+  display: grid; place-items: center;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important; font-weight: 500 !important;
+  font-size: 22px !important; color: var(--wg4-accent-ink) !important;
+  box-shadow: none !important;
+  text-transform: none !important;
+}
+.wg4 .wg4-sheet-topbar .who .name {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important; font-weight: 500 !important;
+  font-size: 22px !important; color: var(--wg4-ink) !important;
+  letter-spacing: -0.005em !important; line-height: 1.1 !important;
+  text-transform: none !important;
+}
+.wg4 .wg4-sheet-topbar .who .sub {
+  margin-top: 1px;
+  color: var(--wg4-ink-3) !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  font-family: var(--wg4-font-sans) !important;
+  display: flex; align-items: center; gap: 4px;
+}
+.wg4 .wg4-sheet-topbar .who .sub i {
+  color: var(--wg4-ink-5);
+  font-style: normal;
+}
+.wg4 .wg4-sheet-topbar .who .sub .rest-chip {
+  margin-left: 4px;
+  padding: 1px 8px 1px 6px;
+  border: 1px solid var(--wg4-border);
+  border-radius: var(--wg4-r-pill);
+  background: var(--wg4-surface);
+  color: var(--wg4-ink-3);
+  font-size: 10.5px;
+  display: inline-flex; align-items: center; gap: 4px;
+  cursor: pointer;
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .wg4-sheet-topbar .who .sub .rest-chip:hover {
+  background: var(--wg4-surface-hover);
+  color: var(--wg4-ink);
+}
+
+.wg4 .wg4-sheet-topbar .tabs {
+  display: flex; align-items: center; gap: 2px;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  border-radius: var(--wg4-r-pill);
+  padding: 3px;
+  overflow: visible;
+}
+.wg4 .wg4-sheet-topbar .tabs .tab {
+  appearance: none; background: transparent !important; border: 0 !important;
+  padding: 6px 14px !important;
+  border-radius: var(--wg4-r-pill) !important;
+  font-size: 12px !important; font-weight: 500 !important;
+  color: var(--wg4-ink-3) !important;
+  font-family: var(--wg4-font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer;
+}
+.wg4 .wg4-sheet-topbar .tabs .tab::after { display: none !important; }
+.wg4 .wg4-sheet-topbar .tabs .tab:hover { color: var(--wg4-ink) !important; }
+.wg4 .wg4-sheet-topbar .tabs .tab.on {
+  background: var(--wg4-surface-2) !important;
+  color: var(--wg4-ink) !important;
+  box-shadow: 0 1px 2px rgba(20,20,20,.04);
+}
+
+.wg4 .wg4-sheet-topbar .right-cluster {
+  display: flex; align-items: center; gap: 12px; justify-content: flex-end;
+  border-left: 0 !important;
+}
+.wg4 .wg4-sheet-topbar .lv-chip {
+  padding: 4px 12px;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  border-radius: var(--wg4-r-2);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-3);
+  font-weight: 600;
+  font-family: var(--wg4-font-sans);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.wg4 .wg4-sheet-topbar .lv-chip b {
+  color: var(--wg4-ink);
+  font-family: var(--wg4-font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wg4 .wg4-sheet-topbar .xp {
+  display: grid;
+  grid-template-columns: auto 90px auto;
+  gap: 8px; align-items: center;
+}
+.wg4 .wg4-sheet-topbar .xp .label {
+  font-size: 10px; letter-spacing: 0.12em;
+  color: var(--wg4-ink-4); text-transform: uppercase;
+  font-family: var(--wg4-font-sans); font-weight: 600;
+}
+.wg4 .wg4-sheet-topbar .xp .bar {
+  height: 5px;
+  border-radius: var(--wg4-r-pill);
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  position: relative; overflow: hidden;
+}
+.wg4 .wg4-sheet-topbar .xp .bar .fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--wg4-accent);
+}
+.wg4 .wg4-sheet-topbar .xp .vals {
+  font-family: var(--wg4-font-mono);
+  color: var(--wg4-ink-2); font-size: 11.5px;
+}
+.wg4 .wg4-sheet-topbar .xp-ctl {
+  display: inline-flex; align-items: center;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  border-radius: var(--wg4-r-2);
+  padding: 2px; gap: 0;
+}
+.wg4 .wg4-sheet-topbar .xp-ctl button {
+  appearance: none; background: transparent; border: 0;
+  width: 22px; height: 22px;
+  color: var(--wg4-ink-3); border-radius: 3px;
+  display: grid; place-items: center;
+  font-family: var(--wg4-font-mono); font-size: 13px;
+  cursor: pointer;
+}
+.wg4 .wg4-sheet-topbar .xp-ctl span {
+  padding: 0 8px; font-size: 10px; color: var(--wg4-ink-4);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  font-family: var(--wg4-font-sans); font-weight: 600;
+}
+.wg4 .wg4-sheet-topbar .xp-ctl button:hover {
+  background: var(--wg4-surface-2);
+  color: var(--wg4-ink);
+}
+.wg4 .wg4-sheet-topbar .menu-btn {
+  appearance: none; background: transparent;
+  width: 30px; height: 30px;
+  border: 1px solid var(--wg4-border);
+  border-radius: var(--wg4-r-2);
+  color: var(--wg4-ink-3);
+  display: grid; place-items: center;
+  line-height: 1; font-size: 16px;
+  cursor: pointer;
+}
+.wg4 .wg4-sheet-topbar .menu-btn:hover {
+  background: var(--wg4-surface);
+  color: var(--wg4-ink);
+}
+
+/* ─── BODY GRID ──────────────────────────────────────────── */
+.wg4 .wg4-sheet-body {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 14px;
+  align-items: start;
+  padding: 0 18px 60px;
+}
+.wg4 .wg4-sheet-body .col.left,
+.wg4 .wg4-sheet-body .col.main {
+  display: flex; flex-direction: column; gap: 12px;
+  background: transparent !important;
+}
+
+/* ─── VITALS CARD (new) ──────────────────────────────────── */
+.wg4 .vitals-body { padding: 14px 16px 12px; }
+.wg4 .vitals-body .hp-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.wg4 .vitals-body .hp-num { display: flex; align-items: baseline; gap: 6px; font-family: var(--wg4-font-mono); }
+.wg4 .vitals-body .hp-num .cur {
+  font-size: 32px; font-weight: 500; color: var(--wg4-accent);
+  letter-spacing: -0.03em; line-height: 1;
+  font-family: var(--wg4-font-mono);
+}
+.wg4 .vitals-body .hp-num .cur-input {
+  font-size: 32px; font-weight: 500; color: var(--wg4-accent);
+  letter-spacing: -0.03em; line-height: 1;
+  font-family: var(--wg4-font-mono);
+  background: transparent; border: 0; padding: 0;
+  width: 2.6em; text-align: right;
+  outline: none;
+}
+.wg4 .vitals-body .hp-num .cur-input:focus {
+  border-bottom: 1px solid var(--wg4-accent);
+}
+.wg4 .vitals-body .hp-num .max {
+  font-size: 16px; color: var(--wg4-ink-3);
+  font-weight: 400;
+  font-family: var(--wg4-font-mono);
+}
+.wg4 .vitals-body .hp-num .lbl {
+  font-size: 11px; color: var(--wg4-ink-4);
+  margin-left: 4px; letter-spacing: 0.08em; text-transform: uppercase;
+  font-family: var(--wg4-font-sans); font-weight: 600;
+}
+.wg4 .vitals-body .hp-temp { text-align: right; }
+.wg4 .vitals-body .hp-temp .lbl { font-size: 9.5px; color: var(--wg4-ink-4); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; font-family: var(--wg4-font-sans); }
+.wg4 .vitals-body .hp-temp .v { font-family: var(--wg4-font-mono); color: var(--wg4-ink-4); font-size: 15px; margin-top: 1px; }
+.wg4 .vitals-body .hp-temp .v-input {
+  font-family: var(--wg4-font-mono); color: var(--wg4-ink); font-size: 15px;
+  background: transparent; border: 0; padding: 0;
+  width: 2em; text-align: right; outline: none;
+}
+
+.wg4 .vitals-body .hp-bar {
+  height: 5px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-pill);
+  position: relative; overflow: hidden;
+  margin-bottom: 12px;
+}
+.wg4 .vitals-body .hp-bar .fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--wg4-accent);
+}
+
+.wg4 .vitals-body .resists {
+  font-family: 'Newsreader', ui-serif, Georgia, serif;
+  font-style: italic;
+  font-size: 11.5px; color: var(--wg4-ink-4);
+  padding: 2px 0 10px;
+  border-bottom: 1px solid var(--wg4-border-soft);
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.wg4 .vitals-body .resists:hover { color: var(--wg4-ink-2); }
+
+.wg4 .vitals-body .vitals-pair {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.wg4 .vitals-body .vitals-pair .pcell {
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-2);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.wg4 .vitals-body .vitals-pair .pcell:hover { background: var(--wg4-surface-hover); }
+.wg4 .vitals-body .vitals-pair .pcell .k {
+  font-size: 9px; color: var(--wg4-ink-4);
+  letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600;
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .vitals-body .vitals-pair .pcell .v {
+  font-family: var(--wg4-font-mono);
+  font-size: 18px; color: var(--wg4-ink); font-weight: 500;
+  margin-top: 2px;
+}
+
+/* ─── SPEED & SENSES ──────────────────────────────────── */
+.wg4 .ss-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.wg4 .ss-row .k {
+  font-size: 9.5px; color: var(--wg4-ink-4);
+  letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600;
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .ss-row .v-num {
+  font-family: var(--wg4-font-mono);
+  font-size: 18px; color: var(--wg4-ink); font-weight: 500;
+  margin-top: 1px;
+}
+.wg4 .ss-row .v-num .u { font-size: 11px; color: var(--wg4-ink-4); margin-left: 4px; }
+.wg4 .ss-row .v-text {
+  font-size: 12.5px; color: var(--wg4-ink-2);
+  margin-top: 4px; line-height: 1.3;
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .ss-row .v-text .chip {
+  display: inline-flex; align-items: center;
+  padding: 1px 7px;
+  margin: 2px 4px 2px 0;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--wg4-ink-2);
+  cursor: pointer;
+}
+.wg4 .ss-row .v-text .chip:hover { background: var(--wg4-surface-hover); color: var(--wg4-ink); }
+
+/* ─── HERO POINTS ───────────────────────────────────── */
+.wg4 .hp-points {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.wg4 .hp-points .hp-pips { display: flex; gap: 5px; }
+.wg4 .hp-points .hp-pip {
+  width: 14px; height: 14px;
+  transform: rotate(45deg);
+  background: transparent;
+  border: 1.5px solid var(--wg4-accent);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.wg4 .hp-points .hp-pip.on { background: var(--wg4-accent); }
+.wg4 .hp-points .hp-count {
+  font-family: var(--wg4-font-mono);
+  color: var(--wg4-ink-4); font-size: 11.5px;
+}
+.wg4 .hp-points .hp-count b { color: var(--wg4-ink); font-weight: 500; }
+
+/* ─── SAVES & PERCEPTION ───────────────────────────── */
+.wg4 .saves-list { display: flex; flex-direction: column; gap: 8px; }
+.wg4 .saves-list .save-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px; align-items: baseline;
+  cursor: pointer;
+  background: transparent !important;
+  border-bottom: 0 !important;
+  padding: 0 !important;
+}
+.wg4 .saves-list .save-row .k {
+  font-size: 12.5px; color: var(--wg4-ink-2);
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .saves-list .save-row .k .rider {
+  font-family: 'Newsreader', ui-serif, Georgia, serif;
+  font-style: italic;
+  color: var(--wg4-ink-4); font-size: 10.5px;
+  margin-left: 6px;
+}
+.wg4 .saves-list .save-row .v {
+  font-family: var(--wg4-font-mono);
+  font-size: 14px; color: var(--wg4-ink); font-weight: 500;
+  min-width: 32px; text-align: right;
+}
+
+/* Proficiency rank letter box (used for both saves and skills) */
+.wg4 .prof-box {
+  display: inline-grid; place-items: center;
+  width: 18px; height: 18px;
+  border-radius: 3px;
+  font-family: var(--wg4-font-mono);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.wg4 .prof-box.U { background: transparent; border: 1px solid var(--wg4-border-soft); color: var(--wg4-ink-5); }
+.wg4 .prof-box.T { background: var(--wg4-surface-2); border: 1px solid var(--wg4-border); color: var(--wg4-ink-3); }
+.wg4 .prof-box.E { background: var(--wg4-accent-soft); border: 1px solid #d8b9a4; color: var(--wg4-accent-ink); }
+.wg4 .prof-box.M { background: var(--wg4-ink); border: 1px solid var(--wg4-ink); color: var(--wg4-surface); }
+.wg4 .prof-box.L { background: var(--wg4-accent); border: 1px solid var(--wg4-accent); color: #fff; }
+
+/* ─── CONDITIONS ──────────────────────────────────── */
+.wg4 .cond-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.wg4 .cond-pills .cond-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 4px 3px 10px;
+  background: var(--wg4-accent-soft) !important;
+  border: 1px solid #d8b9a4 !important;
+  border-radius: var(--wg4-r-pill) !important;
+  font-size: 11px; color: var(--wg4-accent-ink) !important; font-weight: 500;
+  cursor: pointer;
+}
+.wg4 .cond-pills .cond-pill .v-count {
+  font-family: var(--wg4-font-mono);
+  background: rgba(176,84,47,0.18);
+  padding: 1px 5px; border-radius: var(--wg4-r-pill);
+  font-size: 10px;
+}
+.wg4 .cond-pills .cond-pill .x {
+  color: var(--wg4-accent-ink);
+  width: 16px; height: 16px;
+  display: inline-grid; place-items: center;
+  cursor: pointer; opacity: 0.5;
+  font-size: 12px;
+  background: transparent; border: 0;
+  padding: 0;
+}
+.wg4 .cond-pills .cond-pill .x:hover { opacity: 1; }
+.wg4 .cond-pills .cond-pill .pm {
+  background: transparent; border: 0;
+  color: var(--wg4-accent-ink);
+  width: 14px; height: 14px;
+  display: inline-grid; place-items: center;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+.wg4 .cond-pills .cond-pill .pm:hover { color: var(--wg4-ink); }
+.wg4 .cond-pills .cond-empty {
+  font-family: 'Newsreader', ui-serif, Georgia, serif;
+  font-style: italic;
+  color: var(--wg4-ink-4);
+  font-size: 11.5px;
+}
+
+/* ─── LANGUAGES ────────────────────────────────────── */
+.wg4 .lang-list {
+  font-size: 12.5px;
+  color: var(--wg4-ink-2);
+  line-height: 1.7;
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .lang-list .dot { color: var(--wg4-ink-5); margin: 0 6px; }
+
+/* ─── ABILITIES & SKILLS ──────────────────────────── */
+.wg4 .as-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  padding: 14px 16px;
+}
+.wg4 .attr-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 78px);
+  grid-template-rows: repeat(3, auto);
+  gap: 6px;
+}
+.wg4 .attr-cube {
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  border-radius: var(--wg4-r-2);
+  padding: 8px 10px;
+  position: relative;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .attr-cube:hover { background: var(--wg4-surface-2); }
+.wg4 .attr-cube.on {
+  background: var(--wg4-ink);
+  border-color: var(--wg4-ink);
+}
+.wg4 .attr-cube.on .k { color: var(--wg4-ink-5); }
+.wg4 .attr-cube.on .v { color: #fff; }
+.wg4 .attr-cube.on .raw { color: var(--wg4-ink-5); }
+.wg4 .attr-cube .k {
+  font-size: 9.5px; color: var(--wg4-ink-4);
+  letter-spacing: 0.1em; text-transform: capitalize;
+  font-weight: 500;
+}
+.wg4 .attr-cube .v {
+  font-family: var(--wg4-font-mono);
+  font-size: 22px; font-weight: 500;
+  color: var(--wg4-ink); line-height: 1.05;
+  margin-top: 2px;
+}
+.wg4 .attr-cube .raw {
+  font-family: var(--wg4-font-mono);
+  font-size: 10.5px; color: var(--wg4-ink-4);
+  margin-top: 1px;
+}
+.wg4 .attr-cube .boost {
+  position: absolute; top: 6px; right: 8px;
+  color: var(--wg4-ink-5); font-family: var(--wg4-font-mono);
+  font-size: 14px; line-height: 1;
+}
+.wg4 .attr-cube.on .boost { color: var(--wg4-ink-4); }
+
+.wg4 .skills-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: 28px;
+  row-gap: 4px;
+  align-content: start;
+}
+.wg4 .skills-grid .skill-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+.wg4 .skills-grid .skill-row .name {
+  font-size: 12.5px; color: var(--wg4-ink-2);
+  display: inline-flex; align-items: baseline; gap: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .skills-grid .skill-row .name .lore-sub {
+  font-family: 'Newsreader', ui-serif, Georgia, serif;
+  font-style: italic;
+  color: var(--wg4-ink-4); font-size: 11.5px;
+}
+.wg4 .skills-grid .skill-row .name .lore-sep {
+  color: var(--wg4-ink-5); margin: 0 2px;
+}
+.wg4 .skills-grid .skill-row .v {
+  font-family: var(--wg4-font-mono);
+  font-size: 13px; color: var(--wg4-ink); font-weight: 500;
+  min-width: 32px; text-align: right;
+}
+.wg4 .skills-grid .skill-row .v.untrained {
+  font-style: italic; color: var(--wg4-ink-4); font-weight: 400;
+}
+
+/* Skill legend in section title */
+.wg4 .as-legend {
+  font-size: 10px; letter-spacing: 0.06em;
+  color: var(--wg4-ink-4);
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .as-legend b { color: var(--wg4-ink); font-weight: 600; }
+.wg4 .as-legend .ranks {
+  font-family: var(--wg4-font-mono);
+  color: var(--wg4-ink-3);
+  letter-spacing: 0.14em;
+  margin-left: 4px;
+}
+
+/* ─── ACTION CARDS (Pinned & Activities) ───────────── */
+.wg4 .wg4-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.wg4 .wg4-act-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 7px 12px !important;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.wg4 .wg4-act-card:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+.wg4 .wg4-act-card.stripe { padding-left: 14px !important; }
+.wg4 .wg4-act-card.stripe::before {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--wg4-accent);
+}
+.wg4 .wg4-act-card .left {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+}
+.wg4 .wg4-act-card .ic {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center;
+  color: var(--wg4-ink);
+}
+.wg4 .wg4-act-card .info { min-width: 0; }
+.wg4 .wg4-act-card .name {
+  font-size: 12.5px; font-weight: 500;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.005em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  text-transform: none !important;
+}
+.wg4 .wg4-act-card .desc {
+  font-size: 10.5px; color: var(--wg4-ink-4);
+  margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .wg4-act-card .right {
+  text-align: right; flex-shrink: 0; line-height: 1.1;
+}
+.wg4 .wg4-act-card .r1 {
+  font-family: var(--wg4-font-mono);
+  font-size: 13px; font-weight: 500;
+  color: var(--wg4-ink); letter-spacing: -0.01em;
+}
+.wg4 .wg4-act-card .r1.muted { color: var(--wg4-ink-5); font-weight: 400; }
+.wg4 .wg4-act-card .r2 {
+  font-size: 10.5px; color: var(--wg4-ink-4);
+  font-family: var(--wg4-font-mono);
+  margin-top: 1px;
+}
+.wg4 .wg4-act-card .r2.cap {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ─── SUB-HEADERS ──────────────────────────────────── */
+.wg4 .wg4-sub-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 0 8px !important;
+  font-size: 10px !important; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--wg4-ink-3) !important; font-weight: 500;
+  font-family: var(--wg4-font-sans) !important;
+  background: transparent !important;
+  border-bottom: 0 !important;
+}
+.wg4 .wg4-sub-head:first-child { padding-top: 4px !important; }
+.wg4 .wg4-sub-head .lz { color: var(--wg4-ink-5); font-family: var(--wg4-font-mono); }
+.wg4 .wg4-sub-head .accent {
+  color: var(--wg4-ink-4) !important; font-weight: 400;
+  text-transform: lowercase;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  letter-spacing: 0 !important;
+}
+
+/* ─── SEARCH + FILTER + MODE STRIP ─────────────────── */
+.wg4 .wg4-search-strip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-2);
+  padding: 4px 4px 4px 12px;
+  margin-bottom: 4px;
+}
+.wg4 .wg4-search-strip .icon { color: var(--wg4-ink-4); display: inline-flex; }
+.wg4 .wg4-search-strip input {
+  flex: 1; border: 0 !important; background: transparent !important;
+  padding: 6px 0 !important; font-size: 12.5px !important;
+  color: var(--wg4-ink) !important; outline: none;
+  font-family: var(--wg4-font-sans);
+}
+.wg4 .wg4-search-strip input::placeholder { color: var(--wg4-ink-5); }
+.wg4 .wg4-filter-pills { display: flex; gap: 1px; padding: 2px; }
+.wg4 .wg4-filter-pill {
+  appearance: none; background: transparent !important; border: 0 !important;
+  width: 26px; height: 24px; display: inline-grid; place-items: center;
+  color: var(--wg4-ink-3) !important; border-radius: var(--wg4-r-1) !important;
+  font-family: var(--wg4-font-mono) !important; font-size: 10px !important;
+  font-weight: 600 !important; letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer;
+}
+.wg4 .wg4-filter-pill:hover { background: var(--wg4-surface) !important; color: var(--wg4-ink) !important; }
+.wg4 .wg4-filter-pill.on {
+  background: var(--wg4-surface) !important;
+  color: var(--wg4-ink) !important;
+  box-shadow: 0 1px 2px rgba(20,20,20,.04);
+}
+.wg4 .wg4-mode-tabs {
+  display: flex; align-items: center;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  border-radius: var(--wg4-r-pill);
+  padding: 2px; gap: 1px;
+}
+.wg4 .wg4-mode-tab {
+  appearance: none; background: transparent !important; border: 0 !important;
+  padding: 5px 12px !important; border-radius: var(--wg4-r-pill) !important;
+  font-size: 11.5px !important; font-weight: 500 !important;
+  color: var(--wg4-ink-3) !important;
+  font-family: var(--wg4-font-sans) !important;
+  text-transform: none !important; letter-spacing: 0 !important;
+  cursor: pointer;
+}
+.wg4 .wg4-mode-tab.on {
+  background: var(--wg4-surface-2) !important;
+  color: var(--wg4-ink) !important;
+}
+
+/* ─── ACTION COST GLYPHS ──────────────────────────── */
+.wg4 .wg4-ag {
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--wg4-accent);
+  font-family: var(--wg4-font-mono);
+  font-weight: 700; line-height: 1;
+}
+.wg4 .wg4-ag.one::before { content: '◆'; }
+.wg4 .wg4-ag.two::before { content: '◆◆'; letter-spacing: -1px; }
+.wg4 .wg4-ag.three::before { content: '◆◆◆'; letter-spacing: -1px; }
+.wg4 .wg4-ag.react::before { content: '↻'; font-size: 1.05em; }
+.wg4 .wg4-ag.free::before { content: '◇'; }
+.wg4 .wg4-ag.skill::before { content: '✦'; color: var(--wg4-accent); }
+.wg4 .wg4-ag.passive::before { content: '◌'; color: var(--wg4-ink-4); }
+
+/* ─── META LINK (section right side) ──────────────── */
+.wg4 .wg4-meta-link {
+  color: var(--wg4-ink-3); cursor: pointer;
+  font-size: 11px; font-family: var(--wg4-font-sans);
+}
+.wg4 .wg4-meta-link:hover { color: var(--wg4-ink); }
+.wg4 .wg4-meta-link .caret { color: var(--wg4-ink-5); margin-left: 4px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   SPELLS PANEL — wg4 look for the existing JSX structure.
+   The panel already emits .tradition-line, .spell-search, .sec,
+   .sp-grid, .sp, .sp-add. We just need to style them.
+   ═══════════════════════════════════════════════════════════════ */
+.wg4 .codex-tab-body {
+  background: transparent !important;
+  padding: 0 !important;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.wg4 .col.main > .codex-tab-body { width: 100%; }
+
+/* ─── Inventory sections — design has flat headers, no card wrap ─── */
+.wg4 .col.main .sec:has(.inv-grid) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+.wg4 .col.main .sec:has(.inv-grid) > .sec-body {
+  padding: 0 !important;
+}
+.wg4 .col.main .sec:has(.inv-grid) > .sec-title {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 6px 2px 8px !important;
+  margin-top: 6px !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  background: transparent !important;
+}
+.wg4 .col.main .sec:has(.inv-grid) > .sec-title .lozenge,
+.wg4 .col.main .sec:has(.inv-grid) > .sec-title > .lz {
+  color: var(--wg4-accent) !important;
+  font-size: 13px;
+  margin-right: 6px;
+}
+.wg4 .col.main .sec:has(.inv-grid) > .sec-title .label {
+  font-size: 11px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-2) !important;
+  font-weight: 600 !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+.wg4 .col.main .sec:has(.inv-grid) > .sec-title .sub {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10.5px !important;
+  color: var(--wg4-ink-4) !important;
+  font-style: normal !important;
+  letter-spacing: 0.04em !important;
+  margin-left: auto !important;
+}
+.wg4 .col.main .sec:has(.inv-grid) > .sec-title .sub b {
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+  font-family: var(--wg4-font-mono) !important;
+}
+
+.wg4 .tradition-line {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 12px 18px;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-3) !important;
+  border-left: 3px solid var(--wg4-accent) !important;
+  box-shadow: var(--wg4-shadow-card) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 12px !important;
+  color: var(--wg4-ink-3) !important;
+  letter-spacing: 0 !important;
+  flex-wrap: wrap;
+}
+.wg4 .tradition-line .t-name {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-2) !important;
+  font-weight: 600 !important;
+}
+.wg4 .tradition-line .t-name + span {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink) !important;
+  text-transform: none !important;
+}
+.wg4 .tradition-line .t-sep {
+  color: var(--wg4-ink-5) !important;
+  margin: 0 4px;
+}
+.wg4 .tradition-line b {
+  font-family: var(--wg4-font-mono) !important;
+  color: var(--wg4-accent) !important;
+  font-weight: 500 !important;
+  font-size: 12.5px !important;
+}
+
+.wg4 .spell-search {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-2);
+  padding: 4px 4px 4px 12px;
+}
+.wg4 .spell-search .field { flex: 1; }
+.wg4 .spell-search .field input,
+.wg4 .spell-search input {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 6px 0 !important;
+  width: 100%;
+  font-size: 12.5px !important;
+  font-family: var(--wg4-font-sans) !important;
+  color: var(--wg4-ink) !important;
+  outline: none;
+  letter-spacing: 0 !important;
+}
+.wg4 .spell-search input::placeholder { color: var(--wg4-ink-5); }
+.wg4 .spell-search .add {
+  appearance: none;
+  padding: 6px 18px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink-2) !important;
+  cursor: pointer;
+}
+.wg4 .spell-search .add:hover {
+  background: var(--wg4-accent-soft) !important;
+  border-color: var(--wg4-accent) !important;
+  color: var(--wg4-accent-ink) !important;
+}
+
+/* Spell grid — 4-up card layout. */
+.wg4 .sp-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 6px !important;
+  padding: 0 !important;
+}
+@media (max-width: 1280px) {
+  .wg4 .sp-grid { grid-template-columns: repeat(3, 1fr) !important; }
+}
+@media (max-width: 980px) {
+  .wg4 .sp-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+.wg4 .sp {
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important;
+  align-items: center;
+  gap: 8px;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 7px 12px !important;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.wg4 .sp:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+.wg4 .sp.signature::before {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--wg4-accent);
+}
+.wg4 .sp.signature { padding-left: 14px !important; }
+.wg4 .sp.exhausted { opacity: 0.5; }
+.wg4 .sp .cost {
+  display: inline-flex; align-items: center;
+  color: var(--wg4-accent) !important;
+  font-size: 12px;
+}
+.wg4 .sp .nm {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.005em !important;
+  text-transform: none !important;
+  line-height: 1.2;
+  display: flex; flex-direction: column;
+  min-width: 0;
+}
+.wg4 .sp .nm small {
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  font-size: 10px !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 400 !important;
+  margin-top: 1px;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.wg4 .sp .nm .sig-star {
+  color: var(--wg4-accent) !important;
+  margin-right: 2px;
+}
+.wg4 .sp .stat {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  text-align: right;
+  white-space: nowrap;
+}
+.wg4 .sp .stat small {
+  display: block;
+  font-size: 9.5px !important;
+  letter-spacing: 0.1em !important;
+  color: var(--wg4-ink-5) !important;
+  margin-top: 1px;
+}
+
+/* Add-spell button — dashed parchment box matching the screenshot. */
+.wg4 .sp-add {
+  appearance: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px;
+  background: transparent !important;
+  border: 1px dashed var(--wg4-border-strong) !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 10px 14px !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink-3) !important;
+  cursor: pointer;
+  min-height: 44px;
+}
+.wg4 .sp-add:hover {
+  border-color: var(--wg4-accent) !important;
+  color: var(--wg4-accent) !important;
+  background: rgba(176, 84, 47, 0.04) !important;
+}
+.wg4 .sp-add .plus {
+  color: var(--wg4-accent) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Focus pips inline */
+.wg4 .focus-pips.inline { display: inline-flex; gap: 4px; margin-left: 8px; }
+.wg4 .focus-pips .fp {
+  width: 10px; height: 10px;
+  transform: rotate(45deg);
+  border: 1.5px solid var(--wg4-accent);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.wg4 .focus-pips .fp.full { background: var(--wg4-accent); }
+
+/* ─────────────────────────────────────────────────────────────────
+   wg4-canonical spell panel — .sp-tradition / .sp-toolbar /
+   .sp-section-head / .sp-grid / .sp-card / .dia-pip / .sp-empty-line
+   Mirrors D:/Inst/Character Sheet.html lines 657–845. These selectors
+   are emitted by CodexSpellsPanel after the JSX rewrite.
+   ───────────────────────────────────────────────────────────────── */
+.wg4 .spells-stack { display: flex; flex-direction: column; gap: 14px; }
+
+.wg4 .sp-tradition {
+  display: flex; align-items: baseline; gap: 14px;
+  flex-wrap: wrap;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-left: 3px solid var(--wg4-accent) !important;
+  border-radius: var(--wg4-r-3) !important;
+  padding: 14px 18px !important;
+  box-shadow: var(--wg4-shadow-card) !important;
+}
+.wg4 .sp-tradition .name {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.14em !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .sp-tradition .name em {
+  color: var(--wg4-accent) !important;
+  font-style: normal !important;
+  font-weight: 600 !important;
+}
+.wg4 .sp-tradition .type {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  color: var(--wg4-ink-2) !important;
+  font-size: 13.5px !important;
+}
+.wg4 .sp-tradition .stat {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 11.5px !important;
+  color: var(--wg4-ink-3) !important;
+  letter-spacing: -0.005em !important;
+}
+.wg4 .sp-tradition .stat b {
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+}
+.wg4 .sp-tradition .sep { color: var(--wg4-ink-5) !important; }
+
+/* Toolbar — search-strip + Manage button. */
+.wg4 .sp-toolbar {
+  display: flex !important;
+  align-items: stretch !important;
+  gap: 8px;
+}
+.wg4 .sp-toolbar .search-strip { flex: 1; margin-bottom: 0; }
+.wg4 .sp-toolbar .manage-big {
+  padding: 0 24px;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  background: var(--wg4-surface) !important;
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  cursor: pointer;
+}
+.wg4 .sp-toolbar .manage-big:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+  color: var(--wg4-ink) !important;
+}
+
+/* Inline search-strip used inside .sp-toolbar (input + filter pills). */
+.wg4 .search-strip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-2);
+  padding: 4px 4px 4px 12px;
+}
+.wg4 .search-strip .icon { color: var(--wg4-ink-4); display: inline-flex; }
+.wg4 .search-strip input {
+  flex: 1; border: 0 !important; background: transparent !important;
+  padding: 6px 0 !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 12.5px !important;
+  color: var(--wg4-ink) !important;
+  outline: none !important;
+}
+.wg4 .search-strip input::placeholder { color: var(--wg4-ink-5); }
+.wg4 .filter-pills { display: flex; gap: 4px; padding: 2px; }
+/* Visible parchment chip at rest — previous CSS used transparent bg/
+ * border which made the clickable target invisible against the
+ * surrounding section bg. Show a real surface-2 + hairline border so
+ * the user can see WHERE to click for each action-cost filter. */
+.wg4 .filter-pill {
+  appearance: none;
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  width: 28px; height: 26px;
+  display: inline-grid; place-items: center;
+  color: var(--wg4-ink-3) !important;
+  border-radius: var(--wg4-r-1) !important;
+  cursor: pointer;
+}
+.wg4 .filter-pill:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .filter-pill.on {
+  background: var(--wg4-accent-soft) !important;
+  border-color: var(--wg4-accent) !important;
+  color: var(--wg4-accent-ink) !important;
+  box-shadow: none;
+}
+.wg4 .filter-pill .letter {
+  font-family: var(--wg4-font-mono);
+  font-size: 10px; font-weight: 600;
+}
+
+/* Section heading row */
+.wg4 .sp-section-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-top: 14px;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+.wg4 .sp-section-head .label {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.14em !important;
+  color: var(--wg4-ink-2) !important;
+  font-weight: 600 !important;
+}
+.wg4 .sp-section-head .label .ico {
+  color: var(--wg4-accent) !important;
+  display: inline-flex; align-items: center;
+}
+.wg4 .sp-section-head .meta {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 500 !important;
+}
+.wg4 .sp-section-head .meta .nums {
+  font-family: var(--wg4-font-mono) !important;
+  letter-spacing: 0 !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .sp-section-head .meta .nums b {
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+}
+.wg4 .sp-section-head .pips { display: inline-flex; gap: 4px; }
+
+/* Diamond pip — slot indicator + focus indicator. */
+.wg4 .dia-pip {
+  width: 11px; height: 11px;
+  border: 1.4px solid var(--wg4-accent) !important;
+  background: transparent !important;
+  transform: rotate(45deg);
+  cursor: pointer;
+  display: inline-block;
+  transition: all .12s;
+}
+.wg4 .dia-pip.on { background: var(--wg4-accent) !important; }
+.wg4 .dia-pip:hover { border-color: var(--wg4-accent-ink) !important; }
+.wg4 .dia-pip.on:hover { background: var(--wg4-accent-ink) !important; }
+.wg4 .dia-pip.muted { border-color: var(--wg4-ink-4) !important; }
+.wg4 .dia-pip.muted.on { background: var(--wg4-ink-4) !important; }
+
+/* 4-up card grid — matches wg4 reference. */
+.wg4 .sp-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 6px !important;
+  padding: 0 !important;
+}
+@media (max-width: 1280px) {
+  .wg4 .sp-grid { grid-template-columns: repeat(3, 1fr) !important; }
+}
+@media (max-width: 980px) {
+  .wg4 .sp-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* Spell card. */
+.wg4 .sp-card {
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 8px 12px 8px 10px !important;
+  cursor: pointer;
+  min-height: 50px;
+  overflow: hidden;
+  position: relative;
+  transition: background .1s, border-color .1s;
+}
+.wg4 .sp-card:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+.wg4 .sp-card.fav::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--wg4-accent);
+}
+.wg4 .sp-card.fav { padding-left: 12px !important; }
+.wg4 .sp-card .ag-cell {
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--wg4-ink) !important;
+  flex-shrink: 0;
+  min-width: 24px;
+}
+.wg4 .sp-card .info { min-width: 0; }
+.wg4 .sp-card .name {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.005em !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wg4 .sp-card .star {
+  color: var(--wg4-accent) !important;
+  margin-right: 4px;
+  font-size: 11px;
+}
+.wg4 .sp-card .sub {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-size: 10px !important;
+  color: var(--wg4-ink-4) !important;
+  margin-top: 1px;
+  letter-spacing: 0 !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wg4 .sp-card .meta {
+  text-align: right;
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 9.5px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: var(--wg4-accent-ink) !important;
+  font-weight: 600 !important;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.wg4 .sp-card .meta .save {
+  color: var(--wg4-ink-4) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+  display: block;
+  margin-top: 1px;
+}
+.wg4 .sp-card .meta .dash {
+  color: var(--wg4-ink-5) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+}
+
+.wg4 .sp-card.exhausted .name {
+  color: var(--wg4-ink-4) !important;
+  text-decoration: line-through;
+  text-decoration-color: var(--wg4-ink-5);
+}
+.wg4 .sp-card.exhausted .sub { color: var(--wg4-ink-5) !important; }
+.wg4 .sp-card.exhausted .meta { color: var(--wg4-ink-5) !important; }
+
+/* Add placeholder card. */
+.wg4 .sp-card.add {
+  border: 1px dashed var(--wg4-border-strong) !important;
+  background: transparent !important;
+  color: var(--wg4-ink-3) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  grid-template-columns: none !important;
+  min-height: 50px;
+  cursor: pointer;
+}
+.wg4 .sp-card.add:hover {
+  border-color: var(--wg4-ink-4) !important;
+  color: var(--wg4-ink) !important;
+  background: var(--wg4-surface) !important;
+}
+.wg4 .sp-card.add .plus {
+  color: var(--wg4-accent) !important;
+  margin-right: 6px;
+  font-weight: 700;
+}
+
+/* Empty rank line. */
+.wg4 .sp-empty-line {
+  padding: 6px 2px 4px;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-size: 11.5px !important;
+  color: var(--wg4-ink-5) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FEATS & FEATURES PANEL — wg4 look for the existing JSX structure.
+   ═══════════════════════════════════════════════════════════════ */
+
+.wg4 .feat-summary {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 12px 18px;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-3) !important;
+  border-left: 3px solid var(--wg4-accent) !important;
+  box-shadow: var(--wg4-shadow-card) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 12px !important;
+  color: var(--wg4-ink-3) !important;
+  letter-spacing: 0 !important;
+  flex-wrap: wrap;
+}
+.wg4 .feat-summary .t-name {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-2) !important;
+  font-weight: 600 !important;
+}
+.wg4 .feat-summary .t-sep {
+  color: var(--wg4-ink-5) !important;
+  margin: 0 4px;
+}
+.wg4 .feat-summary b {
+  font-family: var(--wg4-font-mono) !important;
+  color: var(--wg4-accent) !important;
+  font-weight: 500 !important;
+}
+
+/* Feats search/filter strip */
+.wg4 .feat-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-2);
+  padding: 4px 4px 4px 12px;
+}
+.wg4 .feat-search .field { flex: 1; }
+.wg4 .feat-search input {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 6px 0 !important;
+  width: 100%;
+  font-size: 12.5px !important;
+  font-family: var(--wg4-font-sans) !important;
+  color: var(--wg4-ink) !important;
+  outline: none;
+  letter-spacing: 0 !important;
+}
+.wg4 .feat-search input::placeholder { color: var(--wg4-ink-5); }
+.wg4 .feat-search .filter {
+  appearance: none;
+  padding: 6px 14px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-pill) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink-3) !important;
+  cursor: pointer;
+}
+.wg4 .feat-search .filter:hover {
+  color: var(--wg4-ink) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+.wg4 .feat-search .filter.on {
+  background: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  color: #fff !important;
+}
+
+/* Feat grid — 4-up cards. */
+.wg4 .feat-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 6px !important;
+  padding: 0 !important;
+}
+@media (max-width: 1280px) {
+  .wg4 .feat-grid { grid-template-columns: repeat(3, 1fr) !important; }
+}
+@media (max-width: 980px) {
+  .wg4 .feat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+.wg4 .feat {
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  align-items: center;
+  gap: 10px;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-left-width: 1px !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 8px 12px !important;
+  cursor: pointer;
+  min-height: 48px;
+}
+.wg4 .feat:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+.wg4 .feat.class { border-left: 2px solid var(--wg4-accent) !important; }
+.wg4 .feat.feature { border-left: 2px solid var(--wg4-accent-ink) !important; }
+.wg4 .feat.ancestry { border-left: 2px solid #5b7148 !important; }
+.wg4 .feat.skill { border-left: 2px solid var(--wg4-ink-4) !important; }
+.wg4 .feat.general { border-left: 2px solid #a83a25 !important; }
+
+.wg4 .feat .nm {
+  display: flex; flex-direction: column; min-width: 0;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.005em !important;
+  text-transform: none !important;
+  line-height: 1.2;
+}
+.wg4 .feat .nm small {
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  font-size: 10px !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 400 !important;
+  margin-top: 2px;
+  letter-spacing: 0 !important;
+  text-transform: lowercase !important;
+}
+.wg4 .feat .meta {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  color: var(--wg4-ink-4) !important;
+  text-align: right;
+  white-space: nowrap;
+  display: flex; flex-direction: column;
+  line-height: 1.4;
+}
+.wg4 .feat .meta b {
+  font-family: var(--wg4-font-mono) !important;
+  color: var(--wg4-ink-2) !important;
+  font-weight: 500 !important;
+  font-size: 11px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin-top: 1px;
+}
+
+/* Section title sub-text (used in feats sections) */
+.wg4 .sec-title .sub {
+  margin-left: auto;
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  color: var(--wg4-ink-4) !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  padding-right: 8px;
+}
+.wg4 .sec-title .sub b {
+  font-family: var(--wg4-font-mono) !important;
+  color: var(--wg4-accent) !important;
+  font-weight: 500 !important;
+  font-style: normal;
+  margin-right: 4px;
+}
+.wg4 .sec-title .chev {
+  display: inline-block;
+  color: var(--wg4-ink-5);
+  font-size: 12px;
+}
+.wg4 .sec-title .chev::after { content: '›'; }
+
+/* ═══════════════════════════════════════════════════════════════
+   ALIAS old codex .act-grid / .act → new wg4 grid + cards so the
+   activities panel renders the same chrome as the rest of the sheet
+   without needing a JSX rewrite. Same for spell rows (.sp inside
+   spell sections fall through to wg4-act-card visually).
+   ═══════════════════════════════════════════════════════════════ */
+.wg4 .act-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 6px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+@media (max-width: 1280px) {
+  .wg4 .act-grid { grid-template-columns: repeat(3, 1fr) !important; }
+}
+@media (max-width: 980px) {
+  .wg4 .act-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+.wg4 .act {
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important;
+  align-items: center;
+  gap: 10px;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 7px 12px !important;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  min-height: 42px;
+}
+.wg4 .act:hover {
+  background: var(--wg4-surface-hover) !important;
+  border-color: var(--wg4-border-strong) !important;
+}
+.wg4 .act.strike {
+  padding-left: 14px !important;
+}
+.wg4 .act.strike::before {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--wg4-accent);
+}
+
+/* Cost icon: kill the inline `style` gold-glow drop-shadow set by
+   ActionGlyph JSX so it reads as a clean rust glyph. */
+.wg4 .act .cost,
+.wg4 .act .cost .ai,
+.wg4 .act .cost span {
+  color: var(--wg4-accent) !important;
+  filter: none !important;
+  text-shadow: none !important;
+  font-size: 14px !important;
+  font-family: ActionIcons, sans-serif !important;
+  line-height: 1 !important;
+}
+
+/* Name + description block */
+.wg4 .act .nm {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  color: var(--wg4-ink) !important;
+  letter-spacing: -0.005em !important;
+  text-transform: none !important;
+  line-height: 1.2;
+  display: flex; flex-direction: column;
+  min-width: 0;
+}
+.wg4 .act .nm small {
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  font-size: 10px !important;
+  color: var(--wg4-ink-4) !important;
+  font-weight: 400 !important;
+  margin-top: 1px;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* Right-side stat (range, MAP, distance, etc.) */
+.wg4 .act .stat {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 12px !important;
+  color: var(--wg4-ink) !important;
+  text-align: right;
+  white-space: nowrap;
+  line-height: 1.2;
+  letter-spacing: -0.01em !important;
+}
+.wg4 .act .stat.dim {
+  color: var(--wg4-ink-5) !important;
+  font-weight: 400 !important;
+}
+.wg4 .act .stat .map {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+}
+.wg4 .act .stat .map i {
+  font-style: normal;
+  color: var(--wg4-ink-5);
+  margin: 0 2px;
+}
+.wg4 .act .stat small {
+  display: block;
+  font-size: 10px !important;
+  color: var(--wg4-ink-4) !important;
+  font-family: var(--wg4-font-mono) !important;
+  letter-spacing: 0.06em !important;
+  margin-top: 1px;
+  text-transform: uppercase !important;
+}
+.wg4 .act .stat .move {
+  font-family: var(--wg4-font-mono) !important;
+  color: var(--wg4-ink) !important;
+}
+.wg4 .act .stat .dmg {
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 10px !important;
+  color: var(--wg4-ink-4) !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+}
+
+/* The sub-head row above each .act-grid (Strikes · Universal · Class). */
+.wg4 .act-group-label,
+.wg4 .sub-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 14px 0 8px !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.12em !important;
+  color: var(--wg4-ink-3) !important;
+  font-weight: 600 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  cursor: pointer;
+}
+.wg4 .act-group-label .drag-grip,
+.wg4 .act-group-label .collapse-chev {
+  color: var(--wg4-ink-5);
+  font-size: 9px;
+}
+.wg4 .act-group-label b {
+  color: var(--wg4-ink-5) !important;
+  font-weight: 400 !important;
+  margin: 0 4px !important;
+}
+
+/* The encounter/exploration/downtime mode tabs at the top of activities.
+ * Surface (lighter) bg so the toolbar reads flat on the page — the
+ * earlier surface-2 was too dark and made the row stand out as a
+ * gray bar. The actual layout rules live in wg4-codex-overrides.css. */
+.wg4 .activities-bar {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+  padding: 4px !important;
+}
+
+/* Inventory rows — apply the same wg4 act-card chrome so the
+   Inventory tab matches the rest of the sheet. */
+.wg4 .inv-row {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: var(--wg4-r-2) !important;
+}
+.wg4 .inv-row .nm {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+}
+.wg4 .inv-row .nm small {
+  font-family: var(--wg4-font-sans) !important;
+  font-style: normal !important;
+  color: var(--wg4-ink-4) !important;
+}
+
+/* Inventory section banner (EQUIPPED, CONTAINERS, etc.) */
+.wg4 .inv-stack > div[class*='group-label'],
+.wg4 [class*='group-label'] {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.14em !important;
+  color: var(--wg4-ink-3) !important;
+  font-weight: 600 !important;
+  background: transparent !important;
+}

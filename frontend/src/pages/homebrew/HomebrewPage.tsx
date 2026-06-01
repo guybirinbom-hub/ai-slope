@@ -11,141 +11,39 @@
 import { drawerState } from '@atoms/navAtoms';
 import { userState } from '@atoms/userAtoms';
 import { getPublicUser } from '@auth/user-manager';
-import BlurBox from '@common/BlurBox';
-import { ContentSourceInfo } from '@common/ContentSourceInfo';
 import Paginator from '@common/Paginator';
-import { IMPRINT_BG_COLOR, IMPRINT_BG_COLOR_2, IMPRINT_BORDER_COLOR } from '@constants/data';
 import { deleteContent, upsertContentSource } from '@content/content-creation';
 import { fetchContentSources, resetContentStore } from '@content/content-store';
 import { updateSubscriptions } from '@content/homebrew';
 import { importFromCustomPack } from '@homebrew/import/pathbuilder-custom-packs';
-import {
-  ActionIcon,
-  Box,
-  Button,
-  Center,
-  Divider,
-  FileButton,
-  Group,
-  Loader,
-  Menu,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-  VisuallyHidden,
-  rem,
-  useMantineTheme,
-} from '@mantine/core';
-import { useMediaQuery, useHover } from '@mantine/hooks';
+import { Center, FileButton, Loader, Menu, VisuallyHidden } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { CreateContentSourceModal } from '@modals/CreateContentSourceModal';
 import { makeRequest } from '@requests/request-manager';
-import { IconAsset, IconChevronDown, IconDots, IconPlus, IconSearch, IconTrash, IconUpload, IconX } from '@tabler/icons-react';
+import { IconUpload } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { ContentSource } from '@schemas/content';
 import { setPageTitle } from '@utils/document-change';
 import { phoneQuery } from '@utils/mobile-responsive';
+import { pluralize, toLabel } from '@utils/strings';
 import { useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 
 export function Component() {
   setPageTitle(`Homebrew`);
-  const theme = useMantineTheme();
-  const isPhone = useMediaQuery(phoneQuery());
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <Center>
-      <Box maw={875} w='100%'>
-        <BlurBox>
-          {/* Header — title + inline search */}
-          <Group px='md' py='sm' justify='space-between' wrap='nowrap'>
-            <Group gap='sm' wrap='nowrap' style={{ flexShrink: 0 }}>
-              {!isPhone && <IconAsset size='1.8rem' stroke={1.5} />}
-              <Title size={28}>Homebrew</Title>
-            </Group>
-
-            {!isPhone && (
-              <TextInput
-                style={{ flex: 1, maxWidth: 280 }}
-                leftSection={<IconSearch size='0.9rem' />}
-                placeholder='Search your bundles'
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                variant='unstyled'
-                rightSection={
-                  searchQuery.trim() ? (
-                    <ActionIcon
-                      variant='subtle'
-                      size='md'
-                      color='gray'
-                      radius='xl'
-                      aria-label='Clear search'
-                      onClick={() => setSearchQuery('')}
-                    >
-                      <IconX size='1.2rem' stroke={2} />
-                    </ActionIcon>
-                  ) : undefined
-                }
-                styles={(theme) => ({
-                  wrapper: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.18)',
-                    border: '1px solid rgba(255, 255, 255, 0.07)',
-                    borderRadius: theme.radius.md,
-                    padding: '2px 4px',
-                  },
-                  input: { '--input-placeholder-color': theme.colors.gray[5] },
-                })}
-              />
-            )}
-          </Group>
-
-          {isPhone && (
-            <Stack px='sm' pb='xs' gap='xs'>
-              <TextInput
-                style={{ flex: 1 }}
-                leftSection={<IconSearch size='0.9rem' />}
-                placeholder='Search your bundles'
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                variant='unstyled'
-                rightSection={
-                  searchQuery.trim() ? (
-                    <ActionIcon
-                      variant='subtle'
-                      size='md'
-                      color='gray'
-                      radius='xl'
-                      aria-label='Clear search'
-                      onClick={() => setSearchQuery('')}
-                    >
-                      <IconX size='1.2rem' stroke={2} />
-                    </ActionIcon>
-                  ) : undefined
-                }
-                styles={(theme) => ({
-                  wrapper: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.18)',
-                    border: '1px solid rgba(255, 255, 255, 0.07)',
-                    borderRadius: theme.radius.md,
-                    padding: '2px 4px',
-                  },
-                  input: { '--input-placeholder-color': theme.colors.gray[5] },
-                })}
-              />
-            </Stack>
-          )}
-
-          <Divider />
-
-          {/* Single view — your bundles */}
-          <Box p='md'>
-            <MyBundlesSection searchQuery={searchQuery.trim()} />
-          </Box>
-        </BlurBox>
-      </Box>
-    </Center>
+    <div className='wg4 wg4-screen wg4-page-root' style={{ minHeight: '100%', padding: 16 }}>
+      <div style={{ maxWidth: 875, margin: '0 auto', width: '100%' }}>
+        <MyBundlesSection
+          searchQuery={searchQuery.trim()}
+          rawSearchQuery={searchQuery}
+          onSearch={setSearchQuery}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -159,7 +57,37 @@ const getSearchStr = (source: ContentSource) => {
   }).toLowerCase();
 };
 
-function MyBundlesSection(props: { searchQuery: string }) {
+// Notability weights for picking the most interesting 2 counts to show on a
+// bundle card's meta line (mirrors ContentSourceInfo's ordering).
+const COUNT_NOTABILITY: Record<string, number> = {
+  class: 30,
+  ancestry: 20,
+  archetype: 18,
+  'versatile-heritage': 17,
+  background: 15,
+  heritage: 12,
+  feat: 10,
+  spell: 9,
+  item: 8,
+  creature: 7,
+  'class-archetype': 6,
+  action: 5,
+  language: 3,
+  trait: 2,
+};
+
+/** Build a concise "12 feats · 3 classes" meta string from a bundle's counts. */
+function bundleMeta(source: ContentSource): string {
+  const counts = source.meta_data?.counts ?? {};
+  const parts = Object.entries(counts)
+    .filter(([, value]) => !!value)
+    .sort(([a], [b]) => (COUNT_NOTABILITY[b] ?? -1) - (COUNT_NOTABILITY[a] ?? -1))
+    .slice(0, 3)
+    .map(([key, value]) => `${value} ${value === 1 ? toLabel(key) : pluralize(toLabel(key))}`);
+  return parts.length > 0 ? parts.join(' · ') : 'Empty bundle';
+}
+
+function MyBundlesSection(props: { searchQuery: string; rawSearchQuery: string; onSearch: (v: string) => void }) {
   const isPhone = useMediaQuery(phoneQuery());
   const [sourceId, setSourceId] = useState<number | undefined>(undefined);
   const [loadingCreate, setLoadingCreate] = useState(false);
@@ -239,43 +167,68 @@ function MyBundlesSection(props: { searchQuery: string }) {
   };
 
   return (
-    <Stack w='100%' gap={15}>
-      {/* Action bar — Create + Import */}
-      <Group justify='space-between' align='center'>
-        <Text c='gray.2' fw={600}>
-          Your bundles
-        </Text>
-        <Button.Group>
-          <Button
-            loading={loadingCreate}
-            leftSection={<IconPlus size='1rem' />}
-            variant='filled'
-            color='guide'
-            radius='xl'
-            size='sm'
-            onClick={handleCreate}
-          >
-            Create New Bundle
-          </Button>
-          <Menu shadow='md' width={200} position='bottom-end'>
-            <Menu.Target>
-              <Button variant='filled' color='guide' px={8} size='sm'>
-                <IconChevronDown size='1.2rem' />
-              </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item
-                leftSection={<IconUpload size='1rem' />}
-                onClick={() => {
-                  jsonImportRef.current?.click();
-                }}
-              >
-                Import from Custom Pack
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-        </Button.Group>
-      </Group>
+    <div style={{ width: '100%' }}>
+      {/* Header — "Your bundles" + search + Create / Import */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+          marginBottom: 18,
+        }}
+      >
+        <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 22 }}>Your bundles</div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input
+            className='input'
+            style={{ maxWidth: 220 }}
+            placeholder='Search your bundles'
+            value={props.rawSearchQuery}
+            onChange={(e) => props.onSearch(e.currentTarget.value)}
+          />
+          {/* Create + Import joined pill group (matches the mockup). */}
+          <div style={{ display: 'flex' }}>
+            <button
+              type='button'
+              className='btn'
+              style={{ borderRadius: 'var(--rpill) 0 0 var(--rpill)', opacity: loadingCreate ? 0.7 : 1 }}
+              disabled={loadingCreate}
+              onClick={handleCreate}
+            >
+              + Create New Bundle
+            </button>
+            <Menu shadow='md' width={200} position='bottom-end'>
+              <Menu.Target>
+                <button
+                  type='button'
+                  className='btn'
+                  style={{
+                    borderRadius: '0 var(--rpill) var(--rpill) 0',
+                    borderLeft: '1px solid var(--accent-ink)',
+                    padding: '8px 10px',
+                  }}
+                  aria-label='Import options'
+                >
+                  ▾
+                </button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<IconUpload size='1rem' />}
+                  onClick={() => {
+                    jsonImportRef.current?.click();
+                  }}
+                >
+                  Import from Custom Pack
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </div>
+        </div>
+      </div>
 
       <VisuallyHidden>
         {/* File-button trampoline so the menu item can trigger a file picker. */}
@@ -297,70 +250,57 @@ function MyBundlesSection(props: { searchQuery: string }) {
           }}
           accept='application/JSON'
         >
-          {(props) => (
-            <Button ref={jsonImportRef} {...props}>
+          {(fileProps) => (
+            <button type='button' ref={jsonImportRef} {...fileProps}>
               Import from Custom Pack
-            </Button>
+            </button>
           )}
         </FileButton>
       </VisuallyHidden>
 
       {/* Bundle list */}
-      <Group>
-        {isFetching && (
-          <Center w='100%' py='xl'>
-            <Loader size='sm' type='dots' />
-          </Center>
-        )}
-        {!isFetching && bundles.length === 0 && (
-          <BlurBox w={'100%'} h={140}>
-            <Stack mt={40} gap={6} align='center'>
-              <Text ta='center' c='gray.2' fs='italic'>
-                You haven't created any bundles yet.
-              </Text>
-              <Text ta='center' c='gray.4' fz='sm'>
-                Click "Create New Bundle" to start. Inside a bundle you can add classes, archetypes, feats, ancestries,
-                spells, and more.
-              </Text>
-            </Stack>
-          </BlurBox>
-        )}
-        {!isFetching && bundles.length > 0 && (
-          <Center w='100%'>
-            <Stack w='100%'>
-              <Paginator
-                h={500}
-                records={bundles.map((source, index) => (
-                  <ContentSourceCard
-                    key={index}
-                    source={source}
-                    onEdit={() => setSourceId(source.id)}
-                    onDelete={async () => {
-                      await deleteContent('content-source', source.id);
-                      // Also remove from subscriptions so the builder panel
-                      // updates immediately.
-                      if (user) {
-                        const subscriptions = await updateSubscriptions(user, source, false);
-                        setUser({ ...user, subscribed_content_sources: subscriptions });
-                        await makeRequest('update-user', {
-                          subscribed_content_sources: subscriptions ?? [],
-                        });
-                      }
-                      refetchBundles();
-                    }}
-                    deleteTitle='Delete Bundle'
-                    deleteMessage='Are you sure you want to delete this bundle? All characters using this bundle will lose their abilities from this source.'
-                  />
-                ))}
-                numPerPage={isPhone ? 4 : 12}
-                numInRow={isPhone ? 1 : 3}
-                gap='sm'
-                pagSize='md'
-              />
-            </Stack>
-          </Center>
-        )}
-      </Group>
+      {isFetching && (
+        <Center w='100%' py='xl'>
+          <Loader size='sm' type='dots' />
+        </Center>
+      )}
+      {!isFetching && bundles.length === 0 && (
+        <div className='note'>
+          You haven't created any bundles yet. Click <b>Create New Bundle</b> to start. Inside a bundle you can
+          add classes, archetypes, feats, ancestries, spells, and more.
+        </div>
+      )}
+      {!isFetching && bundles.length > 0 && (
+        <Paginator
+          h={500}
+          records={bundles.map((source, index) => (
+            <ContentSourceCard
+              key={index}
+              source={source}
+              onEdit={() => setSourceId(source.id)}
+              onDelete={async () => {
+                await deleteContent('content-source', source.id);
+                // Also remove from subscriptions so the builder panel
+                // updates immediately.
+                if (user) {
+                  const subscriptions = await updateSubscriptions(user, source, false);
+                  setUser({ ...user, subscribed_content_sources: subscriptions });
+                  await makeRequest('update-user', {
+                    subscribed_content_sources: subscriptions ?? [],
+                  });
+                }
+                refetchBundles();
+              }}
+              deleteTitle='Delete Bundle'
+              deleteMessage='Are you sure you want to delete this bundle? All characters using this bundle will lose their abilities from this source.'
+            />
+          ))}
+          numPerPage={isPhone ? 4 : 12}
+          numInRow={isPhone ? 1 : 3}
+          gap='sm'
+          pagSize='md'
+        />
+      )}
 
       {sourceId && (
         <CreateContentSourceModal
@@ -380,11 +320,11 @@ function MyBundlesSection(props: { searchQuery: string }) {
           }}
         />
       )}
-    </Stack>
+    </div>
   );
 }
 
-/** Homebrew bundle card — imprint styling. Edit + Delete inline. */
+/** Homebrew bundle card — parchment `.bundle` styling. Edit + Delete inline. */
 function ContentSourceCard(props: {
   source: ContentSource;
   onEdit?: () => void;
@@ -392,35 +332,18 @@ function ContentSourceCard(props: {
   deleteTitle?: string;
   deleteMessage?: string;
 }) {
-  const theme = useMantineTheme();
   const [_drawer, openDrawer] = useAtom(drawerState);
 
-  const { hovered: hoveredCard, ref: refCard } = useHover();
-
   return (
-    <Box
-      ref={refCard}
-      w='100%'
-      style={{
-        backgroundColor: hoveredCard ? IMPRINT_BG_COLOR_2 : IMPRINT_BG_COLOR,
-        border: `1px solid ${IMPRINT_BORDER_COLOR}`,
-        borderRadius: theme.radius.md,
-        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.18)',
-        cursor: 'pointer',
-        transition: 'transform 200ms ease, box-shadow 200ms ease, background-color 200ms ease',
-        ...(hoveredCard
-          ? {
-              transform: 'translateY(-2px)',
-              boxShadow: '0 6px 24px rgba(0, 0, 0, 0.3)',
-            }
-          : {}),
-      }}
+    <div
+      className='bundle'
+      style={{ cursor: 'pointer' }}
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
         // Clicking the card opens the inspector drawer (same as upstream),
         // which shows the bundle's contents read-only. To edit, use the
-        // Edit Bundle button below.
+        // Edit button below.
         openDrawer({
           type: 'content-source',
           data: {
@@ -430,68 +353,47 @@ function ContentSourceCard(props: {
         });
       }}
     >
-      <Box w='100%' h='100%' px='sm' style={{ position: 'relative' }}>
-        <ContentSourceInfo source={props.source} />
-      </Box>
+      <div className='tt'>{props.source.name}</div>
+      <div className='meta'>{bundleMeta(props.source)}</div>
       {(props.onEdit || props.onDelete) && (
-        <Group gap={5} pb='xs' px='sm'>
-          {props.onEdit ? (
-            <Button
-              size='xs'
-              variant='default'
-              radius='xl'
-              style={{ flex: 1 }}
+        <div className='acts'>
+          {props.onEdit && (
+            <button
+              type='button'
+              className='btn ghost sm'
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 props.onEdit?.();
               }}
             >
-              Edit Bundle
-            </Button>
-          ) : (
-            <Box style={{ flex: 1 }}></Box>
+              Edit
+            </button>
           )}
           {props.onDelete && (
-            <Menu shadow='md' width={200} withArrow withinPortal>
-              <Menu.Target>
-                <ActionIcon
-                  size={30}
-                  variant='subtle'
-                  color='gray'
-                  radius='xl'
-                  aria-label='Options'
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <IconDots style={{ width: '60%', height: '60%' }} stroke={1.5} />
-                </ActionIcon>
-              </Menu.Target>
-
-              <Menu.Dropdown>
-                <Menu.Item
-                  color='red'
-                  leftSection={<IconTrash style={{ width: rem(14), height: rem(14) }} />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    modals.openConfirmModal({
-                      id: 'delete-source',
-                      title: <Title order={4}>{props.deleteTitle ?? 'Delete'}</Title>,
-                      children: <Text size='sm'>{props.deleteMessage ?? 'Are you sure?'}</Text>,
-                      labels: { confirm: 'Confirm', cancel: 'Cancel' },
-                      onCancel: () => {},
-                      onConfirm: () => {
-                        props.onDelete?.();
-                      },
-                    });
-                  }}
-                >
-                  {props.deleteTitle ?? 'Delete'}
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+            <button
+              type='button'
+              className='btn danger sm'
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                modals.openConfirmModal({
+                  id: 'delete-source',
+                  title: <span style={{ fontWeight: 600 }}>{props.deleteTitle ?? 'Delete'}</span>,
+                  children: <span style={{ fontSize: 14 }}>{props.deleteMessage ?? 'Are you sure?'}</span>,
+                  labels: { confirm: 'Confirm', cancel: 'Cancel' },
+                  onCancel: () => {},
+                  onConfirm: () => {
+                    props.onDelete?.();
+                  },
+                });
+              }}
+            >
+              Delete
+            </button>
           )}
-        </Group>
+        </div>
       )}
-    </Box>
+    </div>
   );
 }

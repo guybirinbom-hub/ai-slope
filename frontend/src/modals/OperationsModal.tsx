@@ -25,6 +25,7 @@ export default function OperationsModal(props: {
   operations: Operation[];
   onChange: (operations: Operation[]) => void;
   zIndex?: number;
+  classNames?: { content?: string; header?: string; body?: string; overlay?: string };
 }) {
   return (
     <Modal
@@ -40,6 +41,7 @@ export default function OperationsModal(props: {
       }}
       size={'xl'}
       zIndex={props.zIndex}
+      classNames={props.classNames}
     >
       <Box m='sm'>
         <OperationSection

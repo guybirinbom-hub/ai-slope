@@ -169,7 +169,26 @@ export default function SearchSpotlight() {
     <>
       <Spotlight
         scrollable
-        classNames={{ root: 'wg4', content: 'wg4-modal-mantine', search: 'wg4-spotlight-search', overlay: 'wg4-modal-mantine-overlay' }}
+        classNames={{
+          root: 'wg4',
+          content: 'wg4-modal-mantine',
+          search: 'wg4-spotlight-search',
+          overlay: 'wg4-modal-mantine-overlay',
+        }}
+        styles={{
+          // Parchment command-palette chrome to match the wg4 mockup
+          // `spot` panel. The panel/search surface + border and the
+          // stateful hover/selected rust tint + mono shortcuts are
+          // forced in wg4-codex-overrides.css (the Spotlight portals
+          // outside .wg4-screen, so its chrome + row states are styled
+          // via the portaled `.wg4` root there). These component-level
+          // styles cover the static, non-stateful bits.
+          content: { boxShadow: '0 18px 60px rgba(60, 50, 35, 0.22)' },
+          search: { color: 'var(--wg4-ink)' },
+          actionsList: { padding: 6 },
+          action: { color: 'var(--wg4-ink)', borderRadius: 6 },
+          actionDescription: { color: 'var(--wg4-ink-4)', fontFamily: 'var(--wg4-font-mono)' },
+        }}
         onQueryChange={(query: string) => {
           /* Whenever input changes, this function is called and query is set via setQuery
            * setQuery is a debouncer, after the set debounce time the above useEffect callback is executed.
@@ -478,8 +497,8 @@ async function fetchCharacters(
           size={40}
           radius={40}
           variant='transparent'
-          color='dark.3'
-          bg={theme.colors.dark[6]}
+          color='gray.6'
+          bg='var(--wg4-surface-2)'
         />
       ),
       highlightColor: theme.colors[theme.primaryColor][2],

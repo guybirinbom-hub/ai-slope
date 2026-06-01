@@ -32,6 +32,7 @@ import SelectContentFilters, {
   activeFilterCount,
 } from '@common/select/SelectContentFilters';
 import { passesItemGroupFilter } from '@common/select/filter-helpers';
+import { CreateItemModal } from './CreateItemModal';
 
 const NUM_PER_PAGE = 18;
 
@@ -109,6 +110,14 @@ export default function AddItemsModal({
   const [filterState, setFilterState] = useState<ContentFilterState>(() => ({
     ...DEFAULT_FILTER_STATE,
   }));
+  // "Find a filter" query — lives here instead of inside
+  // SelectContentFilters so the modal's top search bar can host it
+  // while the filter panel is open. Cleared when the panel closes.
+  const [filterSearchQuery, setFilterSearchQuery] = useState('');
+
+  // "+ Custom Item" opens a CreateItemModal; on complete the freshly
+  // built item is handed straight to the inventory via GIVE.
+  const [customItemOpen, setCustomItemOpen] = useState(false);
 
   const { data: rawItems, isFetching } = useQuery({
     queryKey: [`find-items-add-items`],
@@ -148,6 +157,13 @@ export default function AddItemsModal({
   useEffect(() => {
     setPage(1);
   }, [searchQuery, rawItems, filterState]);
+
+  // Clear the in-panel filter-name search whenever the panel closes,
+  // so the next open shows the full filter list — not stale state
+  // from the user's previous session inside the panel.
+  useEffect(() => {
+    if (!filtersOpen) setFilterSearchQuery('');
+  }, [filtersOpen]);
 
   const handleAddItem = (item: Item, type: 'GIVE' | 'BUY' | 'FORMULA') => {
     const baseItem = item.meta_data?.base_item
@@ -209,8 +225,7 @@ export default function AddItemsModal({
       <div className='cai-header'>
         <div className='cai-title'>✦ Add Items</div>
         <div className='cai-header-actions'>
-          <button type='button' className='cai-chip-btn'>+ Custom Item</button>
-          <button type='button' className='cai-chip-btn'>Bulk Add</button>
+          <button type='button' className='cai-chip-btn' onClick={() => setCustomItemOpen(true)}>+ Custom Item</button>
           <button
             type='button'
             className='cai-x'
@@ -222,15 +237,19 @@ export default function AddItemsModal({
         </div>
       </div>
 
-      {/* Search row */}
+      {/* Search row. Bound to `searchQuery` (items) when the filter
+          panel is closed, and to `filterSearchQuery` (filter-name
+          search) while it's open — same input slot, different
+          purpose, so the user doesn't lose visual continuity when
+          they toggle Filters. */}
       <div className='cai-search-row'>
         <div className='cai-search'>
           <span className='cai-search-icon' aria-hidden='true' />
           <input
             type='text'
-            placeholder='Search items by name…'
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={filtersOpen ? 'Find a filter — e.g. "rank", "tradition", "size"…' : 'Search items by name…'}
+            value={filtersOpen ? filterSearchQuery : searchQuery}
+            onChange={(e) => (filtersOpen ? setFilterSearchQuery(e.target.value) : setSearchQuery(e.target.value))}
             autoFocus
           />
         </div>
@@ -257,23 +276,14 @@ export default function AddItemsModal({
               state={filterState}
               onChange={setFilterState}
               maxLevel={itemMaxLevel}
+              // Hoist the "find a filter" query up so the modal's top
+              // search bar can host it. The in-panel search input is
+              // hidden in this mode; the Reset / Apply buttons move
+              // into the modal footer (see footer block below).
+              searchQuery={filterSearchQuery}
+              onSearchQueryChange={setFilterSearchQuery}
+              hideSearchInput
             />
-            <div className='cai-filter-actions'>
-              <button
-                type='button'
-                className='cai-btn'
-                onClick={() => setFilterState({ ...DEFAULT_FILTER_STATE })}
-              >
-                Reset
-              </button>
-              <button
-                type='button'
-                className='cai-btn cai-foot-done'
-                onClick={() => setFiltersOpen(false)}
-              >
-                Apply
-              </button>
-            </div>
           </div>
         ) : (
           <>
@@ -359,20 +369,30 @@ export default function AddItemsModal({
               >
                 ‹
               </button>
+              {/* Pager — show a wide window of 7 buttons around the
+                  current page, plus first/last with `…` gaps. Same
+                  algorithm lives in SelectContent.tsx's SpellPickerShell
+                  to keep both pickers in sync. */}
               {(() => {
+                const WINDOW = 7;
                 const out: (number | '…')[] = [];
-                const pushUnique = (v: number | '…') => {
-                  if (out[out.length - 1] !== v) out.push(v);
-                };
-                for (let p = 1; p <= totalPages; p++) {
-                  if (
-                    p === 1 ||
-                    p === totalPages ||
-                    (p >= activePage - 1 && p <= activePage + 1)
-                  ) {
-                    pushUnique(p);
-                  } else if (p === activePage - 2 || p === activePage + 2) {
-                    pushUnique('…');
+                if (totalPages <= WINDOW + 2) {
+                  for (let p = 1; p <= totalPages; p++) out.push(p);
+                } else {
+                  let start = activePage - Math.floor(WINDOW / 2);
+                  let end = activePage + Math.floor(WINDOW / 2);
+                  if (start < 1) { end += 1 - start; start = 1; }
+                  if (end > totalPages) { start -= end - totalPages; end = totalPages; }
+                  start = Math.max(1, start);
+                  end = Math.min(totalPages, end);
+                  if (start > 1) {
+                    out.push(1);
+                    if (start > 2) out.push('…');
+                  }
+                  for (let p = start; p <= end; p++) out.push(p);
+                  if (end < totalPages) {
+                    if (end < totalPages - 1) out.push('…');
+                    out.push(totalPages);
                   }
                 }
                 return out.map((p, i) =>
@@ -409,28 +429,74 @@ export default function AddItemsModal({
         )}
       </div>
 
-      {/* Footer */}
+      {/* Footer. Buttons swap between Close/Done (table mode) and
+          Reset/Apply (filter-panel mode) so the user has a single,
+          unambiguous action strip — no duplicate "Reset / Apply"
+          pair inside the filter body. */}
       <div className='cai-footer'>
         <div className='cai-foot-hint'>
-          <b>Buy</b> deducts price from wallet <i>·</i> <b>Give</b> adds for free
+          {filtersOpen ? (
+            <>
+              <b>Reset</b> clears every filter <i>·</i> <b>Apply</b> returns to the item list
+            </>
+          ) : (
+            <>
+              <b>Buy</b> deducts price from wallet <i>·</i> <b>Give</b> adds for free
+            </>
+          )}
         </div>
         <div className='cai-foot-actions'>
-          <button
-            type='button'
-            className='cai-btn cai-foot-close'
-            onClick={() => context.closeModal(id)}
-          >
-            Close
-          </button>
-          <button
-            type='button'
-            className='cai-btn cai-foot-done'
-            onClick={() => context.closeModal(id)}
-          >
-            Done
-          </button>
+          {filtersOpen ? (
+            <>
+              <button
+                type='button'
+                className='cai-btn cai-foot-close'
+                onClick={() => setFilterState({ ...DEFAULT_FILTER_STATE })}
+              >
+                Reset
+              </button>
+              <button
+                type='button'
+                className='cai-btn cai-foot-done'
+                onClick={() => setFiltersOpen(false)}
+              >
+                Apply
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type='button'
+                className='cai-btn cai-foot-close'
+                onClick={() => context.closeModal(id)}
+              >
+                Close
+              </button>
+              <button
+                type='button'
+                className='cai-btn cai-foot-done'
+                onClick={() => context.closeModal(id)}
+              >
+                Done
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Custom item builder — opened by the "+ Custom Item" header
+          chip. On complete, the freshly built item is GIVEN to the
+          inventory (free, no wallet deduction) and the builder closes.
+          zIndex sits above this modal (1100) + drawers (1000). */}
+      <CreateItemModal
+        opened={customItemOpen}
+        zIndex={1300}
+        onComplete={(item) => {
+          handleAddItem(item, 'GIVE');
+          setCustomItemOpen(false);
+        }}
+        onCancel={() => setCustomItemOpen(false)}
+      />
     </div>
   );
 }

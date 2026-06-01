@@ -66,6 +66,7 @@ export default function Paginator(props: {
           size={props.pagSize ?? 'sm'}
           total={Math.ceil(props.records.length / NUM_PER_PAGE)}
           value={activePage}
+          siblings={3}
           onChange={(value) => {
             setPage(value);
             scrollToTop();

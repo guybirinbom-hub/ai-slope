@@ -63,9 +63,13 @@ export default function Layout(props: { children: React.ReactNode }) {
       {/* Drag strip — only shown on non-codex routes. Codex pages
           (sheet / characters list) render their own .winbar with
           custom min/max/close buttons wired to Electron IPC, so we
-          don't need this strip there. */}
+          don't need this strip there. Wrapped in `.wg4 .wg4-screen`
+          so the parchment design tokens resolve and the strip gets
+          the mockup's `.winbar` look. */}
       {!hasOwnMenu && (
+      <div className='wg4 wg4-screen'>
       <Box
+        className='winbar'
         style={
           {
             height: TITLE_BAR_HEIGHT,
@@ -74,8 +78,8 @@ export default function Layout(props: { children: React.ReactNode }) {
             justifyContent: 'flex-end',
             paddingRight: WIN_CONTROLS_WIDTH,
             WebkitAppRegion: 'drag',
-            background: '#15110b',
-            borderBottom: '1px solid rgba(201, 161, 59, 0.12)',
+            background: 'var(--wg4-surface)',
+            borderBottom: '1px solid var(--wg4-border)',
             position: 'relative',
             zIndex: 10,
           } as React.CSSProperties
@@ -93,12 +97,17 @@ export default function Layout(props: { children: React.ReactNode }) {
           >
             <Menu.Target>
               <ActionIcon
+                className='ham'
                 variant='subtle'
-                color='gray'
                 size='md'
                 radius='md'
                 aria-label='Menu'
-                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                style={
+                  {
+                    WebkitAppRegion: 'no-drag',
+                    color: 'var(--wg4-ink-3)',
+                  } as React.CSSProperties
+                }
               >
                 <IconMenu2 size={18} stroke={1.5} />
               </ActionIcon>
@@ -153,6 +162,7 @@ export default function Layout(props: { children: React.ReactNode }) {
           </Menu>
         )}
       </Box>
+      </div>
       )}
 
       {/* Page content. Padding is owned by each route. On codex

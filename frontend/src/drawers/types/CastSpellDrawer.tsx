@@ -250,7 +250,15 @@ export function CastSpellDrawerContent(props: {
   const spellStats = getSpellStats(props.data.storeId, spell, props.data.tradition, props.data.attribute);
 
   const attackAndDcSection = (
-    <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+    <Paper
+      shadow='xs'
+      my={5}
+      py={5}
+      px={10}
+      bg='var(--wg4-surface-2)'
+      radius='md'
+      style={{ border: '1px solid var(--wg4-border-soft)' }}
+    >
       <Group wrap='nowrap' grow>
         <Group wrap='nowrap' gap={10}>
           <Text fw={600} c='gray.2' span>

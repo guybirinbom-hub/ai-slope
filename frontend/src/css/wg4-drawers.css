@@ -1,0 +1,535 @@
+/* wg4-drawers.css — drawer styling extracted from D:/Inst/Drawer Designs.html
+ * Every selector prefixed with .wg4 so it only affects opted-in surfaces.
+ * The spell slot picker (.slot-row block) is excluded per user request.
+ */
+
+/* === Variables — applied to .wg4 root === */
+.wg4 {
+    --surface: #f6f3eb;
+    --surface-2: #efebe1;
+    --surface-hover: #ece8dd;
+    --border: #d8d3c4;
+    --border-strong: #c2bdac;
+    --border-soft: #e0dbcd;
+    --ink: #1a1a1a;
+    --ink-2: #3a3a37;
+    --ink-3: #6b6962;
+    --ink-4: #91897c;
+    --ink-5: #aea69a;
+    --accent: #b0542f;
+    --accent-soft: #ebd9cb;
+    --accent-ink: #8a3f1f;
+    --r-1: 4px; --r-2: 6px; --r-3: 8px; --r-pill: 999px;
+    --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, monospace;
+    --font-serif: 'Newsreader', ui-serif, Georgia, serif;
+}
+
+.wg4 .drawer {
+    width: 100%;
+    height: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow:
+      0 1px 0 rgba(20,20,20,.02),
+      0 6px 20px rgba(20,20,20,.06),
+      0 18px 60px rgba(20,20,20,.05);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    position: relative;
+  }
+  /* Subtle drag handle on the left edge — visual cue the panel slides */
+.wg4 .drawer::before {
+    content: "";
+    position: absolute;
+    left: 4px; top: 50%;
+    width: 3px; height: 40px;
+    background: var(--border-strong);
+    border-radius: 2px;
+    transform: translateY(-50%);
+    opacity: 0.5;
+  }
+
+.wg4 .dr-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 14px 22px;
+    border-bottom: 1px solid var(--border-soft);
+    flex-shrink: 0;
+  }
+.wg4 .dr-head .title-cluster {
+    display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  }
+.wg4 .dr-head .eyebrow {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--accent); font-weight: 600;
+  }
+.wg4 .dr-head .title {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.1;
+    letter-spacing: -0.005em;
+  }
+.wg4 .dr-head .nav-cluster { display: flex; align-items: center; gap: 4px; }
+.wg4 .dr-icon-btn {
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink-3);
+    border-radius: var(--r-1);
+  }
+.wg4 .dr-icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+.wg4 .dr-icon-btn svg { width: 14px; height: 14px; }
+
+.wg4 .dr-body {
+    flex: 1; overflow-y: auto;
+  }
+
+.wg4 .dr-section { padding: 14px 22px; border-bottom: 1px solid var(--border-soft); }
+.wg4 .dr-section:last-child { border-bottom: 0; }
+.wg4 .dr-section .sec-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+.wg4 .dr-section .sec-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--ink-3); font-weight: 600;
+  }
+.wg4 .dr-section .sec-meta {
+    font-size: 11px; color: var(--ink-4); font-family: var(--font-mono);
+  }
+
+  /* Common pill / chip */
+.wg4 .chip-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 9px;
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    font-size: 10.5px;
+    color: var(--ink-2);
+    line-height: 1.5; white-space: nowrap;
+  }
+.wg4 .chip-pill.rust { background: var(--accent-soft); border-color: #d8b9a4; color: var(--accent-ink); }
+
+  /* Trait pills */
+.wg4 .traits-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.wg4 .trait-pill {
+    padding: 3px 10px;
+    border-radius: 3px;
+    background: var(--accent-soft);
+    border: 1px solid #d8b9a4;
+    font-size: 10px;
+    color: var(--accent-ink);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+.wg4 .trait-pill.rarity-uncommon { background: #f3e5cf; border-color: #d9bd8d; color: #806123; }
+.wg4 .trait-pill.rarity-rare     { background: #efdde3; border-color: #d6a5b5; color: #8b3a55; }
+.wg4 .trait-pill.school          { background: var(--surface-2); border-color: var(--border-soft); color: var(--ink-3); }
+
+  /* Action cost glyph row */
+.wg4 .ag-row { display: inline-flex; align-items: center; gap: 4px; }
+.wg4 .ag-row svg { width: 14px; height: 14px; color: var(--ink); }
+.wg4 .ag-large svg { width: 18px; height: 18px; }
+
+  /* Prose */
+.wg4 .prose { font-family: var(--font-serif); font-size: 14.5px; line-height: 1.6; color: var(--ink); }
+.wg4 .prose p { margin: 0 0 10px; }
+.wg4 .prose p:last-child { margin-bottom: 0; }
+.wg4 .prose b, .wg4 .prose strong { font-weight: 600; font-family: var(--font-sans); font-style: normal; }
+.wg4 .prose em, .wg4 .prose i { font-style: italic; }
+.wg4 .prose ul { padding-left: 18px; margin: 6px 0; }
+.wg4 .prose li { margin: 2px 0; }
+
+  /* Stat row (used by stat-prof, item) */
+.wg4 .stat-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px dotted var(--border-soft);
+    font-size: 12.5px;
+  }
+.wg4 .stat-row:last-child { border-bottom: 0; }
+.wg4 .stat-row .k { color: var(--ink-3); }
+.wg4 .stat-row .v { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--ink); }
+.wg4 .stat-row .v.signed { color: var(--accent); }
+
+  /* Tabs */
+.wg4 .tab-strip {
+    display: flex;
+    border-bottom: 1px solid var(--border-soft);
+    padding: 0 22px;
+    margin-top: -2px;
+  }
+.wg4 .tab-strip button {
+    appearance: none; background: transparent; border: 0;
+    padding: 10px 12px;
+    margin-right: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+  }
+.wg4 .tab-strip button:hover { color: var(--ink-2); }
+.wg4 .tab-strip button.on {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+  }
+
+  /* Prof chip (matches sheet) */
+.wg4 .prof-chip {
+    display: inline-grid; place-items: center;
+    width: 18px; height: 18px;
+    background: var(--surface-2);
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 10px; font-weight: 600;
+    color: var(--ink-3);
+  }
+.wg4 .prof-chip[data-r="U"] { color: var(--ink-5); }
+.wg4 .prof-chip[data-r="T"] { color: var(--ink-3); }
+.wg4 .prof-chip[data-r="E"] { color: var(--ink); background: #dfdac9; }
+.wg4 .prof-chip[data-r="M"] { color: #f6f3eb; background: var(--ink); }
+.wg4 .prof-chip[data-r="L"] { color: var(--accent); background: var(--accent-soft); }
+
+  /* Footer action bar */
+.wg4 .dr-foot {
+    padding: 12px 18px;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border-soft);
+    display: flex; align-items: center; gap: 6px;
+    flex-shrink: 0;
+  }
+.wg4 .dr-foot .spacer { flex: 1; }
+.wg4 .btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-2);
+    padding: 7px 14px;
+    border-radius: var(--r-2);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+.wg4 .btn:hover { background: var(--surface-hover); border-color: var(--border-strong); color: var(--ink); }
+.wg4 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wg4 .btn.primary:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+.wg4 .btn.danger { color: var(--accent-ink); border-color: #d8b9a4; }
+.wg4 .btn.danger:hover { background: var(--accent-soft); }
+
+  /* Big stat hero (used by stat breakdown) */
+.wg4 .stat-hero {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 18px;
+    align-items: center;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border-soft);
+    background: linear-gradient(to bottom, var(--surface), var(--surface-2));
+  }
+.wg4 .stat-hero .big {
+    font-family: var(--font-mono);
+    font-size: 48px; font-weight: 500;
+    color: var(--accent);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+.wg4 .stat-hero .meta { font-size: 10.5px; color: var(--ink-3); letter-spacing: -0.005em; }
+.wg4 .stat-hero .meta .v {
+    font-family: var(--font-mono);
+    font-size: 12px; color: var(--ink); font-weight: 500;
+    margin-top: 1px;
+  }
+.wg4 .stat-hero .roll-btn {
+    margin-top: 6px;
+    appearance: none;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: var(--r-pill);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+.wg4 .stat-hero .roll-btn .die {
+    width: 5px; height: 5px; border-radius: 50%; background: #fff;
+  }
+
+  /* Breakdown rows (stat prof drawer) */
+.wg4 .breakdown {
+    display: flex; flex-direction: column;
+  }
+.wg4 .breakdown .br-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-soft);
+    align-items: center;
+  }
+.wg4 .breakdown .br-row:last-child { border-bottom: 0; }
+.wg4 .breakdown .br-row.total { font-weight: 600; }
+.wg4 .breakdown .br-row .k { font-size: 12px; color: var(--ink-2); }
+.wg4 .breakdown .br-row .src { font-size: 10.5px; color: var(--ink-4); font-family: var(--font-serif); font-style: italic; }
+.wg4 .breakdown .br-row .v {
+    font-family: var(--font-mono); font-size: 12.5px; color: var(--ink);
+    text-align: right; min-width: 28px;
+  }
+.wg4 .breakdown .br-row .v.pos { color: var(--accent); }
+.wg4 .breakdown .br-row .v.neg { color: var(--ink-4); }
+.wg4 .breakdown .br-row.total .v { color: var(--ink); font-size: 14px; }
+
+  /* Class/Ancestry hero */
+.wg4 .hero-tile {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 16px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border-soft);
+    background: linear-gradient(to bottom, var(--surface), var(--surface-2));
+    align-items: center;
+  }
+.wg4 .hero-tile .crest {
+    width: 70px; height: 70px;
+    border-radius: var(--r-2);
+    background: var(--accent-soft);
+    border: 1px solid #d8b9a4;
+    display: grid; place-items: center;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 36px;
+    color: var(--accent-ink);
+  }
+.wg4 .hero-tile .nm {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 28px; font-weight: 500;
+    color: var(--ink);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+.wg4 .hero-tile .sub {
+    font-size: 11px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.14em;
+    font-family: var(--font-mono);
+    margin-top: 4px;
+  }
+.wg4 .hero-tile .pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+
+  /* Inventory item hero */
+.wg4 .item-hero {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    gap: 14px;
+    padding: 16px 22px;
+    align-items: center;
+    border-bottom: 1px solid var(--border-soft);
+  }
+.wg4 .item-hero .ic {
+    width: 48px; height: 48px;
+    display: grid; place-items: center;
+    background: var(--surface-2);
+    border-radius: var(--r-2);
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
+.wg4 .item-hero .ic svg { width: 24px; height: 24px; }
+.wg4 .item-hero .info .nm {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 22px; font-weight: 500;
+    color: var(--ink);
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
+.wg4 .item-hero .info .sub {
+    font-size: 10.5px;
+    color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.14em;
+    font-family: var(--font-mono);
+    margin-top: 4px;
+  }
+.wg4 .item-hero .price-meta {
+    text-align: right;
+    font-family: var(--font-mono);
+    width: 9px; height: 9px;
+    border: 1.4px solid var(--accent);
+    transform: rotate(45deg);
+  }
+.wg4 .slot-row .pip.used { background: var(--accent); }
+.wg4 .slot-row .right-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: -0.005em;
+  }
+
+  /* Coin row */
+.wg4 .coin-row {
+    display: grid;
+    grid-template-columns: 28px 80px 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+.wg4 .coin-row:last-child { border-bottom: 0; }
+.wg4 .coin-row .pic {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink-2);
+    border: 1px solid var(--border-strong);
+  }
+.wg4 .coin-row .pic.pp { background: linear-gradient(135deg, .wg4 #e9e8e2, .wg4 #cfcec8); }
+.wg4 .coin-row .pic.gp { background: linear-gradient(135deg, .wg4 #d8b878, .wg4 #b18a3e); color: #4a3a16; border-color: #a08446; }
+.wg4 .coin-row .pic.sp { background: linear-gradient(135deg, .wg4 #d2d0c8, .wg4 #adaba2); }
+.wg4 .coin-row .pic.cp { background: linear-gradient(135deg, .wg4 #c19071, .wg4 #8e5d3f); color: #fff; border-color: #7d4d31; }
+.wg4 .coin-row .lbl {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--ink-3); font-weight: 600;
+  }
+.wg4 .coin-row .stepper {
+    display: inline-flex; align-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    background: var(--surface);
+    overflow: hidden;
+  }
+.wg4 .coin-row .stepper button {
+    border: 0; background: transparent;
+    width: 26px; height: 28px;
+    color: var(--ink-3);
+    font-size: 13px;
+    font-weight: 600;
+  }
+.wg4 .coin-row .stepper button:hover { background: var(--surface-hover); color: var(--ink); }
+.wg4 .coin-row .stepper input {
+    border: 0; background: transparent;
+    width: 60px; padding: 0; text-align: center;
+    font-family: var(--font-mono);
+    font-size: 14px; font-weight: 500;
+    color: var(--ink);
+    outline: none;
+    border-left: 1px solid var(--border-soft);
+    border-right: 1px solid var(--border-soft);
+    height: 28px;
+  }
+.wg4 .coin-row .ngp { font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); text-align: right; }
+
+  /* Creature stat strip */
+.wg4 .creature-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-2);
+    overflow: hidden;
+  }
+.wg4 .creature-stats .cell { background: var(--surface); padding: 8px 10px; }
+.wg4 .creature-stats .cell .k {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--ink-4); font-weight: 600;
+  }
+.wg4 .creature-stats .cell .v {
+    font-family: var(--font-mono);
+    font-size: 15px; font-weight: 500;
+    color: var(--ink);
+    margin-top: 2px;
+    letter-spacing: -0.01em;
+  }
+
+  /* Strike row in creature */
+.wg4 .strike-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-soft);
+    align-items: baseline;
+  }
+.wg4 .strike-row:last-child { border-bottom: 0; }
+.wg4 .strike-row .ag svg { color: var(--ink); }
+.wg4 .strike-row .nm { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.wg4 .strike-row .dmg {
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-3);
+    margin-top: 2px;
+  }
+.wg4 .strike-row .bonus {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* Source line */
+.wg4 .source-line {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 11.5px;
+    color: var(--ink-4);
+    padding-top: 4px;
+  }
+.wg4 .source-line b { color: var(--ink-2); font-weight: 500; font-style: normal; font-family: var(--font-sans); }
+</style>
+
+/* === Aliases mapping wg4 primitive classes to design classes === */
+.wg4 .wg4-drawer, .wg4 .wg4-drawer-mantine {
+  background: var(--surface, #f6f3eb) !important;
+  border: 1px solid var(--border, #d8d3c4) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 0 rgba(20,20,20,.02), 0 6px 20px rgba(20,20,20,.06), 0 18px 60px rgba(20,20,20,.05) !important;
+  color: var(--ink, #1a1a1a) !important;
+  font-family: 'Geist', ui-sans-serif, system-ui, sans-serif !important;
+}
+.wg4 .wg4-drawer-head, .wg4 .wg4-drawer-mantine-head {
+  padding: 14px 18px 14px 22px !important;
+  border-bottom: 1px solid var(--border-soft, #e0dbcd) !important;
+  background: var(--surface, #f6f3eb) !important;
+}
+.wg4 .wg4-drawer-head .title, .wg4 .wg4-drawer-mantine-head .mantine-Title-root, .wg4 .wg4-drawer-mantine-head h3 {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-style: italic !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: var(--ink, #1a1a1a) !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.005em !important;
+}
+.wg4 .wg4-drawer-body, .wg4 .wg4-drawer-mantine-body {
+  background: var(--surface, #f6f3eb) !important;
+  color: var(--ink, #1a1a1a) !important;
+}
+.wg4 .wg4-drawer-mantine-body .mantine-ScrollArea-viewport { background: transparent !important; }
+.wg4 .wg4-trait {
+  padding: 3px 10px !important; border-radius: 3px !important;
+  background: var(--accent-soft, #ebd9cb) !important; border: 1px solid #d8b9a4 !important;
+  font-size: 10px !important; color: var(--accent-ink, #8a3f1f) !important;
+  font-weight: 600 !important; letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+.wg4 .wg4-trait.uncommon { background: #f3e5cf !important; border-color: #d9bd8d !important; color: #806123 !important; }
+.wg4 .wg4-trait.rare { background: #efdde3 !important; border-color: #d6a5b5 !important; color: #8b3a55 !important; }
+.wg4 .wg4-trait.school { background: var(--surface-2, #efebe1) !important; border-color: var(--border-soft, #e0dbcd) !important; color: var(--ink-3, #6b6962) !important; }

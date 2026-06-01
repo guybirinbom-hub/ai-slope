@@ -203,7 +203,7 @@ export function CodexNotesPanel(props: {
                     {p.shared ? 'shared with party' : 'private'}
                   </div>
                 </div>
-                <div className='np-meta'>{i === activeIndex ? 'open' : ''}</div>
+                <div className='np-meta'>{i === activeIndex ? 'Open' : ''}</div>
               </div>
             );
           })}
@@ -252,8 +252,15 @@ export function CodexNotesPanel(props: {
         <div className='notes-stage'>
           {activePage ? (
             <div className='leaf'>
-              <span className='leaf-corner-tr' />
-              <span className='leaf-corner-bl' />
+              {/* Four visible rust L-shaped corner brackets per design.
+                  Top-left/top-right are ::before/::after pseudo-elements
+                  (defined in CSS); bottom-left/bottom-right are DOM
+                  spans because a single element only supports two
+                  pseudo-element corners. */}
+              <span className='leaf-corner leaf-corner-tl' />
+              <span className='leaf-corner leaf-corner-tr' />
+              <span className='leaf-corner leaf-corner-bl' />
+              <span className='leaf-corner leaf-corner-br' />
               <span className='leaf-margin' />
 
               <div className='leaf-head'>

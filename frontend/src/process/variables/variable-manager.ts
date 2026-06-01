@@ -8,6 +8,7 @@ import {
   VariableValue,
   VariableNum,
   ExtendedVariableValue,
+  ProficiencyType,
 } from '@schemas/variables';
 import {
   isAttributeValue,
@@ -25,6 +26,10 @@ import {
   isProficiencyValue,
   isExtendedProficiencyValue,
   compileExpressions,
+  compileProficiencyType,
+  isProficiencyTypeGreaterOrEqual,
+  prevProficiencyType,
+  nextProficiencyType,
 } from './variable-utils';
 import { cloneDeep, isBoolean, isEqual, isNumber, isString, uniq } from 'lodash-es';
 import { throwError } from '@utils/error-handling';
@@ -382,15 +387,32 @@ export function getVariables(id: StoreID) {
  * Gets a variable
  * @param name - name of the variable to get
  * @returns - the variable
+ *
+ * PERF: returns the live reference (no clone). The hot path
+ * (CharBuilderCreation skills/saves/vitals + variable-display +
+ * variable-helpers) calls this hundreds of times per render. Audit
+ * confirms no caller mutates the returned object — all mutation goes
+ * through setVariable/adjVariable/addVariable which touch the store
+ * directly via `getVariables(id)[name]`. The previous `cloneDeep` was
+ * a no-op safety net that dominated render cost (~hundreds of
+ * cloneDeeps per builder render).
  */
 export function getVariable<T = Variable>(id: StoreID, name: string): T | null {
-  return cloneDeep(getVariables(id)[name]) as T | null;
+  return (getVariables(id)[name] as T | null) ?? null;
 }
 
 /**
  * Gets the bonuses for a variable
  * @param name - name of the variable to get
  * @returns - the bonus array, compiles any string expressions
+ *
+ * PERF: drops the outer `cloneDeep` of the raw bonus array. The map
+ * below already returns fresh objects (`{...bonus, value: c}`) for
+ * each entry, so callers receive a fresh array of fresh objects either
+ * way — the clone was redundant. Called twice per displayFinalProfValue
+ * (via getProfValueParts → getVariableBreakdown AND via
+ * getFinalVariableValue), so removing this clone saves ~2 cloneDeeps
+ * per prof read.
  */
 export function getVariableBonuses(
   id: StoreID,
@@ -402,7 +424,8 @@ export function getVariableBonuses(
   source: string;
   timestamp: number;
 }[] {
-  const rawBonuses = cloneDeep(getVariableStore(id).bonuses[name]) ?? [];
+  const rawBonuses = getVariableStore(id).bonuses[name];
+  if (!rawBonuses) return [];
 
   return rawBonuses.map((bonus) => {
     if (isString(bonus.value)) {
@@ -607,7 +630,36 @@ export function adjVariable(id: StoreID, name: string, amount: VariableValue | E
     if (isProficiencyValue(amount) || isExtendedProficiencyValue(amount)) {
       const { value, attribute } = amount;
       if (isProficiencyType(value)) {
-        variable.value.value = maxProficiencyType(variable.value.value, value);
+        // PF2e: a "you become {rank}" grant (e.g. Wrestler Dedication's
+        // "become expert in Athletics") is a FLOOR — it raises you to at
+        // LEAST that rank, never higher. It must be a no-op when you're
+        // already at or above the granted rank.
+        //
+        // Our prof model stores skill-increase steps separately in
+        // `value.increases`, and the COMPILED rank is `value.value`
+        // stepped up by `increases`. Naively doing
+        // `value.value = max(value.value, grant)` double-counts when
+        // skill increases have already pushed the compiled rank to (or
+        // past) the granted rank:
+        //   Trained-from-class (value=T) + 1 skill increase (increases=1)
+        //   compiles to Expert. Wrestler "become expert" would then set
+        //   value=max(T,E)=E, leaving increases=1 → compiles to MASTER.
+        //
+        // Fix: only raise the base when the compiled rank is below the
+        // grant, and when raising, set the base to the grant stepped
+        // DOWN by the number of increases — so `base + increases`
+        // compiles to exactly the granted rank, not above it.
+        const currentCompiled = compileProficiencyType(variable.value);
+        if (!isProficiencyTypeGreaterOrEqual(currentCompiled, value as ProficiencyType)) {
+          const incr = variable.value.increases ?? 0;
+          let targetBase: ProficiencyType = value as ProficiencyType;
+          // Invert the increases: positive increases step the compiled
+          // rank UP, so undo by stepping the base DOWN (and vice-versa).
+          for (let i = 0; i < Math.abs(incr); i++) {
+            targetBase = (incr > 0 ? prevProficiencyType(targetBase) : nextProficiencyType(targetBase)) ?? targetBase;
+          }
+          variable.value.value = maxProficiencyType(variable.value.value, targetBase);
+        }
       } else if (isExtendedProficiencyType(value)) {
         if (!variable.value.increases) {
           variable.value.increases = 0;

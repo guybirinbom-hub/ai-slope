@@ -330,7 +330,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
   let quantitySection = null;
   if (hasQuantity && props.item.meta_data?.quantity !== 1) {
     quantitySection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group wrap='nowrap'>
           <Text fw={600} c='gray.2' span>
             Quantity
@@ -344,7 +344,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
   let healthSection = null;
   if (hasHealth) {
     healthSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md' style={{ position: 'relative' }}>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ position: 'relative', border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group wrap='nowrap' justify='space-between'>
           <Group wrap='nowrap'>
             <Text fw={600} c='gray.2' span>
@@ -411,7 +411,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
     const damageBonus = weaponStats.damage.bonus.total > 0 ? ` + ${weaponStats.damage.bonus.total}` : ``;
 
     attackAndDamageSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group grow gap={0}>
           <Group wrap='nowrap' gap={10} style={{ overflow: 'hidden' }}>
             <Text fw={600} c='gray.2' span>
@@ -473,7 +473,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
     const rightLabel = strikingLabel || resilientLabel;
 
     runesSection = (
-      <Paper shadow='xs' my={5} py={10} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={10} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={5}>
           {potencyLabel && (
             <Badge
@@ -554,7 +554,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
   let materialSection = null;
   if (isItemWithMaterial(props.item)) {
     materialSection = (
-      <Paper shadow='xs' my={5} py={10} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={10} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={5}>
           {materialType && (
             <Badge
@@ -580,7 +580,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
   let upgradeSection = null;
   if (isItemWithGradeImprovement(props.item)) {
     upgradeSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group gap={10}>
           <Group wrap='nowrap' mr={5}>
             <Text fw={600} c='gray.2' span>
@@ -626,7 +626,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
   let rangeAndReloadSection = null;
   if (isItemRangedWeapon(props.item)) {
     rangeAndReloadSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group wrap='nowrap' grow>
           <Group wrap='nowrap' gap={10}>
             <Text fw={600} c='gray.2' span>
@@ -652,7 +652,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
   let capacityAndUsageSection = null;
   if (props.item.meta_data?.starfinder?.capacity || props.item.meta_data?.starfinder?.usage) {
     capacityAndUsageSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group wrap='nowrap' grow>
           <Group wrap='nowrap' gap={10}>
             <Text fw={600} c='gray.2' span>
@@ -695,7 +695,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
     }
 
     categoryAndGroupSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md'>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group wrap='nowrap' grow>
           {props.item.meta_data?.category && (
             <Group wrap='nowrap' gap={10}>
@@ -743,7 +743,7 @@ function MiscItemSections(props: { item: Item; store: StoreID; openDrawer: Sette
   let armorSection = null;
   if (hasArmor) {
     armorSection = (
-      <Paper shadow='xs' my={5} py={5} px={10} bg='dark.6' radius='md' style={{ position: 'relative' }}>
+      <Paper shadow='xs' my={5} py={5} px={10} bg='var(--wg4-surface-2)' radius='md' style={{ position: 'relative', border: '1px solid var(--wg4-border-soft)', boxShadow: 'none' }}>
         <Group wrap='nowrap'>
           <Group wrap='nowrap' mr={20}>
             <Text fw={600} c='gray.2' span>

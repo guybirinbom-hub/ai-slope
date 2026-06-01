@@ -330,6 +330,15 @@ export default function SelectContentFilters(props: {
   // traits in a feat picker, no dwarf trait in an elf ancestry feat
   // picker, etc. undefined = no restriction.
   allowedTraitIds?: number[];
+  // Optional controlled state for the "Find a filter" input. When
+  // provided, the in-panel search input is hidden (consumers like the
+  // Add Items modal render their own search in the modal shell) and
+  // the typed query flows through the supplied value/setter pair.
+  // When omitted, the component owns the state internally and renders
+  // its own input as before.
+  searchQuery?: string;
+  onSearchQueryChange?: (next: string) => void;
+  hideSearchInput?: boolean;
 }) {
   const { type, abilityBlockType: ab, featType, state, onChange } = props;
   const isFeat = ab === 'feat';
@@ -341,7 +350,19 @@ export default function SelectContentFilters(props: {
 
   // Local search-the-filters text. Hides any FilterBlock whose title
   // doesn't contain the typed text. Empty = show all blocks.
-  const [filterQuery, setFilterQuery] = useState('');
+  //
+  // When the caller passes `searchQuery` + `onSearchQueryChange`, we
+  // treat the input as fully controlled and skip our internal state —
+  // this lets shells like the Add Items modal lift the filter-search
+  // query up into their own search bar (which replaces the items
+  // search when the filter panel is open).
+  const [internalFilterQuery, setInternalFilterQuery] = useState('');
+  const filterQuery =
+    props.searchQuery !== undefined ? props.searchQuery : internalFilterQuery;
+  const setFilterQuery = (v: string) => {
+    if (props.onSearchQueryChange) props.onSearchQueryChange(v);
+    else setInternalFilterQuery(v);
+  };
 
   // Ancestries get a minimal filter set per spec — only rarity + size.
   // Everything else is suppressed regardless of the type-specific
@@ -392,15 +413,19 @@ export default function SelectContentFilters(props: {
   return (
     <FilterSearchContext.Provider value={filterQuery}>
       {/* Top filter-search input — hides blocks whose title doesn't
-          match. Sits OUTSIDE the Stack so it isn't filtered itself. */}
-      <div className='codex-filter-search'>
-        <input
-          type='text'
-          placeholder='Find a filter — e.g. "rank", "tradition", "size"…'
-          value={filterQuery}
-          onChange={(e) => setFilterQuery(e.target.value)}
-        />
-      </div>
+          match. Sits OUTSIDE the Stack so it isn't filtered itself.
+          The Add Items modal (and similar shells) hide this and host
+          the search input themselves; see `hideSearchInput`. */}
+      {!props.hideSearchInput && (
+        <div className='codex-filter-search'>
+          <input
+            type='text'
+            placeholder='Find a filter — e.g. "rank", "tradition", "size"…'
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+          />
+        </div>
+      )}
       <Stack gap='md'>
       {showDescription && (
         <FilterBlock title='Description'>

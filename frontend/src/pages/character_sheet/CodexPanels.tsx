@@ -30,6 +30,7 @@ import { rankNumber } from '@utils/numbers';
 import {
   getInvBulk,
   getBulkLimit,
+  getBulkLimitImmobile,
   getContainerContentsBulk,
   labelizeBulk,
   isItemContainer,
@@ -42,7 +43,12 @@ import {
 import { priceToString } from '@items/currency-handler';
 import { isCantrip, isNormalSpell } from '@spells/spell-utils';
 import { selectContent } from '@common/select/SelectContent';
-import { isItemWeapon } from '@items/inv-utils';
+import {
+  applyHandwrapsToUnarmed,
+  getEquippedHandwrapsRunes,
+  isHandwrapsOfMightyBlows,
+  isItemWeapon,
+} from '@items/inv-utils';
 import { ItemIcon, isConsumableItem } from '@items/item-icons';
 import { cloneDeep } from 'lodash-es';
 import ManageSpellsModal from '@modals/ManageSpellsModal';
@@ -57,6 +63,7 @@ import { hasTraitType } from '@utils/traits';
 import { getCachedContent } from '@content/content-store';
 import { AbilityBlock } from '@schemas/content';
 import { sign } from '@utils/numbers';
+import { useCollapsedSections } from './useCollapsedSections';
 
 // -----------------------------------------------------------------------
 // Shared inline-SVG action-cost sprite — used by both spells + activities.
@@ -129,9 +136,12 @@ export function ActionStatCell(props: {
   // weapon's [0] (no-MAP) attack bonus.
   let bestMap: [number, number, number] = [0, -5, -10];
   if (isAttack && character?.inventory) {
-    const equipped = (character.inventory.items ?? []).filter(
-      (i) => i.is_equipped && isItemWeapon(i.item)
-    );
+    // Handwraps of Mighty Blows aren't a Strike — exclude them and
+    // fold their runes into the wearer's unarmed attacks instead.
+    const wrapsRunes = getEquippedHandwrapsRunes(character.inventory);
+    const equipped = (character.inventory.items ?? [])
+      .filter((i) => i.is_equipped && isItemWeapon(i.item) && !isHandwrapsOfMightyBlows(i.item))
+      .map((i) => ({ ...i, item: applyHandwrapsToUnarmed(i.item, wrapsRunes) }));
     for (const inv of equipped) {
       const stats = getWeaponStats('CHARACTER', inv.item);
       const arr = (stats.attack_bonus?.total as number[] | undefined) ?? [];
@@ -274,6 +284,311 @@ export function actionCostToGlyph(
 // CodexSpellsPanel
 // =======================================================================
 
+// ─── wg4 spell-section icons ────────────────────────────────────────
+// Inlined from wg4/spells.jsx — small mark used to the left of each
+// section heading (Compositions / Cantrips / 1st Rank / ...).
+function SpComposeIcon() {
+  return (
+    <svg viewBox='0 0 16 16' width='11' height='11' fill='currentColor'>
+      <path d='M8 2 C5 2 3 4 3 7 c0 2 1 4 3 5 l2 2 2-2 c2-1 3-3 3-5 0-3-2-5-5-5z' />
+    </svg>
+  );
+}
+function SpStarIcon() {
+  return (
+    <svg viewBox='0 0 16 16' width='10' height='10' fill='currentColor'>
+      <path d='M8 1.2 L9.6 6.4 L14.8 8 L9.6 9.6 L8 14.8 L6.4 9.6 L1.2 8 L6.4 6.4 Z' />
+    </svg>
+  );
+}
+function SpDiaIcon() {
+  return (
+    <svg viewBox='0 0 16 16' width='10' height='10' fill='currentColor'>
+      <path d='M8 1 L15 8 L8 15 L1 8 Z' />
+    </svg>
+  );
+}
+function SpSearchIcon() {
+  return (
+    <svg viewBox='0 0 16 16' fill='none' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round'>
+      <circle cx='7' cy='7' r='4.5' />
+      <line x1='10.3' y1='10.3' x2='13.5' y2='13.5' />
+    </svg>
+  );
+}
+
+// ─── wg4 SpSectionHead ──────────────────────────────────────────────
+// Header strip above each grid of spell cards. Left side is an icon +
+// label (Compositions / Cantrips / 1st Rank / ...); right side is a
+// slot indicator (SLOTS + diamond pips), focus indicator (FOCUS n / m
+// + pips), or a free-form count string ("ALWAYS AVAILABLE · N").
+//
+// Optionally wired up as a collapsible toggle: pass `onToggle` and the
+// whole header becomes clickable (caller is expected to wrap children
+// in `<div className="sp-sec [+ collapsed]">` so the CSS hides the
+// matching sp-grid / sp-empty-line). The chevron rotates via CSS.
+function SpSectionHead(props: {
+  icon?: React.ReactNode;
+  label: string;
+  right?: React.ReactNode;
+  onToggle?: () => void;
+}) {
+  return (
+    <div className='sp-section-head' onClick={props.onToggle}>
+      <div className='label'>
+        {props.icon && <span className='ico'>{props.icon}</span>}
+        <span>{props.label}</span>
+        {props.onToggle && <span className='sec-chevron'>▾</span>}
+      </div>
+      <div className='meta' onClick={(e) => e.stopPropagation()}>{props.right}</div>
+    </div>
+  );
+}
+
+// ─── wg4 SlotIndicator / FocusIndicator ─────────────────────────────
+// Two flavors of the diamond-pip cluster on the right of section
+// headings.  Slot pips fill left-to-right with used slots; focus pips
+// fill with the player's current focus points.
+function SpSlotIndicator(props: { total: number; used: number; muted?: boolean }) {
+  if (props.total <= 0) return null;
+  return (
+    <>
+      <span className='nums'>SLOTS</span>
+      <span className='pips'>
+        {Array.from({ length: props.total }, (_, i) => (
+          <span key={i} className={`dia-pip${props.muted ? ' muted' : ''}${i < props.used ? ' on' : ''}`} />
+        ))}
+      </span>
+    </>
+  );
+}
+function SpFocusIndicator(props: {
+  current: number;
+  max: number;
+  onAdjust: (n: number) => void;
+}) {
+  if (props.max <= 0) return null;
+  return (
+    <>
+      <span className='nums'>
+        FOCUS <b>{props.current}</b> / {props.max}
+      </span>
+      <span className='pips'>
+        {Array.from({ length: props.max }, (_, i) => (
+          <span
+            key={i}
+            className={`dia-pip${i < props.current ? ' on' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onAdjust(i + 1 === props.current ? i : i + 1);
+            }}
+          />
+        ))}
+      </span>
+    </>
+  );
+}
+
+// ─── wg4 SpellCard ──────────────────────────────────────────────────
+// One spell row in the .sp-grid. Action-glyph cell on the left,
+// name/sub stack in the middle, area/save meta on the right. The
+// `exhausted` modifier strikes through the name + greys the row.
+// Right-click options (signature / replace) are wired to the
+// optional callbacks; pure-vanilla rows do nothing on right click.
+function SpellCard(props: {
+  spell: Spell;
+  exhausted?: boolean;
+  signature?: boolean;
+  metaOverride?: string | null;
+  onClick: () => void;
+  onToggleSignature?: () => void;
+  onReplace?: () => void;
+  onCast?: (cast: boolean) => void;
+}) {
+  const { spell, exhausted } = props;
+  const castStr =
+    typeof spell.cast === 'string' ? spell.cast : (spell.cast as unknown as string | null) ?? null;
+  const glyph = actionCostToGlyph(castStr);
+
+  // Right-click context menu (signature toggle / replace spell).
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const ctxRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) setCtxMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCtxMenu(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [ctxMenu]);
+  const hasCtxMenu = !!(props.onToggleSignature || props.onReplace);
+
+  // Subtitle: trait names joined by " · ". Falls back to rank +
+  // duration if the spell has no traits (some homebrew + ritual data).
+  const traitCache = getCachedContent<{ id: number; name?: string }>('trait') ?? [];
+  const traitMap = new Map(traitCache.map((t) => [t.id, t.name?.toLowerCase() ?? '']));
+  const traitNames = (spell.traits ?? [])
+    .map((id) => traitMap.get(id))
+    .filter((n): n is string => !!n);
+  let sub: string;
+  if (traitNames.length > 0) sub = traitNames.join(' · ');
+  else {
+    const parts: string[] = [];
+    if (spell.rank > 0) parts.push(`rank ${spell.rank}`);
+    if (spell.duration) parts.push(spell.duration);
+    sub = parts.join(' · ');
+  }
+
+  // Meta: caller-supplied override (e.g. "2/3 CASTS" for innate) wins;
+  // otherwise area or range from the spell data.
+  const meta = props.metaOverride ?? spell.area ?? spell.range ?? '';
+  return (
+    <>
+      <div
+        className={`sp-card${props.signature ? ' fav' : ''}${exhausted ? ' exhausted' : ''}`}
+        onClick={props.onClick}
+        onContextMenu={(e) => {
+          if (!hasCtxMenu) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setCtxMenu({ x: e.clientX, y: e.clientY });
+        }}
+        title={hasCtxMenu ? 'Right-click for spell options' : undefined}
+      >
+        <span className='ag-cell'>
+          {glyph != null ? <ActionGlyph cost={glyph} /> : <span className='dash'>—</span>}
+        </span>
+        <div className='info'>
+          <div className='name'>
+            {props.signature && <span className='star'>★</span>}
+            {spell.name}
+          </div>
+          {sub && <div className='sub'>{sub}</div>}
+        </div>
+        <div className='meta'>
+          {meta ? (meta === '—' ? <span className='dash'>—</span> : <span>{meta}</span>) : null}
+          {spell.defense && <span className='save'>{spell.defense}</span>}
+          {/* Optional inline cast/restore for prepared casters.  Stops
+              propagation so the click doesn't also open the drawer. */}
+          {props.onCast && (
+            <button
+              type='button'
+              className={`sp-act${exhausted ? ' restore' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                props.onCast!(!exhausted);
+              }}
+              title={exhausted ? 'Mark this slot as available again' : 'Mark this slot as cast (use)'}
+              style={{
+                marginLeft: 8,
+                padding: '2px 8px',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--r-1)',
+                background: 'var(--surface)',
+                color: 'var(--ink-2)',
+                fontSize: '10px',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              {exhausted ? 'Restore' : 'Use'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {ctxMenu &&
+        createPortal(
+          <div
+            ref={ctxRef}
+            role='menu'
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+              position: 'fixed',
+              left: ctxMenu.x,
+              top: ctxMenu.y,
+              minWidth: 200,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--rule-soft)',
+              boxShadow: '0 8px 24px rgba(0,0,0,.35)',
+              padding: '4px 0',
+              zIndex: 10000,
+              color: 'var(--ink)',
+            }}
+          >
+            {props.onToggleSignature && (
+              <button
+                type='button'
+                onClick={() => {
+                  props.onToggleSignature!();
+                  setCtxMenu(null);
+                }}
+                style={ctxSpellItemStyle}
+              >
+                {props.signature ? 'Remove signature' : 'Make signature spell'}
+              </button>
+            )}
+            {props.onReplace && (
+              <button
+                type='button'
+                onClick={() => {
+                  props.onReplace!();
+                  setCtxMenu(null);
+                }}
+                style={ctxSpellItemStyle}
+              >
+                Replace spell
+              </button>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
+// Native-button styling for the spell-card right-click menu.
+const ctxSpellItemStyle = {
+  display: 'block',
+  width: '100%',
+  textAlign: 'left',
+  padding: '8px 14px',
+  background: 'transparent',
+  border: 'none',
+  color: 'inherit',
+  font: 'inherit',
+  cursor: 'pointer',
+} as const;
+
+// ─── wg4 AddCard ────────────────────────────────────────────────────
+// Dashed-border placeholder card sized to match a .sp-card. Used as
+// the trailing "+ Add 1st-Rank Spell" tile in spontaneous repertoires
+// and the per-slot "+ Prepare 1st-Rank Spell" tile in prepared lists.
+function SpellAddCard(props: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type='button'
+      className='sp-card add'
+      onClick={(e) => {
+        e.stopPropagation();
+        props.onClick();
+      }}
+    >
+      <span className='plus'>+</span>
+      <span>{props.label}</span>
+    </button>
+  );
+}
+
 export function CodexSpellsPanel(props: {
   characterId: number;
   character: Character | null;
@@ -283,6 +598,12 @@ export function CodexSpellsPanel(props: {
   const { character, content } = props;
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [searchQuery, setSearchQuery] = useState('');
+  // Collapsible spell-rank section state — every SpSectionHead below is
+  // toggled via this hook, keyed by a stable per-rank / per-source ID.
+  const { isCollapsed, toggle: toggleCollapsed } = useCollapsedSections();
+  // Action-cost filter pill state (mirrors wg4/spells.jsx).
+  // null = "all", '1'/'2'/'3' = N-action, 'f' = free, 'r' = reaction.
+  const [actionFilter, setActionFilter] = useState<null | '1' | '2' | '3' | 'f' | 'r'>(null);
   // ManageSpellsModal state — opens when the user clicks the codex
   // "Manage" button on a tradition. Mirrors what the legacy
   // SpellsPanel does internally via setManageSpells().
@@ -499,7 +820,7 @@ export function CodexSpellsPanel(props: {
       },
       {
         overrideLabel: 'Prepare Spell',
-        zIndex: 600,
+        zIndex: 1100,
         // Cantrips only for rank-0 slots; rank ≤ slotRank for the
         // rest (heighten-up allowed, heighten-down implicitly blocked
         // because cantrips and rank ≥ 1 are mutually exclusive
@@ -595,7 +916,7 @@ export function CodexSpellsPanel(props: {
       },
       {
         overrideLabel: rank === 0 ? 'Add Cantrip' : 'Add to Repertoire',
-        zIndex: 600,
+        zIndex: 1100,
         overrideOptions: managerSpells as unknown as Record<string, any>[],
         filterFn: (sRec: Record<string, unknown>) => {
           const s = sRec as Spell;
@@ -640,9 +961,32 @@ export function CodexSpellsPanel(props: {
     });
   };
 
+  // Action-cost filter (A/1/2/3/F/R pills in the toolbar).  Same shape
+  // as wg4/spells.jsx — `null` = "all", '1'/'2'/'3' = N-action,
+  // 'f' = free, 'r' = reaction.
+  const matchAction = (spell: Spell | undefined): boolean => {
+    if (!actionFilter) return true;
+    if (!spell) return false;
+    const glyph = actionCostToGlyph(
+      typeof spell.cast === 'string' ? spell.cast : (spell.cast as unknown as string | null)
+    );
+    if (actionFilter === 'r') return glyph === 'r';
+    if (actionFilter === 'f') return glyph === 'f';
+    return glyph === parseInt(actionFilter, 10);
+  };
+  const passesFilters = (spell: Spell | undefined) => matchesSearch(spell) && matchAction(spell);
+
+  // ─── Innate spells (one block at the bottom) ───────────────────────
+  const innate = (charData?.innate ?? []).filter(Boolean);
+  const innateByTrad = new Map<string, typeof innate>();
+  for (const i of innate) {
+    if (!innateByTrad.has(i.tradition)) innateByTrad.set(i.tradition, []);
+    innateByTrad.get(i.tradition)!.push(i);
+  }
+
   return (
-    <div className='codex-tab-body'>
-      {sources.length === 0 && (
+    <div className='codex-tab-body spells-stack'>
+      {sources.length === 0 && innate.length === 0 && (
         <div
           style={{
             padding: 40,
@@ -658,13 +1002,18 @@ export function CodexSpellsPanel(props: {
 
       {sources.map((source) => {
         const tradition = source.tradition || '—';
-        const castType = source.type?.replace(/-/g, ' ').toLowerCase() ?? '—';
+        const castTypeRaw = source.type?.replace(/-/g, ' ').toLowerCase() ?? '—';
+        const castType = castTypeRaw.replace(/\b\w/g, (c) => c.toUpperCase());
         const attrName = source.attribute?.replace('ATTRIBUTE_', '') ?? '';
         const attrV = source.attribute
           ? getVariable<{ value: { value: number } }>('CHARACTER', source.attribute)?.value?.value ?? 0
           : 0;
-        const spellAttack = source.name ? getFinalProfValue('CHARACTER', `SPELL_ATTACK_${source.name.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`) : null;
-        const spellDc = source.name ? getFinalProfValue('CHARACTER', `SPELL_DC_${source.name.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`, true) : null;
+        const spellAttack = source.name
+          ? getFinalProfValue('CHARACTER', `SPELL_ATTACK_${source.name.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`)
+          : null;
+        const spellDc = source.name
+          ? getFinalProfValue('CHARACTER', `SPELL_DC_${source.name.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`, true)
+          : null;
 
         // Slots for this source, grouped by rank.
         const slots = (charData?.slots ?? []).filter((s) => s.source === source.name);
@@ -674,8 +1023,7 @@ export function CodexSpellsPanel(props: {
           slotsByRank.get(slot.rank)!.push(slot);
         }
 
-        // Spell list for this source, grouped by rank (the spells the
-        // caster knows, separate from slots).
+        // Spell list for this source, grouped by rank.
         const repList = (charData?.list ?? []).filter((e) => e.source === source.name);
         const listByRank = new Map<number, typeof repList>();
         for (const entry of repList) {
@@ -683,40 +1031,75 @@ export function CodexSpellsPanel(props: {
           listByRank.get(entry.rank)!.push(entry);
         }
 
-        // Compositions / focus spells — separate group, shown above ranks.
+        // Compositions / focus spells.
         const focusSpells = (charData?.focus ?? [])
           .filter((f) => f.source === source.name)
           .map((f) => findSpell(f.spell_id))
           .filter((s): s is Spell => !!s);
 
-        // Discover all ranks the caster has — union of slot ranks + list ranks.
-        const allRanks = new Set<number>([
-          ...Array.from(slotsByRank.keys()),
-          ...Array.from(listByRank.keys()),
-        ]);
-        const sortedRanks = Array.from(allRanks).sort((a, b) => a - b);
+        // Cantrips (rank 0).
+        const isPreparedSrc = source.type?.startsWith('PREPARED');
+        const isSpontaneousSrc = source.type === 'SPONTANEOUS-REPERTOIRE';
+
+        // For cantrips on prepared casters, slots-with-spell-id is the
+        // canonical list. For spontaneous, repertoire entries at rank 0.
+        const cantripCells: {
+          spell: Spell | undefined;
+          slotIdx: number | null;
+          exhausted: boolean;
+          signature: boolean;
+        }[] = [];
+        if (isPreparedSrc) {
+          (slotsByRank.get(0) ?? []).forEach((slot, i) => {
+            cantripCells.push({
+              spell: slot.spell_id ? findSpell(slot.spell_id) : undefined,
+              slotIdx: i,
+              exhausted: !!slot.exhausted,
+              signature: false,
+            });
+          });
+        } else {
+          (listByRank.get(0) ?? []).forEach((entry) => {
+            cantripCells.push({
+              spell: findSpell(entry.spell_id),
+              slotIdx: null,
+              exhausted: false,
+              signature: !!entry.signature,
+            });
+          });
+        }
+
+        // Per-rank sections — show every rank 1..maxRank discovered
+        // across slots + list. Empty ranks still render so the slot
+        // ladder reads complete (wg4 design).
+        const slotRanks = Array.from(slotsByRank.keys()).filter((r) => r > 0);
+        const listRanks = Array.from(listByRank.keys()).filter((r) => r > 0);
+        const maxRank = Math.max(0, ...slotRanks, ...listRanks);
+        const rankRange: number[] = [];
+        for (let r = 1; r <= maxRank; r++) rankRange.push(r);
 
         return (
-          <div key={source.name} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {/* Tradition line */}
-            <div className='tradition-line'>
-              <span className='t-name'>{tradition} Tradition</span>
-              <span className='t-sep'>·</span>
-              <span style={{ textTransform: 'capitalize' }}>{castType}</span>
+          <div key={source.name} className='spells-stack' style={{ gap: 14 }}>
+            {/* Tradition banner — OCCULT TRADITION · Spontaneous · CHA +0 · Atk +12 · DC 22 */}
+            <div className='sp-tradition'>
+              <span className='name'>
+                <em>{tradition.toUpperCase()}</em> Tradition
+              </span>
+              <span className='sep'>·</span>
+              <span className='type'>{castType}</span>
               {attrName && (
                 <>
-                  <span className='t-sep'>·</span>
-                  <span>
-                    <b>{attrName} {attrV >= 0 ? '+' : ''}{attrV}</b>
+                  <span className='sep'>·</span>
+                  <span className='stat'>
+                    {attrName} <b>{attrV >= 0 ? '+' : ''}{attrV}</b>
                   </span>
                 </>
               )}
               {spellAttack && (
                 <>
-                  <span className='t-sep'>·</span>
-                  <span>
-                    Atk{' '}
-                    <b>
+                  <span className='sep'>·</span>
+                  <span className='stat'>
+                    Atk <b>
                       {spellAttack}
                       <ProfCondMark
                         varName={`SPELL_ATTACK_${source.name!.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`}
@@ -727,10 +1110,9 @@ export function CodexSpellsPanel(props: {
               )}
               {spellDc && (
                 <>
-                  <span className='t-sep'>·</span>
-                  <span>
-                    DC{' '}
-                    <b>
+                  <span className='sep'>·</span>
+                  <span className='stat'>
+                    DC <b>
                       {spellDc}
                       <ProfCondMark
                         varName={`SPELL_DC_${source.name!.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`}
@@ -741,29 +1123,66 @@ export function CodexSpellsPanel(props: {
               )}
             </div>
 
-            {/* Search */}
-            <div className='spell-search'>
-              <div className='field'>
+            {/* Toolbar — search + action-cost filter pills + Manage */}
+            <div className='sp-toolbar'>
+              <div className='search-strip'>
+                <span className='icon'><SpSearchIcon /></span>
                 <input
                   type='text'
                   placeholder='Search spells…'
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
+                {/* Action-cost filter pills. No explicit "All" button —
+                    clicking the currently-active filter clears it
+                    (toggles back to "show everything"). */}
+                <div className='filter-pills'>
+                  <button
+                    type='button'
+                    className={`filter-pill${actionFilter === '1' ? ' on' : ''}`}
+                    title='1-action'
+                    onClick={() => setActionFilter(actionFilter === '1' ? null : '1')}
+                  >
+                    <ActionGlyph cost={1} />
+                  </button>
+                  <button
+                    type='button'
+                    className={`filter-pill${actionFilter === '2' ? ' on' : ''}`}
+                    title='2-action'
+                    onClick={() => setActionFilter(actionFilter === '2' ? null : '2')}
+                  >
+                    <ActionGlyph cost={2} />
+                  </button>
+                  <button
+                    type='button'
+                    className={`filter-pill${actionFilter === '3' ? ' on' : ''}`}
+                    title='3-action'
+                    onClick={() => setActionFilter(actionFilter === '3' ? null : '3')}
+                  >
+                    <ActionGlyph cost={3} />
+                  </button>
+                  <button
+                    type='button'
+                    className={`filter-pill${actionFilter === 'f' ? ' on' : ''}`}
+                    title='Free action'
+                    onClick={() => setActionFilter(actionFilter === 'f' ? null : 'f')}
+                  >
+                    <ActionGlyph cost={'f'} />
+                  </button>
+                  <button
+                    type='button'
+                    className={`filter-pill${actionFilter === 'r' ? ' on' : ''}`}
+                    title='Reaction'
+                    onClick={() => setActionFilter(actionFilter === 'r' ? null : 'r')}
+                  >
+                    <ActionGlyph cost={'r'} />
+                  </button>
+                </div>
               </div>
-              {/* The "Known" filter chip used to live here; it was a
-                  no-op cosmetic indicator (the spells list below is
-                  ALREADY filtered to known spells for spontaneous
-                  casters / spellbook for prepared) so the chip never
-                  toggled anything. Removed per request. */}
-              <span
-                className='add'
+              <button
+                type='button'
+                className='manage-big'
                 onClick={() => {
-                  // Open the proper ManageSpellsModal — same one the
-                  // legacy SpellsPanel uses. Type depends on caster:
-                  // prepared-list = SLOTS-AND-LIST (manage spellbook
-                  // and prepare into slots), prepared-tradition =
-                  // SLOTS-ONLY, spontaneous = LIST-ONLY.
                   const t =
                     source.type === 'PREPARED-LIST'
                       ? 'SLOTS-AND-LIST'
@@ -778,86 +1197,183 @@ export function CodexSpellsPanel(props: {
                 }}
               >
                 Manage
-              </span>
+              </button>
             </div>
 
             {/* Compositions / focus spells */}
-            {focusSpells.length > 0 && (
-              <section className='sec'>
-                <div className='sec-title'>
-                  <span className='lozenge' style={{ color: 'var(--crimson)' }}>❦</span>
-                  <span className='label'>Compositions</span>
-                  <span className='sub'>
-                    Focus <b>{focusCurrent}</b> / {focusMax || 3}
-                    <span className='focus-pips inline'>
-                      {[0, 1, 2].slice(0, focusMax || 3).map((i) => (
-                        <span
-                          key={i}
-                          className={i < focusCurrent ? 'fp full' : 'fp'}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFocusPoints(i < focusCurrent ? i : i + 1);
-                          }}
-                        ></span>
+            {focusSpells.length > 0 && (() => {
+              const compId = `spells-${source.name}-compositions`;
+              return (
+              <div className={`sp-sec${isCollapsed(compId) ? ' collapsed' : ''}`}>
+                <SpSectionHead
+                  icon={<SpComposeIcon />}
+                  label='Compositions'
+                  right={
+                    <SpFocusIndicator
+                      current={focusCurrent}
+                      max={focusMax || 3}
+                      onAdjust={setFocusPoints}
+                    />
+                  }
+                  onToggle={() => toggleCollapsed(compId)}
+                />
+                {(() => {
+                  const filtered = focusSpells.filter(passesFilters);
+                  if (filtered.length === 0)
+                    return <div className='sp-empty-line'>No compositions match the filter.</div>;
+                  return (
+                    <div className='sp-grid'>
+                      {filtered.map((spell) => (
+                        <SpellCard
+                          key={spell.id}
+                          spell={spell}
+                          exhausted={focusCurrent <= 0}
+                          onClick={() =>
+                            openDrawer({
+                              type: 'cast-spell',
+                              data: {
+                                id: spell.id,
+                                spell,
+                                exhausted: false,
+                                tradition: source.tradition,
+                                attribute: source.attribute,
+                                storeId: 'CHARACTER',
+                                entity: character,
+                                // Focus spells burn a focus point.
+                                onCastSpell: (cast: boolean) =>
+                                  setFocusPoints(focusCurrent + (cast ? -1 : 1)),
+                              },
+                              extra: { addToHistory: true },
+                            })
+                          }
+                        />
                       ))}
+                    </div>
+                  );
+                })()}
+              </div>
+              );
+            })()}
+
+            {/* Cantrips — always render */}
+            {(() => {
+              const cantripId = `spells-${source.name}-cantrips`;
+              return (
+              <div className={`sp-sec${isCollapsed(cantripId) ? ' collapsed' : ''}`}>
+                <SpSectionHead
+                  icon={<SpStarIcon />}
+                  label='Cantrips'
+                  right={
+                    <span className='nums'>
+                      ALWAYS AVAILABLE · <b>{cantripCells.filter((c) => !!c.spell).length}</b>
                     </span>
-                  </span>
-                </div>
-                <div className='sec-body'>
+                  }
+                  onToggle={() => toggleCollapsed(cantripId)}
+                />
+              {(() => {
+                const filtered = cantripCells.filter((c) => passesFilters(c.spell));
+                if (cantripCells.length === 0)
+                  return <div className='sp-empty-line'>No cantrips known.</div>;
+                if (filtered.length === 0)
+                  return <div className='sp-empty-line'>No cantrips match the filter.</div>;
+                return (
                   <div className='sp-grid'>
-                    {focusSpells.filter(matchesSearch).map((spell) => (
-                      <SpellRow
-                        key={spell.id}
-                        spell={spell}
-                        variant='focus'
+                    {filtered.map((cell, i) => {
+                      if (!cell.spell) {
+                        return (
+                          <SpellAddCard
+                            key={`empty-${i}`}
+                            label='Prepare Cantrip'
+                            onClick={() => {
+                              if (!isPreparedSrc || cell.slotIdx === null) return;
+                              const slot = (slotsByRank.get(0) ?? [])[cell.slotIdx];
+                              if (slot)
+                                pickSpellForSlot(
+                                  { name: source.name, type: source.type, tradition: source.tradition },
+                                  slot.id,
+                                  0
+                                );
+                            }}
+                          />
+                        );
+                      }
+                      const spellId = cell.spell.id;
+                      return (
+                        <SpellCard
+                          key={`c-${i}`}
+                          spell={cell.spell}
+                          exhausted={cell.exhausted}
+                          signature={cell.signature}
+                          onReplace={
+                            isPreparedSrc && cell.slotIdx !== null
+                              ? () => {
+                                  const slot = (slotsByRank.get(0) ?? [])[cell.slotIdx!];
+                                  if (slot)
+                                    pickSpellForSlot(
+                                      { name: source.name, type: source.type, tradition: source.tradition },
+                                      slot.id,
+                                      0
+                                    );
+                                }
+                              : undefined
+                          }
+                          onClick={() =>
+                            openDrawer({
+                              type: 'cast-spell',
+                              data: {
+                                id: spellId,
+                                spell: cell.spell,
+                                exhausted: cell.exhausted,
+                                tradition: source.tradition,
+                                attribute: source.attribute,
+                                storeId: 'CHARACTER',
+                                entity: character,
+                                onCastSpell: (cast: boolean) =>
+                                  castSpell(cast, source.name, 0, spellId, !!isPreparedSrc),
+                              },
+                              extra: { addToHistory: true },
+                            })
+                          }
+                        />
+                      );
+                    })}
+                    {/* Spontaneous casters: trailing "+ Add Cantrip" tile. */}
+                    {isSpontaneousSrc && (
+                      <SpellAddCard
+                        label='Add Cantrip'
                         onClick={() =>
-                          openDrawer({
-                            type: 'cast-spell',
-                            data: {
-                              id: spell.id,
-                              spell,
-                              exhausted: false,
-                              tradition: source.tradition,
-                              attribute: source.attribute,
-                              storeId: 'CHARACTER',
-                              entity: character,
-                              // Focus spells burn a focus point, not a slot.
-                              onCastSpell: (cast: boolean) => setFocusPoints(focusCurrent + (cast ? -1 : 1)),
-                            },
-                            extra: { addToHistory: true },
-                          })
+                          pickSpellForRepertoire(
+                            { name: source.name, type: source.type, tradition: source.tradition },
+                            0
+                          )
                         }
                       />
-                    ))}
+                    )}
                   </div>
-                </div>
-              </section>
-            )}
+                );
+              })()}
+              </div>
+              );
+            })()}
 
-            {/* Per-rank sections */}
-            {sortedRanks.map((rank) => {
+            {/* Per-rank sections — 1 through maxRank, always rendered. */}
+            {rankRange.map((rank) => {
               const rankSlots = slotsByRank.get(rank) ?? [];
               const rankList = listByRank.get(rank) ?? [];
-              const isCantripRank = rank === 0;
-
-              // For prepared casters, slots have spell_id assigned; for
-              // spontaneous, the list IS the repertoire and slots are
-              // just available-cast counters. Signature flag only
-              // matters for spontaneous (PF2e doesn't let prepared
-              // casters mark signatures; cantrips and rituals are
-              // also excluded by the canMarkSignature gate below).
-              const isPrepared = source.type?.startsWith('PREPARED');
-              const isSpontaneous = source.type === 'SPONTANEOUS-REPERTOIRE';
               const cells: {
                 spell: Spell | undefined;
                 slotIdx: number | null;
                 exhausted: boolean;
                 signature: boolean;
               }[] = [];
-              if (isPrepared) {
+              if (isPreparedSrc) {
                 rankSlots.forEach((slot, i) => {
-                  const spell = slot.spell_id ? findSpell(slot.spell_id) : undefined;
-                  cells.push({ spell, slotIdx: i, exhausted: !!slot.exhausted, signature: false });
+                  cells.push({
+                    spell: slot.spell_id ? findSpell(slot.spell_id) : undefined,
+                    slotIdx: i,
+                    exhausted: !!slot.exhausted,
+                    signature: false,
+                  });
                 });
               } else {
                 rankList.forEach((entry) => {
@@ -870,216 +1386,187 @@ export function CodexSpellsPanel(props: {
                 });
               }
 
-              // "Filled" pip semantics depend on caster type:
-              //   prepared    — slots that are both prepared (have a
-              //                 spell_id assigned) AND not yet cast.
-              //                 An empty slot is NOT filled.
-              //   spontaneous — just "not yet cast" (slots are
-              //                 generic available-cast counters).
-              const filledSlots = rankSlots.filter((s) =>
-                source.type?.startsWith('PREPARED')
-                  ? !s.exhausted && s.spell_id != null
-                  : !s.exhausted
-              ).length;
               const totalSlots = rankSlots.length;
+              const usedSlots = rankSlots.filter((s) => !!s.exhausted).length;
+              const remaining = totalSlots - usedSlots;
+              const isEmpty = cells.length === 0;
+              const filtered = cells.filter((c) => passesFilters(c.spell));
+
+              const ordinal = `${rank}${rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th'}-Rank Spell`;
+              const rankId = `spells-${source.name}-rank-${rank}`;
 
               return (
-                <section key={rank} className='sec'>
-                  <div className='sec-title'>
-                    <span className='lozenge'>{isCantripRank ? '✦' : '❖'}</span>
-                    <span className='label'>{isCantripRank ? 'Cantrips' : `${rankNumber(rank)} Rank`}</span>
-                    {!isCantripRank && totalSlots > 0 && (
-                      <span className='sub'>
-                        Slots
-                        <span className='rank-pips'>
-                          {Array.from({ length: totalSlots }).map((_, i) => (
-                            <span
-                              key={i}
-                              className={i < filledSlots ? 'dot-pip filled' : 'dot-pip'}
-                            ></span>
-                          ))}
-                        </span>
-                      </span>
-                    )}
-                    {isCantripRank && (
-                      <span className='sub'>always available</span>
-                    )}
-                  </div>
-                  <div className='sec-body'>
-                    {cells.length === 0 ? (
-                      <div
-                        style={{
-                          color: 'var(--ink-muted)',
-                          fontStyle: 'italic',
-                          fontSize: 12,
-                          padding: '6px 0',
-                        }}
-                      >
-                        No spells.
-                      </div>
-                    ) : (
-                      <div className='sp-grid'>
-                        {cells
-                          .filter((c) => matchesSearch(c.spell))
-                          .map((cell, i) => {
-                            // Signature toggle only applies to non-
-                            // cantrip, non-ritual spells in a
-                            // spontaneous repertoire. Cantrips auto-
-                            // heighten (signature is meaningless);
-                            // rituals don't heighten at all.
-                            const canSig = isSpontaneous && !isCantripRank;
-                            // Label for the gold "Prepare X-Rank
-                            // Spell" button (empty-slot affordance).
-                            // PF2e ranks: 1st/2nd/3rd/4th-10th.
-                            const ordinal =
-                              rank === 0
-                                ? 'Cantrip'
-                                : `${rank}${rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th'}-Rank Spell`;
-                            const emptyLabel = `Prepare ${ordinal}`;
-                            return (
-                              <SpellRow
-                                key={i}
-                                spell={cell.spell}
-                                variant={isCantripRank ? 'cantrip' : 'heightened'}
-                                exhausted={cell.exhausted}
-                                emptySlotLabel={emptyLabel}
-                                isSignature={cell.signature}
-                                onToggleSignature={
-                                  // Confirmation modal lives inside
-                                  // toggleSignature now — see the helper
-                                  // above. The right-click menu just
-                                  // hands the full Spell object over;
-                                  // the helper looks up the current
-                                  // signature state + any conflicting
-                                  // entry at the same rank, then asks.
-                                  canSig && cell.spell
-                                    ? () => toggleSignature(cell.spell!, source.name)
-                                    : undefined
-                                }
-                                onCast={
-                                  // Inline use/restore for prepared
-                                  // casters' filled slots (and cantrips
-                                  // — though cantrips never exhaust, so
-                                  // the button just no-ops). Skip for
-                                  // spontaneous since clicking the
-                                  // spell uses an unspecific slot at
-                                  // the rank via the cast-spell
-                                  // drawer.
-                                  cell.spell && isPrepared && !isCantripRank
-                                    ? (cast: boolean) =>
-                                        castSpell(cast, source.name, rank, cell.spell!.id, true)
-                                    : undefined
-                                }
-                                onReplace={
-                                  // Replace-spell on prepared slots
-                                  // including cantrips. (We used to
-                                  // gate this on !isCantripRank, but
-                                  // the player still needs a way to
-                                  // swap a prepared cantrip without
-                                  // first clearing the slot — the
-                                  // picker filter already excludes
-                                  // already-prepared cantrips so
-                                  // duplicates are prevented at the
-                                  // pick site instead.)
-                                  cell.spell && isPrepared && cell.slotIdx !== null
-                                    ? () => {
-                                        const slot = rankSlots[cell.slotIdx!];
-                                        if (slot) {
-                                          pickSpellForSlot(
-                                            { name: source.name, type: source.type, tradition: source.tradition },
-                                            slot.id,
-                                            rank
-                                          );
-                                        }
-                                      }
-                                    : undefined
-                                }
-                                onClick={() => {
-                                  // Empty prepared slot — open the
-                                  // manage modal at this rank so the
-                                  // user can pick a spell to fill it.
-                                  // (Spontaneous casters don't have
-                                  // "empty" slots — slots only exist
-                                  // as available-cast counters.)
-                                  if (!cell.spell) {
-                                    // Empty prepared slot. Open the
-                                    // inline spell picker directly —
-                                    // no manage-modal middleman. The
-                                    // pickSpellForSlot helper filters
-                                    // to spells legal in this slot
-                                    // (tradition + rank cap, or
-                                    // spellbook for wizard) and on
-                                    // confirm writes the chosen spell
-                                    // into THIS specific slot id.
-                                    if (isPrepared && cell.slotIdx !== null) {
-                                      const slot = rankSlots[cell.slotIdx];
-                                      if (slot) {
-                                        pickSpellForSlot(
-                                          { name: source.name, type: source.type, tradition: source.tradition },
-                                          slot.id,
-                                          rank
-                                        );
-                                      }
-                                    }
-                                    return;
-                                  }
-                                  const spellId = cell.spell.id;
-                                  openDrawer({
-                                    type: 'cast-spell',
-                                    data: {
-                                      id: spellId,
-                                      spell: cell.spell,
-                                      exhausted: cell.exhausted,
-                                      tradition: source.tradition,
-                                      attribute: source.attribute,
-                                      storeId: 'CHARACTER',
-                                      entity: character,
-                                      onCastSpell: (cast: boolean) =>
-                                        castSpell(cast, source.name, rank, spellId, !!isPrepared),
-                                    },
-                                    extra: { addToHistory: true },
-                                  });
-                                }}
-                              />
-                            );
-                          })}
-                        {/* Spontaneous casters: trailing gold
-                            "Add X-Rank Spell" button so the user can
-                            add to the repertoire directly from the
-                            spell page. Prepared casters already get
-                            per-slot buttons via the empty cells
-                            above, so they don't need a trailing one. */}
-                        {isSpontaneous && (
-                          <button
-                            type='button'
-                            className='sp-add'
-                            onClick={() =>
-                              pickSpellForRepertoire(
-                                { name: source.name, type: source.type, tradition: source.tradition },
-                                rank
-                              )
+                <div key={rank} className={`sp-sec${isCollapsed(rankId) ? ' collapsed' : ''}`}>
+                  <SpSectionHead
+                    icon={<SpDiaIcon />}
+                    label={`${rankNumber(rank)} Rank`}
+                    right={<SpSlotIndicator total={totalSlots} used={usedSlots} muted={isEmpty} />}
+                    onToggle={() => toggleCollapsed(rankId)}
+                  />
+                  {isEmpty ? (
+                    <div className='sp-empty-line'>No spells.</div>
+                  ) : filtered.length === 0 ? (
+                    <div className='sp-empty-line'>No spells match the filter.</div>
+                  ) : (
+                    <div className='sp-grid'>
+                      {filtered.map((cell, i) => {
+                        if (!cell.spell) {
+                          return (
+                            <SpellAddCard
+                              key={`empty-${i}`}
+                              label={`Prepare ${ordinal}`}
+                              onClick={() => {
+                                if (!isPreparedSrc || cell.slotIdx === null) return;
+                                const slot = rankSlots[cell.slotIdx];
+                                if (slot)
+                                  pickSpellForSlot(
+                                    { name: source.name, type: source.type, tradition: source.tradition },
+                                    slot.id,
+                                    rank
+                                  );
+                              }}
+                            />
+                          );
+                        }
+                        const spell = cell.spell;
+                        const canSig = isSpontaneousSrc;
+                        // Spontaneous casters: the row is "exhausted"
+                        // only when ALL slots at this rank are used.
+                        const cardExhausted = isSpontaneousSrc
+                          ? remaining <= 0
+                          : cell.exhausted;
+                        return (
+                          <SpellCard
+                            key={`r-${i}`}
+                            spell={spell}
+                            exhausted={cardExhausted}
+                            signature={cell.signature}
+                            onToggleSignature={
+                              canSig
+                                ? () => toggleSignature(spell, source.name)
+                                : undefined
                             }
-                          >
-                            <span className='plus'>+</span>
-                            {rank === 0
-                              ? 'Add Cantrip'
-                              : `Add ${rank}${rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th'}-Rank Spell`}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </section>
+                            onCast={
+                              isPreparedSrc
+                                ? (cast: boolean) =>
+                                    castSpell(cast, source.name, rank, spell.id, true)
+                                : undefined
+                            }
+                            onReplace={
+                              isPreparedSrc && cell.slotIdx !== null
+                                ? () => {
+                                    const slot = rankSlots[cell.slotIdx!];
+                                    if (slot)
+                                      pickSpellForSlot(
+                                        { name: source.name, type: source.type, tradition: source.tradition },
+                                        slot.id,
+                                        rank
+                                      );
+                                  }
+                                : undefined
+                            }
+                            onClick={() =>
+                              openDrawer({
+                                type: 'cast-spell',
+                                data: {
+                                  id: spell.id,
+                                  spell,
+                                  exhausted: cell.exhausted,
+                                  tradition: source.tradition,
+                                  attribute: source.attribute,
+                                  storeId: 'CHARACTER',
+                                  entity: character,
+                                  onCastSpell: (cast: boolean) =>
+                                    castSpell(cast, source.name, rank, spell.id, !!isPreparedSrc),
+                                },
+                                extra: { addToHistory: true },
+                              })
+                            }
+                          />
+                        );
+                      })}
+                      {/* Spontaneous casters: trailing "+ Add Nth-Rank Spell" tile. */}
+                      {isSpontaneousSrc && (
+                        <SpellAddCard
+                          label={`Add ${ordinal}`}
+                          onClick={() =>
+                            pickSpellForRepertoire(
+                              { name: source.name, type: source.type, tradition: source.tradition },
+                              rank
+                            )
+                          }
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
         );
       })}
 
-      {/* ManageSpellsModal — the same Mantine modal the legacy
-          SpellsPanel uses. The codex-bridge re-themes its internals
-          so it looks parchment-and-gold; the functionality (add to
-          spellbook, prepare into slots, rank picker) is unchanged. */}
+      {/* ─── Innate spells ────────────────────────────────────────── */}
+      {Array.from(innateByTrad.entries()).map(([tradition, entries]) => {
+        const cards = entries
+          .map((e) => ({ entry: e, spell: findSpell(e.spell_id) }))
+          .filter((c): c is { entry: typeof entries[number]; spell: Spell } => !!c.spell);
+        const filtered = cards.filter((c) => passesFilters(c.spell));
+        const innateId = `spells-innate-${tradition}`;
+        return (
+          <div key={`innate-${tradition}`} className={`sp-sec${isCollapsed(innateId) ? ' collapsed' : ''}`}>
+            <SpSectionHead
+              icon={<SpStarIcon />}
+              label={`Innate · ${tradition}`}
+              right={
+                <span className='nums'>
+                  {cards.length} {cards.length === 1 ? 'SPELL' : 'SPELLS'}
+                </span>
+              }
+              onToggle={() => toggleCollapsed(innateId)}
+            />
+            {cards.length === 0 ? (
+              <div className='sp-empty-line'>No innate spells.</div>
+            ) : filtered.length === 0 ? (
+              <div className='sp-empty-line'>No innate spells match the filter.</div>
+            ) : (
+              <div className='sp-grid'>
+                {filtered.map(({ entry, spell }, i) => {
+                  const used = entry.casts_max > 0 && (entry.casts_current ?? 0) >= entry.casts_max;
+                  const meta = entry.casts_max > 0
+                    ? `${Math.max(0, entry.casts_max - (entry.casts_current ?? 0))}/${entry.casts_max} CASTS`
+                    : null;
+                  return (
+                    <SpellCard
+                      key={`innate-${i}`}
+                      spell={spell}
+                      exhausted={used}
+                      metaOverride={meta ?? undefined as unknown as string | null}
+                      onClick={() =>
+                        openDrawer({
+                          type: 'cast-spell',
+                          data: {
+                            id: spell.id,
+                            spell,
+                            exhausted: used,
+                            tradition,
+                            attribute: undefined,
+                            storeId: 'CHARACTER',
+                            entity: character,
+                          },
+                          extra: { addToHistory: true },
+                        })
+                      }
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* ManageSpellsModal — same Mantine modal the legacy panel uses. */}
       {manageSpells && (
         <ManageSpellsModal
           id='CHARACTER'
@@ -1097,201 +1584,6 @@ export function CodexSpellsPanel(props: {
   );
 }
 
-function SpellRow(props: {
-  spell?: Spell;
-  variant?: 'cantrip' | 'heightened' | 'focus';
-  exhausted?: boolean;
-  onClick: () => void;
-  // Signature-spell wiring. `isSignature` shows the gold star in
-  // front of the name; `onToggleSignature` (when provided) hooks up
-  // a right-click context menu. Spontaneous bard / sorcerer / oracle
-  // casters get this; everyone else passes neither and right-click
-  // does nothing.
-  isSignature?: boolean;
-  onToggleSignature?: () => void;
-  // Inline cast/restore. When provided the row renders a small
-  // "Cast"/"Restore" button on the right edge that flips the slot's
-  // exhausted state without opening the cast-spell drawer.
-  onCast?: (cast: boolean) => void;
-  // Inline "Replace spell" — added to the right-click menu for
-  // prepared casters.
-  onReplace?: () => void;
-  // Label used by the empty-slot button. Reads e.g. "Prepare Cantrip"
-  // or "Prepare 1st-Rank Spell". Falls back to a generic label when
-  // omitted.
-  emptySlotLabel?: string;
-}) {
-  const { spell, variant, exhausted } = props;
-  // Right-click context menu state. Stores viewport coords for the
-  // floating menu. Same pattern as the character-card context menu —
-  // portaled to document.body with a click-outside dismiss.
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
-  const ctxRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!ctxMenu) return;
-    const onDown = (e: MouseEvent) => {
-      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) setCtxMenu(null);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setCtxMenu(null);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [ctxMenu]);
-
-  if (!spell) {
-    // Empty prepared slot. Renders as a full-width gold parchment
-    // button matching the "SELECT SPELL" buttons in the legacy
-    // manage modal — clicking opens the spell picker filtered to
-    // this slot's rank cap, with the chosen spell going straight
-    // into THIS slot id. No manage-modal middleman.
-    return (
-      <button
-        type='button'
-        className='sp-add'
-        onClick={(e) => {
-          e.stopPropagation();
-          props.onClick();
-        }}
-      >
-        <span className='plus'>+</span>
-        {props.emptySlotLabel ?? 'Prepare Spell'}
-      </button>
-    );
-  }
-  // spell.cast is either an ActionCost enum or a free string. The glyph
-  // helper accepts both.
-  const castStr =
-    typeof spell.cast === 'string' ? spell.cast : (spell.cast as unknown as string | null) ?? null;
-  const glyph = actionCostToGlyph(castStr);
-  // Subtitle: rank + duration if present, e.g. "Rank 3 · 1 minute".
-  const subParts: string[] = [];
-  if (spell.rank > 0) subParts.push(`rank ${spell.rank}`);
-  if (spell.duration) subParts.push(spell.duration);
-  const subtitle = subParts.join(' · ');
-  // Trait chips removed from the spell row per request — they were
-  // visual noise on a small card and the full trait list is one
-  // click away in the spell drawer anyway. The Trait import + the
-  // getContentFast lookup also got dropped from this component so
-  // the row doesn't pay any cost.
-  // Right-click context menu is offered whenever there's at least one
-  // option to surface — signature toggle (spontaneous) OR replace
-  // (prepared). For pure-vanilla rows the right-click does nothing.
-  const hasCtxMenu = !!(props.onToggleSignature || props.onReplace);
-  return (
-    <>
-      <div
-        className={`sp ${variant ?? ''}${props.isSignature ? ' signature' : ''}${exhausted ? ' exhausted' : ''}`}
-        onClick={props.onClick}
-        onContextMenu={(e) => {
-          if (!hasCtxMenu) return;
-          e.preventDefault();
-          e.stopPropagation();
-          setCtxMenu({ x: e.clientX, y: e.clientY });
-        }}
-        title={hasCtxMenu ? 'Right-click for spell options' : undefined}
-      >
-        <div className='cost'>{glyph ? <ActionGlyph cost={glyph} /> : '—'}</div>
-        <div className='nm'>
-          {/* Gold star prefix for signature spells. */}
-          {props.isSignature && <span className='sig-star'>★ </span>}
-          {spell.name}
-          {subtitle && <small>{subtitle}</small>}
-        </div>
-        <div className='stat'>
-          {spell.range || (spell.area ? spell.area : '—')}
-          {spell.defense ? <small>{spell.defense}</small> : null}
-        </div>
-        {/* Inline Cast / Restore button. Renders only when `onCast`
-            is wired (prepared casters + spontaneous-rank slots where
-            it makes sense). Stops propagation so clicking the button
-            doesn't also open the cast-spell drawer behind it. */}
-        {props.onCast && (
-          <button
-            type='button'
-            className={`sp-act${exhausted ? ' restore' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              props.onCast!(!exhausted);
-            }}
-            title={exhausted ? 'Mark this slot as available again' : 'Mark this slot as cast (use)'}
-          >
-            {exhausted ? 'Restore' : 'Use'}
-          </button>
-        )}
-      </div>
-
-      {/* Right-click context menu. Up to two items: signature toggle
-          (spontaneous only) and replace-spell (prepared only). */}
-      {ctxMenu &&
-        createPortal(
-          <div
-            ref={ctxRef}
-            role='menu'
-            onClick={(e) => e.stopPropagation()}
-            onContextMenu={(e) => e.preventDefault()}
-            style={{
-              position: 'fixed',
-              left: ctxMenu.x,
-              top: ctxMenu.y,
-              minWidth: 200,
-              background: 'var(--bg-card)',
-              border: '1px solid var(--rule-soft)',
-              boxShadow: '0 8px 24px rgba(0,0,0,.35)',
-              padding: '4px 0',
-              zIndex: 10000,
-              color: 'var(--ink)',
-            }}
-          >
-            {props.onToggleSignature && (
-              <button
-                type='button'
-                onClick={() => {
-                  props.onToggleSignature!();
-                  setCtxMenu(null);
-                }}
-                style={ctxSpellItemStyle}
-              >
-                {props.isSignature ? 'Remove signature' : 'Make signature spell'}
-              </button>
-            )}
-            {props.onReplace && (
-              <button
-                type='button'
-                onClick={() => {
-                  props.onReplace!();
-                  setCtxMenu(null);
-                }}
-                style={ctxSpellItemStyle}
-              >
-                Replace spell
-              </button>
-            )}
-          </div>,
-          document.body
-        )}
-    </>
-  );
-}
-
-// Native-button styling for the spell-row right-click menu. Mirrors
-// the character-card context menu style so the visual language is
-// consistent across the codex.
-const ctxSpellItemStyle = {
-  display: 'block',
-  width: '100%',
-  textAlign: 'left',
-  padding: '8px 14px',
-  background: 'transparent',
-  border: 'none',
-  color: 'inherit',
-  font: 'inherit',
-  cursor: 'pointer',
-} as const;
 
 // =======================================================================
 // CodexInventoryPanel
@@ -1306,6 +1598,9 @@ export function CodexInventoryPanel(props: {
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'equipped'>('all');
+  // Collapsible inventory-section state — Equipped / Consumables / Carried
+  // and every container header is toggled via this hook.
+  const { isCollapsed, toggle: toggleCollapsed } = useCollapsedSections();
 
   const inv = character?.inventory ?? null;
   // Filter out "meta" inventory items — these are unarmed strikes (Fist),
@@ -1322,13 +1617,12 @@ export function CodexInventoryPanel(props: {
   const coins = inv?.coins ?? { pp: 0, gp: 0, sp: 0, cp: 0 };
 
   const totalBulk = getInvBulk(inv ?? undefined);
-  const bulkLimit = getBulkLimit('CHARACTER');
   // In PF2e a character is encumbered above 5 + Str mod bulk and
-  // can carry at most 10 + Str mod. bulkLimit already accounts for
-  // Str + bonuses; encumbered is 5 less (the standard delta).
-  const encumberedAt = Math.max(1, bulkLimit - 5);
-  const bulkPct = bulkLimit > 0 ? Math.min(100, (totalBulk / bulkLimit) * 100) : 0;
-  const encumberedMarkerPct = bulkLimit > 0 ? Math.min(100, (encumberedAt / bulkLimit) * 100) : 0;
+  // can carry at most 10 + Str mod. getBulkLimit returns 5 + Str
+  // (encumbered threshold); getBulkLimitImmobile returns 10 + Str
+  // (the max — can't carry beyond this).
+  const encumberedAt = getBulkLimit('CHARACTER');
+  const maxBulk = getBulkLimitImmobile('CHARACTER');
   const isEncumbered = totalBulk > encumberedAt;
 
   // Classify an item — drives the left-border color. We don't have
@@ -1480,75 +1774,136 @@ export function CodexInventoryPanel(props: {
   const investCapped = reachedInvestedLimit('CHARACTER', inv ?? undefined);
   const implantCapped = reachedImplantLimit('CHARACTER', inv ?? undefined);
 
+  // Open the Add Item modal — extracted so the toolbar button and any
+  // future entry point share the same wiring. Re-fetches the inventory
+  // automatically via setEntity update.
+  const openAddItemModal = () => {
+    openContextModal({
+      modal: 'addItems',
+      title: <Title order={3}>Add Items</Title>,
+      size: 1500,
+      // Near-opaque overlay so the inventory page behind doesn't bleed
+      // through. Matches the Manage Spells modal for cross-popup
+      // consistency.
+      overlayProps: { backgroundOpacity: 0.85, blur: 3 },
+      innerProps: {
+        onAddItem: async (item: Item, type: 'GIVE' | 'BUY' | 'FORMULA') => {
+          if (!character) return;
+          if (type === 'BUY') {
+            openContextModal({
+              modal: 'buyItem',
+              title: <Title order={3}>Buy {item.name}</Title>,
+              innerProps: {
+                inventory: character.inventory,
+                item,
+                onConfirm: async (coins: { cp: number; sp: number; gp: number; pp: number }) => {
+                  await handleAddItem(
+                    props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>,
+                    item,
+                    false
+                  );
+                  props.setCharacter((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          inventory: {
+                            ...(prev.inventory ?? {
+                              coins: { cp: 0, sp: 0, gp: 0, pp: 0 },
+                              items: [],
+                            }),
+                            coins,
+                          },
+                        }
+                      : prev
+                  );
+                  setTimeout(() => modals.closeAll(), 100);
+                },
+              },
+              zIndex: 1000,
+            });
+          } else {
+            await handleAddItem(
+              props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>,
+              item,
+              type === 'FORMULA'
+            );
+            setTimeout(() => modals.closeAll(), 100);
+          }
+        },
+      },
+      zIndex: 1100,
+    });
+  };
+
   return (
-    <div className='codex-tab-body'>
-      {/* Wealth + bulk strip */}
-      <div className='wealth-strip'>
-        <div className='coins'>
-          <div className='coin pp'>
-            <div className='disk'>P</div>
-            <div className='col-r'>
-              <div className='v'>{coins.pp ?? 0}</div>
-              <div className='k'>Platinum</div>
-            </div>
+    <div className='codex-tab-body inv-stack'>
+      {/* ─── 1. Top strip ──────────────────────────────────────────
+          Wealth (coins) + bulk indicator. A single horizontal strip
+          on a light parchment surface. Coins-row is inline-flex with
+          4 coin pills; bulk-indicator is column-aligned to the right.
+            .wealth-strip.inv-top
+            ├─ .coins-row > 4× .coin > .pic.disk + .v + .k
+            └─ .bulk-indicator > .eyebrow + .line + .rule + .caption */}
+      <div className='wealth-strip inv-top'>
+        <div className='coins-row'>
+          <div className='coin pp' title='Platinum pieces'>
+            <span className='pic disk'>P</span>
+            <span className='v'>{coins.pp ?? 0}</span>
+            <span className='k'>Platinum</span>
           </div>
-          <div className='coin gp'>
-            <div className='disk'>G</div>
-            <div className='col-r'>
-              <div className='v'>{coins.gp ?? 0}</div>
-              <div className='k'>Gold</div>
-            </div>
+          <div className='coin gp' title='Gold pieces'>
+            <span className='pic disk'>G</span>
+            <span className='v'>{coins.gp ?? 0}</span>
+            <span className='k'>Gold</span>
           </div>
-          <div className='coin sp'>
-            <div className='disk'>S</div>
-            <div className='col-r'>
-              <div className='v'>{coins.sp ?? 0}</div>
-              <div className='k'>Silver</div>
-            </div>
+          <div className='coin sp' title='Silver pieces'>
+            <span className='pic disk'>S</span>
+            <span className='v'>{coins.sp ?? 0}</span>
+            <span className='k'>Silver</span>
           </div>
-          <div className='coin cp'>
-            <div className='disk'>C</div>
-            <div className='col-r'>
-              <div className='v'>{coins.cp ?? 0}</div>
-              <div className='k'>Copper</div>
-            </div>
+          <div className='coin cp' title='Copper pieces'>
+            <span className='pic disk'>C</span>
+            <span className='v'>{coins.cp ?? 0}</span>
+            <span className='k'>Copper</span>
           </div>
         </div>
-        <div className='bulk-block'>
-          <div className='k'>Bulk Carried</div>
-          <div className='v' style={{ color: isEncumbered ? 'var(--crimson)' : undefined }}>
-            {labelizeBulk(totalBulk, true)} <small>/ {bulkLimit} (max {bulkLimit})</small>
+        <div
+          className={`bulk-indicator${isEncumbered ? ' over' : ''}`}
+          title={`Encumbered above ${encumberedAt} bulk · Max carry ${maxBulk}`}
+        >
+          <div className='eyebrow'>Bulk Carried</div>
+          <div className='line'>
+            <span className='cur'>{labelizeBulk(totalBulk, true)}</span>
+            <span className='sep'>/</span>
+            <span className='max'>{encumberedAt}</span>
+            <span className='hint'>(max {maxBulk})</span>
           </div>
-          <div className='bulk-bar'>
-            <div className='fill' style={{ right: `${100 - bulkPct}%` }}></div>
-            {/* Red tick marking the encumbered threshold so the user can
-                see how much more they can carry before the bulk penalty
-                kicks in. Position is percent-of-max-bulk, not absolute. */}
-            <div
-              className='marker'
-              style={{ left: `${encumberedMarkerPct}%` }}
-              title={`Encumbered when bulk exceeds ${encumberedAt}`}
-            ></div>
-          </div>
-          <div
-            style={{
-              fontFamily: "'Cinzel', serif",
-              fontSize: 9,
-              letterSpacing: '.22em',
-              color: 'var(--ink-muted)',
-              textTransform: 'uppercase',
-              marginTop: 4,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Encumbered &gt; {encumberedAt} · Max {bulkLimit}
+          <div className='rule' />
+          <div className='caption'>
+            Encumbered &gt; <b>{encumberedAt}</b> · Max <b>{maxBulk}</b>
           </div>
         </div>
       </div>
 
-      {/* Toolbar */}
+      {/* ─── 2. Toolbar ─────────────────────────────────────────────
+          Search input (flex-grow) + ALL/EQUIPPED filter pills group
+          + rust-filled "+ Add Item" pill on the far right. */}
       <div className='inv-toolbar'>
-        <div className='field'>
+        <div className='search-strip search'>
+          <span className='icon' aria-hidden='true'>
+            <svg
+              viewBox='0 0 16 16'
+              width='14'
+              height='14'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='1.5'
+              strokeLinecap='round'
+            >
+              <circle cx='7' cy='7' r='4.5' />
+              <line x1='10.3' y1='10.3' x2='13.5' y2='13.5' />
+            </svg>
+          </span>
           <input
             type='text'
             value={searchQuery}
@@ -1556,153 +1911,97 @@ export function CodexInventoryPanel(props: {
             placeholder='Search inventory…'
           />
         </div>
-        {(['all', 'equipped'] as const).map((f) => (
-          <span
-            key={f}
-            className={`filter ${categoryFilter === f ? 'on' : ''}`}
-            onClick={() => setCategoryFilter(f)}
+        {/* Inventory category filter. No "All" pill — when not toggled
+            the inventory shows everything by default. Clicking
+            "Equipped" again clears the filter (back to showing all). */}
+        <div className='inv-filter-pills'>
+          <button
+            type='button'
+            className={`filter ${categoryFilter === 'equipped' ? 'on' : ''}`}
+            onClick={() =>
+              setCategoryFilter(categoryFilter === 'equipped' ? 'all' : 'equipped')
+            }
           >
-            {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-          </span>
-        ))}
-        <span
-          className='add'
-          onClick={() => {
-            // Same flow the legacy InventoryPanel uses: open the
-            // addItems context modal, on pick → handleAddItem (or
-            // open the buy modal for purchased items). Re-fetches
-            // the inventory automatically via the setEntity update.
-            openContextModal({
-              modal: 'addItems',
-              title: <Title order={3}>Add Items</Title>,
-              // Match the codex-popups design footprint — wide modal
-              // with room for the table + filters + pagination. The
-              // body sets its own min-height: 85vh.
-              size: 1500,
-              innerProps: {
-                onAddItem: async (
-                  item: Item,
-                  type: 'GIVE' | 'BUY' | 'FORMULA'
-                ) => {
-                  if (!character) return;
-                  if (type === 'BUY') {
-                    // Purchase path — open the buyItem modal which
-                    // deducts coins on confirm.
-                    openContextModal({
-                      modal: 'buyItem',
-                      title: <Title order={3}>Buy {item.name}</Title>,
-                      innerProps: {
-                        inventory: character.inventory,
-                        item,
-                        onConfirm: async (coins: { cp: number; sp: number; gp: number; pp: number }) => {
-                          await handleAddItem(props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>, item, false);
-                          props.setCharacter((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  inventory: {
-                                    ...(prev.inventory ?? {
-                                      coins: { cp: 0, sp: 0, gp: 0, pp: 0 },
-                                      items: [],
-                                    }),
-                                    coins,
-                                  },
-                                }
-                              : prev
-                          );
-                          setTimeout(() => modals.closeAll(), 100);
-                        },
-                      },
-                      zIndex: 1000,
-                    });
-                  } else {
-                    await handleAddItem(
-                      props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>,
-                      item,
-                      type === 'FORMULA'
-                    );
-                    setTimeout(() => modals.closeAll(), 100);
-                  }
-                },
-              },
-              zIndex: 499,
-            });
-          }}
-        >
+            Equipped
+          </button>
+        </div>
+        <button type='button' className='inv-add-btn add' onClick={openAddItemModal}>
+          <span className='plus'>+</span>
           Add Item
-        </span>
+        </button>
       </div>
+
+      {/* ─── 3. Section blocks ─────────────────────────────────────
+          One header + item grid per group:
+            EQUIPPED  (X glyph icon, italic count right)
+            CARRIED   (backpack icon, italic count right)
+            CONTAINER (backpack icon per container, bulk/cap on right)
+          Item cards are .inv-card in a 4-column grid (.inv-grid). */}
 
       {/* Equipped */}
       {equipped.length > 0 && (
-        <section className='sec'>
-          <div className='sec-title'>
-            <span className='lozenge'>⚔</span>
-            <span className='label'>Equipped</span>
-            <span className='sub'>
-              <b>{equipped.length}</b>
-            </span>
+        <div className={`inv-sec${isCollapsed('inv-equipped') ? ' collapsed' : ''}`}>
+          <InvSectionHead
+            icon={<EquippedIcon />}
+            label='Equipped'
+            count={equipped.length}
+            onToggle={() => toggleCollapsed('inv-equipped')}
+          />
+          <div className='inv-grid'>
+            {equipped.map((i) => (
+              <InvRow
+                key={i.id}
+                item={i}
+                classification={classify(i)}
+                onClick={() => openItemDrawer(i)}
+                draggable
+                isDragging={dragId === i.id}
+                onDragStart={() => setDragId(i.id)}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setDropTargetId(null);
+                }}
+                onToggleEquip={toggleEquip}
+                onToggleInvest={toggleInvestOrImplant}
+                investDisabled={investCapped}
+                implantDisabled={implantCapped}
+              />
+            ))}
           </div>
-          <div className='sec-body'>
-            <div className='it-grid'>
-              {equipped.map((i) => (
-                <InvRow
-                  key={i.id}
-                  item={i}
-                  classification={classify(i)}
-                  onClick={() => openItemDrawer(i)}
-                  draggable
-                  isDragging={dragId === i.id}
-                  onDragStart={() => setDragId(i.id)}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setDropTargetId(null);
-                  }}
-                  onToggleEquip={toggleEquip}
-                  onToggleInvest={toggleInvestOrImplant}
-                  investDisabled={investCapped}
-                  implantDisabled={implantCapped}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
+        </div>
       )}
 
       {/* Consumables */}
       {consumables.length > 0 && (
-        <section className='sec'>
-          <div className='sec-title'>
-            <span className='lozenge'>⚱</span>
-            <span className='label'>Consumables</span>
-            <span className='sub'>
-              <b>{consumables.length}</b>
-            </span>
+        <div className={`inv-sec${isCollapsed('inv-consumables') ? ' collapsed' : ''}`}>
+          <InvSectionHead
+            icon={<BackpackIcon />}
+            label='Consumables'
+            count={consumables.length}
+            onToggle={() => toggleCollapsed('inv-consumables')}
+          />
+          <div className='inv-grid'>
+            {consumables.map((i) => (
+              <InvRow
+                key={i.id}
+                item={i}
+                classification={classify(i)}
+                onClick={() => openItemDrawer(i)}
+                draggable
+                isDragging={dragId === i.id}
+                onDragStart={() => setDragId(i.id)}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setDropTargetId(null);
+                }}
+                onToggleEquip={toggleEquip}
+                onToggleInvest={toggleInvestOrImplant}
+                investDisabled={investCapped}
+                implantDisabled={implantCapped}
+              />
+            ))}
           </div>
-          <div className='sec-body'>
-            <div className='it-grid'>
-              {consumables.map((i) => (
-                <InvRow
-                  key={i.id}
-                  item={i}
-                  classification={classify(i)}
-                  onClick={() => openItemDrawer(i)}
-                  draggable
-                  isDragging={dragId === i.id}
-                  onDragStart={() => setDragId(i.id)}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setDropTargetId(null);
-                  }}
-                  onToggleEquip={toggleEquip}
-                  onToggleInvest={toggleInvestOrImplant}
-                  investDisabled={investCapped}
-                  implantDisabled={implantCapped}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
+        </div>
       )}
 
       {/* Carried (top-level, non-equipped). Also a drop target — drop
@@ -1710,8 +2009,8 @@ export function CodexInventoryPanel(props: {
           unstored pile. The TOPLEVEL sentinel keeps it distinct from
           any real container id. */}
       {(other.length > 0 || dragId) && (
-        <section
-          className={`sec${dropTargetId === 'TOPLEVEL' ? ' drop-target' : ''}`}
+        <div
+          className={`inv-sec${dropTargetId === 'TOPLEVEL' ? ' drop-target' : ''}${isCollapsed('inv-carried') ? ' collapsed' : ''}`}
           onDragOver={(e) => {
             if (!dragId) return;
             e.preventDefault();
@@ -1719,9 +2018,6 @@ export function CodexInventoryPanel(props: {
             if (dropTargetId !== 'TOPLEVEL') setDropTargetId('TOPLEVEL');
           }}
           onDragLeave={(e) => {
-            // Only clear the highlight if the mouse left the section
-            // entirely (relatedTarget is outside) — otherwise we'd
-            // flicker on every child boundary.
             if (!e.currentTarget.contains(e.relatedTarget as Node)) {
               if (dropTargetId === 'TOPLEVEL') setDropTargetId(null);
             }
@@ -1731,140 +2027,90 @@ export function CodexInventoryPanel(props: {
             performDrop(null);
           }}
         >
-          <div className='sec-title'>
-            <span className='lozenge'>❖</span>
-            <span className='label'>Carried</span>
-            <span className='sub'>
-              <b>{other.length}</b>
-            </span>
+          <InvSectionHead
+            icon={<BackpackIcon />}
+            label='Carried'
+            count={other.length}
+            onToggle={() => toggleCollapsed('inv-carried')}
+          />
+          <div className='inv-grid'>
+            {other.map((i) => (
+              <InvRow
+                key={i.id}
+                item={i}
+                classification={classify(i)}
+                onClick={() => openItemDrawer(i)}
+                draggable
+                isDragging={dragId === i.id}
+                onDragStart={() => setDragId(i.id)}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setDropTargetId(null);
+                }}
+                onToggleEquip={toggleEquip}
+                onToggleInvest={toggleInvestOrImplant}
+                investDisabled={investCapped}
+                implantDisabled={implantCapped}
+              />
+            ))}
           </div>
-          <div className='sec-body'>
-            <div className='it-grid'>
-              {other.map((i) => (
-                <InvRow
-                  key={i.id}
-                  item={i}
-                  classification={classify(i)}
-                  onClick={() => openItemDrawer(i)}
-                  draggable
-                  isDragging={dragId === i.id}
-                  onDragStart={() => setDragId(i.id)}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setDropTargetId(null);
-                  }}
-                  onToggleEquip={toggleEquip}
-                  onToggleInvest={toggleInvestOrImplant}
-                  investDisabled={investCapped}
-                  implantDisabled={implantCapped}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
+        </div>
       )}
 
-      {/* Per-container sections. One section per container in the
+      {/* Per-container sections. One block per container in the
           inventory, named after the container, listing its current
-          contents. Nested containers (a pouch inside a backpack) get
-          their own section too — flat ordering, but every container
-          surfaces its inventory at the same level so the player can
-          see what's where without opening drawers. */}
-      {containerSections.map(({ container, children }) => (
-        <section
-          className={`sec${dropTargetId === container.id ? ' drop-target' : ''}`}
-          key={container.id}
-          onDragOver={(e) => {
-            if (!dragId || dragId === container.id) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (dropTargetId !== container.id) setDropTargetId(container.id);
-          }}
-          onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-              if (dropTargetId === container.id) setDropTargetId(null);
-            }
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            performDrop(container);
-          }}
-        >
-          <div className='sec-title'>
-            <span className='lozenge'>◫</span>
-            <span className='label'>{container.item.name}</span>
-            <span className='sub'>
-              <b>{children.length}</b>
-              {(() => {
-                // Bulk capacity display. PF2e containers carry two
-                // related numbers in meta_data.bulk:
-                //   - capacity: how much bulk physically fits inside
-                //   - ignored:  how much of that bulk doesn't count
-                //               toward the carrier's encumbered limit
-                // For a plain backpack: capacity=4, ignored=2 (the
-                // first 2 bulk are "free" toward your character bulk,
-                // the rest add to your character bulk normally).
-                // For magical/extradimensional containers like
-                // Spacious Pouch / Bag of Holding: capacity=ignored
-                // (everything inside the cap is free). When the
-                // contents exceed the cap, the overfill is shown in
-                // crimson so the player can see it at a glance.
-                const capRaw = container.item.meta_data?.bulk?.capacity;
-                const ignored = Number(container.item.meta_data?.bulk?.ignored ?? 0);
-                const cap = Number(capRaw ?? 0);
-                if (!cap) return null;
-                const used = getContainerContentsBulk(container);
-                const isMagical = ignored >= cap;
-                const over = used > cap;
-                return (
-                  <>
-                    {' · '}
-                    <span
-                      style={{
-                        color: over ? 'var(--crimson)' : undefined,
-                        fontWeight: over ? 700 : undefined,
-                      }}
-                      title={
-                        isMagical
-                          ? `Contents do not count toward your character bulk (up to ${cap} bulk).`
-                          : `First ${ignored} bulk of contents is ignored from your character bulk. Beyond that adds to your bulk normally.`
-                      }
-                    >
-                      <b>{labelizeBulk(used, true)}</b> / {labelizeBulk(String(cap), true)} bulk
-                    </span>
-                    {isMagical && (
-                      <span
-                        style={{
-                          color: 'var(--gold-bright)',
-                          marginLeft: 6,
-                          fontFamily: 'Cinzel, serif',
-                          fontSize: 9,
-                          letterSpacing: '.18em',
-                        }}
-                        title='Magical / extradimensional: contents do not count toward your character bulk.'
-                      >
-                        ✦
-                      </span>
-                    )}
-                  </>
-                );
-              })()}
-            </span>
-          </div>
-          <div className='sec-body'>
-            {children.length === 0 ? (
-              <div
-                style={{
-                  padding: '12px 4px',
-                  color: 'var(--ink-muted)',
-                  fontStyle: 'italic',
-                  fontFamily: "'Cormorant Garamond', serif",
-                }}
-              >
-                Empty.
-              </div>
-            ) : (
-              <div className='it-grid'>
+          contents. Nested containers get their own section too —
+          flat ordering. Empty containers show only the header (no
+          grid) per the wg4 reference design. */}
+      {containerSections.map(({ container, children }) => {
+        const capRaw = container.item.meta_data?.bulk?.capacity;
+        const ignored = Number(container.item.meta_data?.bulk?.ignored ?? 0);
+        const cap = Number(capRaw ?? 0);
+        const used = getContainerContentsBulk(container);
+        const isMagical = cap > 0 && ignored >= cap;
+        const over = cap > 0 && used > cap;
+        const containerId = `inv-container-${container.id}`;
+        return (
+          <div
+            className={`inv-sec${dropTargetId === container.id ? ' drop-target' : ''}${isCollapsed(containerId) ? ' collapsed' : ''}`}
+            key={container.id}
+            onDragOver={(e) => {
+              if (!dragId || dragId === container.id) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              if (dropTargetId !== container.id) setDropTargetId(container.id);
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                if (dropTargetId === container.id) setDropTargetId(null);
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              performDrop(container);
+            }}
+          >
+            <InvSectionHead
+              icon={<BackpackIcon />}
+              label={container.item.name}
+              count={children.length}
+              bulk={
+                cap > 0
+                  ? {
+                      used: labelizeBulk(used, true),
+                      cap: labelizeBulk(String(cap), true),
+                      over,
+                      magical: isMagical,
+                      hint: isMagical
+                        ? `Contents do not count toward your character bulk (up to ${cap} bulk).`
+                        : `First ${ignored} bulk of contents is ignored from your character bulk. Beyond that adds to your bulk normally.`,
+                    }
+                  : undefined
+              }
+              onToggle={() => toggleCollapsed(containerId)}
+            />
+            {children.length > 0 && (
+              <div className='inv-grid'>
                 {children.map((i) => (
                   <InvRow
                     key={i.id}
@@ -1878,28 +2124,122 @@ export function CodexInventoryPanel(props: {
                       setDragId(null);
                       setDropTargetId(null);
                     }}
+                    onToggleEquip={toggleEquip}
+                    onToggleInvest={toggleInvestOrImplant}
+                    investDisabled={investCapped}
+                    implantDisabled={implantCapped}
                   />
                 ))}
               </div>
             )}
           </div>
-        </section>
-      ))}
+        );
+      })}
 
       {filteredTopLevel.length === 0 && containerSections.every((s) => s.children.length === 0) && (
-        <div
-          style={{
-            padding: 40,
-            color: 'var(--ink-muted)',
-            fontStyle: 'italic',
-            textAlign: 'center',
-            fontFamily: "'Cormorant Garamond', serif",
-          }}
-        >
+        <div className='inv-empty inv-empty-page'>
           {searchQuery.trim() ? `No items match "${searchQuery.trim()}"` : 'Nothing in this pocket.'}
         </div>
       )}
     </div>
+  );
+}
+
+// Section header for an inventory section. Small rust icon on the
+// left, uppercase bold label, optional count + bulk meta on the right.
+// Matches the wg4 reference design:
+//   EQUIPPED                              4 items
+//   BACKPACK                       0.2 / 4 BULK · 3 items
+//   SPACIOUS POUCH (I)             0 / 25 BULK ◆ · 7 items
+function InvSectionHead(props: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  bulk?: {
+    used: string;
+    cap: string;
+    over?: boolean;
+    magical?: boolean;
+    hint?: string;
+  };
+  onToggle?: () => void;
+}) {
+  return (
+    <div className='inv-section-head' onClick={props.onToggle}>
+      <div className='label'>
+        <span className='ico'>{props.icon}</span>
+        <span>{props.label}</span>
+        {props.onToggle && <span className='sec-chevron'>▾</span>}
+      </div>
+      <div className='meta' onClick={(e) => e.stopPropagation()}>
+        {props.bulk && (
+          <span
+            className={`bulk-meta${props.bulk.over ? ' over' : ''}`}
+            title={props.bulk.hint}
+          >
+            <b>{props.bulk.used}</b> / {props.bulk.cap} BULK
+            {props.bulk.magical && (
+              <span className='magic-mark' title='Magical / extradimensional container'>
+                ✦
+              </span>
+            )}
+          </span>
+        )}
+        <span className='items'>
+          <i>
+            {props.count} {props.count === 1 ? 'item' : 'items'}
+          </i>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Small line-art icons for inventory section headers. Drawn in
+// `currentColor` so they pick up the rust accent applied by the
+// .inv-section-head .ico rule in the CSS overrides.
+function EquippedIcon() {
+  // Crossed-swords X (matches wg4 inventory-icons "Weapons").
+  return (
+    <svg
+      viewBox='0 0 16 16'
+      width='13'
+      height='13'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='1.4'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+    >
+      <line x1='4' y1='12' x2='13' y2='3' />
+      <line x1='2.5' y1='11' x2='5' y2='13.5' />
+      <circle cx='2.8' cy='13.2' r='0.9' fill='currentColor' stroke='none' />
+      <line x1='12' y1='12' x2='3' y2='3' />
+      <line x1='13.5' y1='11' x2='11' y2='13.5' />
+      <circle cx='13.2' cy='13.2' r='0.9' fill='currentColor' stroke='none' />
+    </svg>
+  );
+}
+function BackpackIcon() {
+  // Backpack glyph (matches wg4 inventory-icons "AdventuringGear").
+  return (
+    <svg
+      viewBox='0 0 16 16'
+      width='13'
+      height='13'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='1.4'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+    >
+      <path d='M5 4 Q5 2.5 6 2.5 Q7 2.5 7 4' />
+      <path d='M9 4 Q9 2.5 10 2.5 Q11 2.5 11 4' />
+      <path d='M3.5 7.5 H12.5 V5 a1 1 0 0 0 -1 -1 H4.5 a1 1 0 0 0 -1 1 Z' />
+      <rect x='7' y='6' width='2' height='2' />
+      <path d='M3 7.5 H13 V13 a1 1 0 0 1 -1 1 H4 a1 1 0 0 1 -1 -1 Z' />
+      <rect x='5.5' y='9.5' width='5' height='3' rx='0.4' />
+    </svg>
   );
 }
 
@@ -1953,9 +2293,16 @@ function InvRow(props: {
   const canInvest = isItemInvestable(item.item);
   const canImplant = isItemImplantable(item.item);
   const dragLocked = item.is_equipped;
+  // Special-highlight items get the rust left-border treatment per the
+  // wg4 reference (e.g. Burial Oil in the screenshot). Currently keyed
+  // off invested / implanted — items that have an active magical bond
+  // with the character.
+  const isHighlighted = !!item.is_invested || !!item.is_implanted;
+  // Equipped state controls the rust-outlined circle on the icon cell.
+  const equippedClass = item.is_equipped ? ' equipped' : ' unworn';
   return (
     <div
-      className={`it ${classification}${props.isDragging ? ' dragging' : ''}`}
+      className={`inv-card it ${classification}${equippedClass}${isHighlighted ? ' invested' : ''}${props.isDragging ? ' dragging' : ''}`}
       onClick={props.onClick}
       draggable={!!props.draggable && !dragLocked}
       onDragStart={(e) => {
@@ -1970,67 +2317,66 @@ function InvRow(props: {
       onDragEnd={() => props.onDragEnd?.()}
       title={dragLocked ? 'Unequip this item before moving it.' : undefined}
     >
-      <div className='icon'>
+      <span className='icon-cell icon'>
         <ItemIcon item={item.item} />
-      </div>
-      <div className='nm'>
-        {item.item?.name ?? '(unknown)'}
-        {item.item?.level != null && <small>level {item.item.level}{price ? ` · ${price}` : ''}</small>}
-      </div>
-      <div className='qty'>
-        {quantity > 1 ? `×${quantity}` : ''}
-        {quantity > 1 ? <small>qty</small> : null}
-      </div>
-      <div className='bulk'>
-        {bulk}
-        <small>bulk</small>
-      </div>
-      {/* Action buttons. Only the buttons that apply to this item
-          render — a potion gets nothing, a sword gets Equip, a magic
-          ring gets both Equip + Invest. We stop propagation so
-          clicking a button doesn't also open the drawer behind it. */}
-      {(canEquip || canInvest || canImplant) && (
-        <div className='it-actions'>
-          {canInvest && props.onToggleInvest && (
-            <button
-              type='button'
-              className={`row-act${item.is_invested ? ' on' : ''}`}
-              disabled={!item.is_invested && !!props.investDisabled}
-              onClick={(e) => {
-                e.stopPropagation();
-                props.onToggleInvest!(item);
-              }}
-            >
-              {item.is_invested ? 'Divest' : 'Invest'}
-            </button>
-          )}
-          {canImplant && props.onToggleInvest && (
-            <button
-              type='button'
-              className={`row-act${item.is_implanted ? ' on' : ''}`}
-              disabled={!item.is_implanted && !!props.implantDisabled}
-              onClick={(e) => {
-                e.stopPropagation();
-                props.onToggleInvest!(item);
-              }}
-            >
-              {item.is_implanted ? 'Extract' : 'Implant'}
-            </button>
-          )}
-          {canEquip && props.onToggleEquip && (
-            <button
-              type='button'
-              className={`row-act${item.is_equipped ? ' on' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                props.onToggleEquip!(item);
-              }}
-            >
-              {item.is_equipped ? 'Unequip' : 'Equip'}
-            </button>
-          )}
+      </span>
+      <div className='info'>
+        <div className='name'>
+          <span>{item.item?.name ?? '(unknown)'}</span>
+          {quantity > 1 && <span className='qty'>×{quantity}</span>}
         </div>
-      )}
+        {(item.item?.level != null || price) && (
+          <div className='sub'>
+            {item.item?.level != null ? `level ${item.item.level}` : ''}
+            {item.item?.level != null && price ? ' · ' : ''}
+            {price ?? ''}
+          </div>
+        )}
+      </div>
+      <div className='meta'>
+        <span className='bulk-pill'>
+          <b>{bulk}</b>
+          <span className='lbl'>Bulk</span>
+        </span>
+        {canInvest && props.onToggleInvest && (
+          <button
+            type='button'
+            className={`badge ${item.is_invested ? 'invested' : 'invest'} pill-btn row-act${item.is_invested ? ' on' : ''}`}
+            disabled={!item.is_invested && !!props.investDisabled}
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onToggleInvest!(item);
+            }}
+          >
+            {item.is_invested ? 'Invested' : 'Invest'}
+          </button>
+        )}
+        {canImplant && props.onToggleInvest && (
+          <button
+            type='button'
+            className={`badge ${item.is_implanted ? 'invested' : 'invest'} pill-btn row-act${item.is_implanted ? ' on' : ''}`}
+            disabled={!item.is_implanted && !!props.implantDisabled}
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onToggleInvest!(item);
+            }}
+          >
+            {item.is_implanted ? 'Implanted' : 'Implant'}
+          </button>
+        )}
+        {canEquip && props.onToggleEquip && (
+          <button
+            type='button'
+            className={`badge ${item.is_equipped ? 'equipped' : 'equip'} pill-btn row-act${item.is_equipped ? ' on' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onToggleEquip!(item);
+            }}
+          >
+            {item.is_equipped ? 'Equipped' : 'Equip'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -2048,6 +2394,9 @@ export function CodexFeatsPanel(props: {
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [searchQuery, setSearchQuery] = useState('');
   const [groupFilter, setGroupFilter] = useState<'all' | 'class' | 'ancestry' | 'skill' | 'general' | 'feature'>('all');
+  // Collapsible Class / Ancestry / Skill / General feat sections — each
+  // <section className='sec'> below toggles via this hook.
+  const { isCollapsed, toggle: toggleCollapsed } = useCollapsedSections();
 
   // collectEntityAbilityBlocks is the engine helper the legacy
   // FeatsFeaturesPanel uses — it cross-references the character's
@@ -2217,13 +2566,15 @@ export function CodexFeatsPanel(props: {
             placeholder='Search feats &amp; features…'
           />
         </div>
-        {(['all', 'feature', 'class', 'ancestry', 'skill', 'general'] as const).map((f) => (
+        {/* Feat-group filter pills. No explicit "All" — clicking the
+            active filter again clears it (back to showing everything). */}
+        {(['feature', 'class', 'ancestry', 'skill', 'general'] as const).map((f) => (
           <span
             key={f}
             className={`filter ${groupFilter === f ? 'on' : ''}`}
-            onClick={() => setGroupFilter(f)}
+            onClick={() => setGroupFilter(groupFilter === f ? 'all' : f)}
           >
-            {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+            {f.charAt(0).toUpperCase() + f.slice(1)}
           </span>
         ))}
       </div>
@@ -2243,16 +2594,18 @@ export function CodexFeatsPanel(props: {
       ).map((section) => {
         const rows = filtered.filter((b) => (section.groups as readonly string[]).includes(b._group));
         if (rows.length === 0) return null;
+        const feSecId = `feats-${section.id}`;
+        const feCollapsed = isCollapsed(feSecId);
         return (
-          <section key={section.id} className='sec'>
-            <div className='sec-title'>
+          <section key={section.id} className={`sec${feCollapsed ? ' collapsed' : ''}`}>
+            <div className='sec-title' onClick={() => toggleCollapsed(feSecId)}>
               <span className='lozenge'>{section.lozenge}</span>
               <span className='label'>{section.label}</span>
-              <span className='sub'>
+              <span className='sub' onClick={(e) => e.stopPropagation()}>
                 <b>{rows.length}</b>
                 {section.sub ? ` · ${section.sub}` : ''}
               </span>
-              <span className='chev'></span>
+              <span className='sec-chevron'>▾</span>
             </div>
             <div className='sec-body'>
               <div className='feat-grid'>
@@ -2427,10 +2780,21 @@ export function CodexActivitiesPanel(props: {
   // The map below is cheap (≤6 equipped weapons typically) so running
   // it every render is fine.
   const strikes = (() => {
+    // Handwraps of Mighty Blows are a rune-holder, not a Strike. We
+    // drop them from the strike list (the `!isHandwrapsOfMightyBlows`
+    // filter) and instead merge their potency/striking/property runes
+    // into every unarmed attack via applyHandwrapsToUnarmed.
+    // NOTE: if a character somehow has handwraps equipped but NO
+    // unarmed attack in their equipped list, the runes apply to
+    // nothing and the handwraps simply don't appear as a strike. In
+    // practice every character gets an auto-added "Fist" unarmed
+    // strike (Fist item id 9252, see process/items/inv-handlers.tsx),
+    // so there is always an unarmed attack to receive the runes.
+    const wrapsRunes = getEquippedHandwrapsRunes(character?.inventory);
     const equipped =
-      character?.inventory?.items?.filter(
-        (i) => i.is_equipped && isItemWeapon(i.item)
-      ) ?? [];
+      character?.inventory?.items
+        ?.filter((i) => i.is_equipped && isItemWeapon(i.item) && !isHandwrapsOfMightyBlows(i.item))
+        .map((i) => ({ ...i, item: applyHandwrapsToUnarmed(i.item, wrapsRunes) })) ?? [];
     return equipped.map((i) => {
       const stats = getWeaponStats('CHARACTER', i.item);
       const totalArr = (stats.attack_bonus?.total as number[] | undefined) ?? [];
@@ -2649,11 +3013,16 @@ export function CodexActivitiesPanel(props: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {/* Single-row toolbar: search field + 5 action-cost glyph
           filters + 3 mode tabs. Everything in one horizontal strip,
-          no stacking. The "A" kbd hint from the mockup was removed
-          — it wasn't wired to any actual keyboard shortcut and was
-          rendering as a stray badge next to the search icon. */}
+          no stacking. Search input gets a leading magnifying-glass
+          SVG matching the wg4 reference. */}
       <div className='activities-bar'>
-        <div className='field'>
+        <div className='field act-search-field'>
+          <span className='act-search-icon' aria-hidden='true'>
+            <svg viewBox='0 0 16 16' fill='none' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round'>
+              <circle cx='7' cy='7' r='4.5' />
+              <line x1='10.3' y1='10.3' x2='13.5' y2='13.5' />
+            </svg>
+          </span>
           <input
             type='text'
             value={searchQuery}
@@ -2687,21 +3056,18 @@ export function CodexActivitiesPanel(props: {
             onClick={() => setMode('encounter')}
           >
             Encounter
-            <small>combat</small>
           </div>
           <div
             className={`mode-tab ${mode === 'exploration' ? 'on' : ''}`}
             onClick={() => setMode('exploration')}
           >
             Exploration
-            <small>travel</small>
           </div>
           <div
             className={`mode-tab ${mode === 'downtime' ? 'on' : ''}`}
             onClick={() => setMode('downtime')}
           >
             Downtime
-            <small>rest</small>
           </div>
         </div>
       </div>
@@ -2851,10 +3217,40 @@ export function CodexActivitiesPanel(props: {
             }
           }
 
+          // Build a short descriptive subtitle from the action's traits or
+          // the trigger/requirement field. Matches the wg4 reference's
+          // `.desc` line beneath each activity name (e.g. "Intim. vs Will
+          // · frightened", "move up to your Speed").
+          const actionTraits: string[] = (
+            (action as { traits?: unknown[] }).traits ?? []
+          ).map((t) =>
+            typeof t === 'string' ? t : (t as { name?: string })?.name ?? ''
+          ).filter((s): s is string => !!s);
+          const skipActTraits = new Set([
+            'common', 'uncommon', 'rare', 'unique', 'action', 'general',
+          ]);
+          const actDescParts = actionTraits
+            .map((t) => t.toLowerCase().replace(/_/g, ' '))
+            .filter((t) => !skipActTraits.has(t))
+            .slice(0, 3);
+          // Fallback: use the first short clause of the description.
+          const desc = action.description ?? '';
+          const firstClause = desc
+            .replace(/<[^>]+>/g, '')
+            .split(/[.!?]/)[0]
+            ?.trim()
+            ?.slice(0, 60);
+          const actSub = actDescParts.length > 0
+            ? actDescParts.join(' · ')
+            : (firstClause && firstClause.length < 60 ? firstClause : '');
+
           return (
             <div key={action.id} className='act' onClick={() => openAction(action)}>
               <div className='cost'>{glyph ? <ActionGlyph cost={glyph} /> : null}</div>
-              <div className='nm'>{action.name}</div>
+              <div className='nm'>
+                {action.name}
+                {actSub && <small className='desc'>{actSub}</small>}
+              </div>
               <div className={`stat${statClass}`}>{statContent}</div>
             </div>
           );
@@ -2884,7 +3280,7 @@ export function CodexActivitiesPanel(props: {
               >
                 <span className='drag-grip'>⋮⋮</span>
                 <span className='collapse-chev'>▾</span>
-                {title} <b>·</b> {rows.length} action{rows.length === 1 ? '' : 's'}
+                {title}
               </div>
               {!collapsed && (
                 <div className='act-grid'>
@@ -2986,11 +3382,52 @@ export function CodexActivitiesPanel(props: {
               >
                 <span className='drag-grip'>⋮⋮</span>
                 <span className='collapse-chev'>▾</span>
-                ⚔ Weapon Attacks <b>·</b> {filteredStrikes.length} strike{filteredStrikes.length === 1 ? '' : 's'}
+                × Strikes <b>·</b> one action each
               </div>
               {!collapsedGroups['strikes'] && (
                 <div className='act-grid'>
-                  {filteredStrikes.map(({ invItem, attacks, damage }) => (
+                  {filteredStrikes.map(({ invItem, attacks, damage }) => {
+                    // Build wg4-style subtitle ("melee · finesse · deadly d8")
+                    // from the weapon's traits + category. Mirrors the
+                    // reference design's `.desc` line beneath each strike.
+                    // Build from weapon group (melee/ranged) + traits only;
+                    // skip raw .meta_data.category since it surfaces ugly
+                    // strings like 'unarmed_attack'.
+                    const item: any = invItem.item;
+                    const group: string | undefined = item?.meta_data?.group
+                      || item?.meta_data?.weapon?.group
+                      || item?.meta_data?.weapon_data?.group;
+                    // melee vs ranged inferred from item.meta_data.range
+                    const rawRange: number | string | undefined =
+                      item?.meta_data?.range
+                      ?? item?.meta_data?.weapon?.range
+                      ?? item?.meta_data?.weapon_data?.range;
+                    const weaponKind: string | undefined =
+                      typeof rawRange === 'number' && rawRange > 5 ? 'ranged'
+                        : typeof rawRange === 'string' && rawRange && rawRange !== '0' ? 'ranged'
+                          : 'melee';
+                    const traitsArr: string[] = (
+                      (item?.traits as unknown[] | undefined)?.map?.((t: unknown) =>
+                        typeof t === 'string' ? t : (t as { name?: string })?.name
+                      ).filter((s): s is string => !!s) ?? []
+                    );
+                    // Filter out boring/internal traits so the subtitle reads cleanly.
+                    const skipTraits = new Set([
+                      'unarmed_attack', 'unarmed', 'attack', 'common',
+                      'uncommon', 'rare', 'unique',
+                    ]);
+                    const cleanTraits = traitsArr
+                      .map((t) => t.toLowerCase().replace(/_/g, ' '))
+                      .filter((t) => !skipTraits.has(t));
+                    const subParts: string[] = [];
+                    subParts.push(weaponKind);
+                    if (weaponKind === 'ranged' && rawRange) {
+                      subParts[subParts.length - 1] = `ranged ${rawRange}`;
+                    }
+                    if (group) subParts.push(String(group).toLowerCase());
+                    cleanTraits.slice(0, 3).forEach((t) => subParts.push(t));
+                    const sub = subParts.join(' · ');
+                    return (
                     <div
                       key={invItem.id}
                       className='act strike'
@@ -2999,7 +3436,10 @@ export function CodexActivitiesPanel(props: {
                       <div className='cost'>
                         <ActionGlyph cost={1} />
                       </div>
-                      <div className='nm'>{invItem.item.name}</div>
+                      <div className='nm'>
+                        {invItem.item.name}
+                        {sub && <small className='desc'>{sub}</small>}
+                      </div>
                       <div className='stat'>
                         <span className='map'>
                           {sign(attacks[0])}
@@ -3013,7 +3453,8 @@ export function CodexActivitiesPanel(props: {
                         </small>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -3026,24 +3467,24 @@ export function CodexActivitiesPanel(props: {
         // which keeps the mode tabs feeling distinct from the codex
         // sub-sections beneath.
         if (mode === 'encounter') {
-          const featSection = renderActionSection('feats', 'Feats (with Actions)', featsWithActions);
+          const className = props.character?.details?.class?.name ?? 'Class';
+          const featSection = renderActionSection('feats', `Class · ${className}`, featsWithActions);
           if (featSection) sections['feats'] = featSection;
 
           const itemsSection = renderItemsSection();
           if (itemsSection) sections['items'] = itemsSection;
 
-          const basicSection = renderActionSection('basic', 'Basic Actions', basicActions);
+          // Merge speciality basics into the universal section — the wg4
+          // reference shows ONE combined "Universal · Encounter" with all
+          // basic combat actions (Stride/Step/Demoralize/etc.) plus the
+          // speciality movement basics (Arrest a Fall/Burrow/etc.). The
+          // old layout split them into two sections which doesn't match.
+          const universalAll = [...basicActions, ...specialityBasics];
+          const basicSection = renderActionSection('basic', 'Universal · encounter', universalAll);
           if (basicSection) sections['basic'] = basicSection;
 
-          const skillSection = renderActionSection('skill', 'Skill Actions', skillActions);
+          const skillSection = renderActionSection('skill', 'Skill actions', skillActions);
           if (skillSection) sections['skill'] = skillSection;
-
-          const specialitySection = renderActionSection(
-            'speciality',
-            'Speciality Basics',
-            specialityBasics
-          );
-          if (specialitySection) sections['speciality'] = specialitySection;
         } else if (mode === 'exploration') {
           const explorationSection = renderActionSection(
             'exploration',

@@ -1,5 +1,4 @@
 import { generateEmbeddings } from '@ai/vector-db/generate-embeddings';
-import BlurBox from '@common/BlurBox';
 import { selectContent } from '@common/select/SelectContent';
 import { upsertAbilityBlock } from '@content/content-creation';
 import { fetchContentSources } from '@content/content-store';
@@ -22,7 +21,7 @@ export default function GenerateEmbeddings() {
 
   return (
     <>
-      <BlurBox p='sm'>
+      <div className='card' style={{ padding: 12 }}>
         <Center p='sm'>
           <Group>
             <Title order={3}>Generate Embeddings</Title>
@@ -53,7 +52,7 @@ export default function GenerateEmbeddings() {
             </Button>
           </Group>
         </Center>
-      </BlurBox>
+      </div>
     </>
   );
 }

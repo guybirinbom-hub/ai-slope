@@ -1,5 +1,3 @@
-// D20Loader replaced by CodexLoadingOverlay (the iframed
-// /codex-loading.html). Import kept commented out for archaeology.
 import CodexLoadingOverlay from '@common/CodexLoadingOverlay';
 import { characterState } from '@atoms/characterAtoms';
 import { drawerState } from '@atoms/navAtoms';
@@ -12,13 +10,13 @@ import { getIconFromContentType } from '@content/content-utils';
 import { AncestryInitialOverview, convertAncestryOperationsIntoUI } from '@drawers/types/AncestryDrawer';
 import { BackgroundInitialOverview, convertBackgroundOperationsIntoUI } from '@drawers/types/BackgroundDrawer';
 import { ClassInitialOverview, convertClassOperationsIntoUI } from '@drawers/types/ClassDrawer';
-import { Accordion, Badge, Box, Button, Divider, Drawer, Group, ScrollArea, Stack, Text, useMantineTheme } from '@mantine/core';
+import { Accordion, Badge, Box, Group, ScrollArea, Stack, Text } from '@mantine/core';
 import { useHover, useInterval, useMediaQuery } from '@mantine/hooks';
-import { getChoiceCounts } from '@operations/choice-count-tracker';
+import { getChoiceCounts, getPendingChoicesPerLevel } from '@operations/choice-count-tracker';
 import { OperationResult } from '@schemas/operations';
 import { ObjectWithUUID, convertKeyToBasePrefix, hasOperationSelection } from '@operations/operation-utils';
 import { removeParentSelections } from '@operations/selection-tree';
-import { IconPuzzle } from '@tabler/icons-react';
+import { IconHome, IconHammer, IconUser, IconPuzzle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AbilityBlock,
@@ -36,7 +34,7 @@ import { displayFinalHealthValue, displayFinalProfValue } from '@variables/varia
 import { getAllSkillVariables, getVariable } from '@variables/variable-manager';
 import { compileProficiencyType } from '@variables/variable-utils';
 import { isEqual } from 'lodash-es';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import useCharacter from '@utils/use-character';
@@ -51,9 +49,7 @@ const CHOICE_COUNT_INTERVAL = 1500;
 
 // CodexChoice — replaces the Mantine `<Accordion.Item>` shell used by
 // the per-level sub-sections (ancestry feats, class features, etc.).
-// Visual contract is the `.choice` rule in
-// frontend/src/css/codex-builder.css and the reference design lives in
-// design-mockups/mockup-2-level-options.html.
+// Visual contract is the `.choice` rule in wg4-builder.css.
 //
 // Single-open behaviour is controlled by the parent via `open` +
 // `onToggle` — same model the Mantine Accordion used, just rewritten
@@ -81,23 +77,21 @@ function CodexChoice(props: {
       data-wg-name={props.id}
       ref={props.outerRef}
     >
-      {props.open && (<><span className='crn3' /><span className='crn4' /></>)}
       <div
         className='choice-head'
         onClick={props.onToggle}
         role='button'
         tabIndex={0}
       >
-        <div className='ico'><span>{props.glyph}</span></div>
+        <div className='ico'>
+          <span>{props.glyph}</span>
+        </div>
         <div className='nm'>
           {props.name}
           {props.subtitle && <small>{props.subtitle}</small>}
         </div>
         {pending > 0 ? (
-          <div
-            className='pending-pip'
-            title={`${pending} pending choice${pending === 1 ? '' : 's'}`}
-          >
+          <div className='pending-pip' title={`${pending} pending choice${pending === 1 ? '' : 's'}`}>
             <span>{pending}</span>
           </div>
         ) : props.state ? (
@@ -117,7 +111,6 @@ function CodexChoice(props: {
 }
 
 export default function CharBuilderCreation(props: { characterId: number; pageHeight: number }) {
-  const theme = useMantineTheme();
   const [doneLoading, setDoneLoading] = useState(false);
 
   const { data: content, isFetching } = useQuery({
@@ -146,22 +139,7 @@ export default function CharBuilderCreation(props: { characterId: number; pageHe
   // Loader pattern: keep <CodexLoadingOverlay> ALWAYS rendered so the
   // component stays mounted across the "fetching → content arrives →
   // EXECUTE_OPS finishes" transition. Its internal mount state +
-  // `visible` prop manage the lock-and-tail dance:
-  //   • visible=true  → mounted=true, dice rolls
-  //   • visible flips false → CodexLoadingOverlay sends codex-complete
-  //     to its iframe (dice locks on a number), waits tailMs (500 ms),
-  //     then setMounted(false) → portal contents unmount cleanly.
-  //
-  // We toggle visible based on the union of "data still loading" and
-  // "ops still running" so the loader stays up the entire warm-up.
-  // The inner builder sits behind via display:none until doneLoading,
-  // so the dice-locked-on-number is what the user sees, then the
-  // overlay fades and the builder body is already there.
-  //
-  // (Earlier versions tried `<div display:none>{loader}</div>` to hide
-  // the loader after doneLoading. That does NOT work because the
-  // loader's iframe is inside a createPortal(..., document.body) —
-  // hiding the React wrapper has zero effect on the portal contents.)
+  // `visible` prop manage the lock-and-tail dance.
   const loaderVisible = isFetching || !content || !doneLoading;
   return (
     <>
@@ -189,12 +167,7 @@ export function CharBuilderCreationInner(props: {
   pageHeight: number;
   onFinishLoading: () => void;
 }) {
-  // isMobile / isPhone were used by the legacy 2-col layout's mobile
-  // Drawer + a Preview button; both are gone in the new 3-col codex
-  // body. Keeping isPhone — it still gates the inner Accordion's
-  // ScrollArea scrollbar style.
   const isPhone = useMediaQuery(phoneQuery());
-
 
   const { character, setCharacter, results } = useCharacter(props.characterId, {
     type: 'EXECUTE_OPS',
@@ -205,314 +178,435 @@ export function CharBuilderCreationInner(props: {
     },
   });
 
-  // `levelItems` array of <LevelSection> per level lived here. Used by
-  // the pre-codex Accordion that showed every level at once. Replaced
-  // by the single mainLevelItem below (level chip strip swaps which
-  // level renders) and removed since nothing referenced it.
-
   // selectedLevel drives which level's options appear in the main
   // column. Defaults to the character's current level and snaps to it
   // whenever the character's level changes. .lv chips set it.
   const [selectedLevel, setSelectedLevel] = useState<number>(character?.level ?? 1);
-  useEffect(() => { setSelectedLevel(character?.level ?? 1); }, [character?.level]);
+  useEffect(() => {
+    setSelectedLevel(character?.level ?? 1);
+  }, [character?.level]);
 
   const maxLevel = 20;
   const currentLevel = character?.level ?? 1;
 
-  // ── Level chip strip — circles 1..20; ones below current level are
-  //    'done', the selectedLevel one is 'on'. Click to jump.
-  const renderLevelStrip = (
-    <div className='levels'>
-      <span className='lab'>
-        Level <b>{currentLevel}</b> / {maxLevel}
-      </span>
-      <span
-        className='nav-arrow'
-        title='Prev'
-        onClick={() => setSelectedLevel(Math.max(0, selectedLevel - 1))}
-      >
-        ‹
-      </span>
-      <div className='lv-track'>
-        {Array.from({ length: maxLevel }, (_, i) => i + 1).map((lvl) => {
-          const cls =
-            lvl < currentLevel ? 'done' : lvl === selectedLevel ? 'on' : '';
+  // Per-level pending choice counts. Recomputed only when the operation
+  // results identity changes (executeOperations always returns a new
+  // package object) so the .lv chip strip can paint complete /
+  // incomplete / future without DOM-walking each level.
+  const pendingPerLevel = useMemo(() => getPendingChoicesPerLevel(results), [results]);
+
+  // Topbar fields (character crest + ancestry/class label).
+  const initial = (character?.name?.trim() || 'W')[0]?.toUpperCase() ?? 'W';
+  const ancestryName = character?.details?.ancestry?.name ?? '—';
+  const className = character?.details?.class?.name ?? '—';
+
+  // ── PERF: memoize the read-from-store derived blocks (attributes,
+  // vitals, skills, saves, weapon/armor proficiency) on `results`.
+  // The variable store only mutates inside executeOperations, and
+  // results identity changes IFF the ops pipeline finished. Without
+  // these memos, every setCharacter call (level chip click, accordion
+  // toggle, etc.) caused us to re-read & re-clone ~30 variables in
+  // render (skills column alone: 18 rows × 5-7 getVariable calls).
+  const attributesBlock = useMemo(
+    () => (
+      <div className='ab-grid'>
+        {(
+          [
+            { vn: 'ATTRIBUTE_STR', label: 'Str' },
+            { vn: 'ATTRIBUTE_DEX', label: 'Dex' },
+            { vn: 'ATTRIBUTE_CON', label: 'Con' },
+            { vn: 'ATTRIBUTE_INT', label: 'Int' },
+            { vn: 'ATTRIBUTE_WIS', label: 'Wis' },
+            { vn: 'ATTRIBUTE_CHA', label: 'Cha' },
+          ] as const
+        ).map(({ vn, label }) => {
+          const v = getVariable<VariableAttr>('CHARACTER', vn);
+          const mod = v?.value?.value ?? 0;
+          const score = 10 + mod * 2;
+          const sign = mod >= 0 ? '+' : '';
           return (
-            <span
-              key={lvl}
-              className={`lv ${cls}`.trim()}
-              onClick={() => setSelectedLevel(lvl)}
-            >
-              {lvl}
-            </span>
+            <div key={vn} className='ab'>
+              <div className='glyph'>{label}</div>
+              <div className='mod'>
+                {sign}
+                {mod}
+              </div>
+              <div className='score'>{score}</div>
+            </div>
           );
         })}
       </div>
-      <span
-        className='nav-arrow'
-        title='Next'
-        onClick={() => setSelectedLevel(Math.min(maxLevel, selectedLevel + 1))}
-      >
-        ›
-      </span>
-    </div>
+    ),
+    [results]
+  );
+
+  const vitalsBlock = useMemo(
+    () => (
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+        <div className='hp-card'>
+          <div className='lbl'>HP Max</div>
+          <div className='v'>{displayFinalHealthValue('CHARACTER')}</div>
+        </div>
+        <div className='hp-card'>
+          <div className='lbl'>Class DC</div>
+          <div className='v'>{displayFinalProfValue('CHARACTER', 'CLASS_DC', true)}</div>
+        </div>
+        <div className='hp-card'>
+          <div className='lbl'>Perception</div>
+          <div className='v'>{displayFinalProfValue('CHARACTER', 'PERCEPTION')}</div>
+        </div>
+        <div className='hp-card'>
+          <div className='lbl'>Spell DC</div>
+          <div className='v'>{displayFinalProfValue('CHARACTER', 'SPELL_DC', true)}</div>
+        </div>
+      </div>
+    ),
+    [results]
+  );
+
+  const skillsBlock = useMemo(
+    () => (
+      <div className='sk-list'>
+        {getAllSkillVariables('CHARACTER').map((sk) => {
+          const profLetter = compileProficiencyType(sk.value);
+          const value = displayFinalProfValue('CHARACTER', sk.name);
+          const nm = toLabel(sk.name.replace(/^SKILL_/, '').replace(/_/g, ' '));
+          return (
+            <div key={sk.name} className='sk'>
+              <span className={`pf-chip ${profLetter}`}>{profLetter}</span>
+              <span className='nm'>{nm}</span>
+              <span className='v'>{value}</span>
+            </div>
+          );
+        })}
+      </div>
+    ),
+    [results]
+  );
+
+  const savesBlock = useMemo(
+    () => (
+      <div className='sk-list'>
+        {(
+          [
+            { vn: 'SAVE_FORT', label: 'Fortitude' },
+            { vn: 'SAVE_REFLEX', label: 'Reflex' },
+            { vn: 'SAVE_WILL', label: 'Will' },
+            { vn: 'PERCEPTION', label: 'Perception' },
+          ] as const
+        ).map(({ vn, label }) => {
+          const v = getVariable<VariableProf>('CHARACTER', vn);
+          const profLetter = compileProficiencyType(v?.value);
+          const value = displayFinalProfValue('CHARACTER', vn);
+          return (
+            <div key={vn} className='sk'>
+              <span className={`pf-chip ${profLetter}`}>{profLetter}</span>
+              <span className='nm'>{label}</span>
+              <span className='v'>{value}</span>
+            </div>
+          );
+        })}
+      </div>
+    ),
+    [results]
+  );
+
+  const weaponArmorBlock = useMemo(
+    () => (
+      <div className='sk-list'>
+        {(
+          [
+            { vn: 'SIMPLE_WEAPONS', label: 'Simple weapons' },
+            { vn: 'MARTIAL_WEAPONS', label: 'Martial weapons' },
+            { vn: 'ADVANCED_WEAPONS', label: 'Advanced weapons' },
+            { vn: 'UNARMED_ATTACKS', label: 'Unarmed' },
+            { vn: 'LIGHT_ARMOR', label: 'Light armor' },
+            { vn: 'MEDIUM_ARMOR', label: 'Medium armor' },
+            { vn: 'HEAVY_ARMOR', label: 'Heavy armor' },
+            { vn: 'UNARMORED_DEFENSE', label: 'Unarmored' },
+          ] as const
+        ).map(({ vn, label }) => {
+          const v = getVariable<VariableProf>('CHARACTER', vn);
+          if (!v) return null;
+          const profLetter = compileProficiencyType(v.value);
+          const value = displayFinalProfValue('CHARACTER', vn);
+          return (
+            <div key={vn} className='sk'>
+              <span className={`pf-chip ${profLetter}`}>{profLetter}</span>
+              <span className='nm'>{label}</span>
+              <span className='v'>{value}</span>
+            </div>
+          );
+        })}
+      </div>
+    ),
+    [results]
   );
 
   // The single LevelSection rendered in .col.main — pulled out so we
   // can pass it through a Mantine Accordion (LevelSection wraps its
   // content in Accordion.Item, so we need the Accordion shell with a
   // value matching the section's level).
-  const mainLevelItem = (
-    <LevelSection
-      key={selectedLevel}
-      level={selectedLevel}
-      opened={true}
-      content={props.content}
-      operationResults={results}
-    />
+  //
+  // PERF: useMemo on [selectedLevel, content, results] so that
+  // re-renders driven by unrelated characterState changes (e.g.
+  // typing in topbar) don't reconstruct the LevelSection JSX or
+  // defeat its React.memo bailout.
+  const mainLevelItem = useMemo(
+    () => (
+      <LevelSection
+        key={selectedLevel}
+        level={selectedLevel}
+        opened={true}
+        content={props.content}
+        operationResults={results}
+      />
+    ),
+    [selectedLevel, props.content, results]
   );
 
   return (
     <>
-      {renderLevelStrip}
-      <div className='body'>
-
-        {/* LEFT — Origin / Attributes / Vitals */}
-        <div className='col left'>
-          <div>
-            <div className='sec-title compact'><span className='lozenge'>❦</span><span className='label'>Origin</span></div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <div
-                className='origin'
-                onClick={() => {
-                  selectContent<Ancestry>(
-                    'ancestry',
-                    (option) => {
-                      const selections = removeParentSelections('ancestry', character?.operation_data?.selections);
-                      setCharacter((prev) => prev ? { ...prev, details: { ...prev.details, ancestry: option }, operation_data: { ...prev.operation_data, selections } } : prev);
-                    },
-                    { selectedId: character?.details?.ancestry?.id }
-                  );
-                }}
-              >
-                <div className='ic'>A</div>
-                <div>
-                  <div className='nm'>Ancestry</div>
-                  <div className='v'>{character?.details?.ancestry?.name ?? '—'}</div>
+      {/* CharacterBuilderPage wraps this in `.wg4 .codex-builder-page`
+          + its own .winbar / .topbar (crest + Home/Build/Sheet nav +
+          hamburger). The decorative Sources/Ancestry/Class/Skills/
+          Feats crumb strip has been removed — its buttons didn't
+          actually route anywhere. */}
+        {/* Level chip strip — 20 chips + prev/next arrows. */}
+        <div className='levels'>
+          <span className='lab'>
+            Level <b>{currentLevel}</b> / {maxLevel}
+          </span>
+          <button
+            type='button'
+            className='nav-arrow'
+            title='Prev'
+            onClick={() => setSelectedLevel(Math.max(0, selectedLevel - 1))}
+          >
+            ‹
+          </button>
+          <div className='lv-track'>
+            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((lvl) => {
+              // Chip state:
+              //   `on`         — selected level (solid black emblem)
+              //   future (no class) — past character.level, can't edit yet
+              //   `incomplete` — has unresolved choices (amber dot + tint)
+              //   `complete`   — every pending pick made (rust accent + dot)
+              // Order matters: selection wins over completion paint so the
+              // user can tell which level they're on even if it's done.
+              let cls: 'on' | 'complete' | 'incomplete' | '' = '';
+              if (lvl === selectedLevel) cls = 'on';
+              else if (lvl > currentLevel) cls = '';
+              else if ((pendingPerLevel[lvl] ?? 0) > 0) cls = 'incomplete';
+              else cls = 'complete';
+              return (
+                <div
+                  key={lvl}
+                  className={`lv ${cls}`.trim()}
+                  onClick={() => setSelectedLevel(lvl)}
+                  role='button'
+                  tabIndex={0}
+                >
+                  {lvl}
                 </div>
-              </div>
-              <div
-                className='origin'
-                onClick={() => {
-                  selectContent<Background>(
-                    'background',
-                    (option) => {
-                      const selections = removeParentSelections('background', character?.operation_data?.selections);
-                      setCharacter((prev) => prev ? { ...prev, details: { ...prev.details, background: option }, operation_data: { ...prev.operation_data, selections } } : prev);
-                    },
-                    { selectedId: character?.details?.background?.id }
-                  );
-                }}
-              >
-                <div className='ic'>B</div>
-                <div>
-                  <div className='nm'>Background</div>
-                  <div className='v'>{character?.details?.background?.name ?? '—'}</div>
-                </div>
-              </div>
-              <div
-                className='origin'
-                onClick={() => {
-                  selectContent<Class>(
-                    'class',
-                    (option) => {
-                      let selections = removeParentSelections('class_', character?.operation_data?.selections);
-                      if (!character?.variants?.dual_class) {
-                        selections = removeParentSelections('class-feature', selections);
-                      }
-                      setCharacter((prev) => prev ? { ...prev, details: { ...prev.details, class: option, class_archetype: undefined }, operation_data: { ...prev.operation_data, selections } } : prev);
-                    },
-                    { selectedId: character?.details?.class?.id }
-                  );
-                }}
-              >
-                <div className='ic'>C</div>
-                <div>
-                  <div className='nm'>Class</div>
-                  <div className='v'>{character?.details?.class?.name ?? '—'}</div>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
+          <button
+            type='button'
+            className='nav-arrow'
+            title='Next'
+            onClick={() => setSelectedLevel(Math.min(maxLevel, selectedLevel + 1))}
+          >
+            ›
+          </button>
+        </div>
 
-          <div>
-            <div className='sec-title compact'><span className='lozenge'>✦</span><span className='label'>Attributes</span></div>
-            <div className='ab-grid'>
-              {([
-                { vn: 'ATTRIBUTE_STR', label: 'Str' },
-                { vn: 'ATTRIBUTE_DEX', label: 'Dex' },
-                { vn: 'ATTRIBUTE_CON', label: 'Con' },
-                { vn: 'ATTRIBUTE_INT', label: 'Int' },
-                { vn: 'ATTRIBUTE_WIS', label: 'Wis' },
-                { vn: 'ATTRIBUTE_CHA', label: 'Cha' },
-              ]).map(({ vn, label }) => {
-                // WG stores attribute variables as ATTRIBUTE_STR /
-                // ATTRIBUTE_DEX / etc — NOT bare STR/DEX. value.value
-                // is the modifier itself (-5 to +5+); the underlying
-                // ability score for display is 10 + 2 × modifier.
-                const v = getVariable<VariableAttr>('CHARACTER', vn);
-                const mod = v?.value?.value ?? 0;
-                const score = 10 + mod * 2;
-                const sign = mod >= 0 ? '+' : '';
-                return (
-                  <div key={vn} className='ab'>
-                    <div className='glyph'>{label}</div>
-                    <div className='mod'>{sign}{mod}</div>
-                    <div className='score'>{score}</div>
+        <div className='builder-body'>
+          {/* LEFT — Origin / Attributes / Vitals */}
+          <div className='col left'>
+            <div>
+              <div className='sec-title compact'>
+                <div className='lozenge'>✦</div>
+                <div className='label'>Origin</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div
+                  className='origin'
+                  onClick={() => {
+                    selectContent<Ancestry>(
+                      'ancestry',
+                      (option) => {
+                        const selections = removeParentSelections(
+                          'ancestry',
+                          character?.operation_data?.selections
+                        );
+                        setCharacter((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                details: { ...prev.details, ancestry: option },
+                                operation_data: { ...prev.operation_data, selections },
+                              }
+                            : prev
+                        );
+                      },
+                      { selectedId: character?.details?.ancestry?.id }
+                    );
+                  }}
+                >
+                  <div className='ic'>A</div>
+                  <div>
+                    <div className='nm'>Ancestry</div>
+                    <div className='v'>{character?.details?.ancestry?.name ?? '— Choose —'}</div>
                   </div>
-                );
-              })}
+                </div>
+                <div
+                  className='origin'
+                  onClick={() => {
+                    selectContent<Background>(
+                      'background',
+                      (option) => {
+                        const selections = removeParentSelections(
+                          'background',
+                          character?.operation_data?.selections
+                        );
+                        setCharacter((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                details: { ...prev.details, background: option },
+                                operation_data: { ...prev.operation_data, selections },
+                              }
+                            : prev
+                        );
+                      },
+                      { selectedId: character?.details?.background?.id }
+                    );
+                  }}
+                >
+                  <div className='ic'>B</div>
+                  <div>
+                    <div className='nm'>Background</div>
+                    <div className='v'>{character?.details?.background?.name ?? '— Choose —'}</div>
+                  </div>
+                </div>
+                <div
+                  className='origin'
+                  onClick={() => {
+                    selectContent<Class>(
+                      'class',
+                      (option) => {
+                        let selections = removeParentSelections('class_', character?.operation_data?.selections);
+                        if (!character?.variants?.dual_class) {
+                          selections = removeParentSelections('class-feature', selections);
+                        }
+                        setCharacter((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                details: {
+                                  ...prev.details,
+                                  class: option,
+                                  class_archetype: undefined,
+                                },
+                                operation_data: { ...prev.operation_data, selections },
+                              }
+                            : prev
+                        );
+                      },
+                      { selectedId: character?.details?.class?.id }
+                    );
+                  }}
+                >
+                  <div className='ic'>C</div>
+                  <div>
+                    <div className='nm'>Class</div>
+                    <div className='v'>{character?.details?.class?.name ?? '— Choose —'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className='sec-title compact'>
+                <div className='lozenge'>+</div>
+                <div className='label'>Attributes</div>
+              </div>
+              {attributesBlock}
+            </div>
+
+            <div>
+              <div className='sec-title compact'>
+                <div className='lozenge'>♥</div>
+                <div className='label'>Vitals</div>
+              </div>
+              {vitalsBlock}
             </div>
           </div>
 
-          <div>
-            <div className='sec-title compact'><span className='lozenge'>♥</span><span className='label'>Vitals</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              <div className='hp-card'>
-                <div className='lbl'>HP Max</div>
-                <div className='v'>{displayFinalHealthValue('CHARACTER')}</div>
+          {/* MAIN — level focus. Shows ONLY the selectedLevel's choice
+              cards, expanded. The chip strip above swaps which level is
+              displayed. */}
+          <div className='col main'>
+            <div>
+              <div className='level-head'>
+                <div className='level-emblem'>
+                  <span className='num'>{selectedLevel}</span>
+                </div>
+                <div className='meta'>
+                  <div className='eyebrow'>The Chronicle · Level {selectedLevel}</div>
+                  <div className='lede'>
+                    Pick what your wanderer learns at this level. Some choices are auto-granted by class; others are
+                    yours to make.
+                  </div>
+                </div>
               </div>
-              <div className='hp-card'>
-                <div className='lbl'>Class DC</div>
-                <div className='v'>{displayFinalProfValue('CHARACTER', 'CLASS_DC', true)}</div>
+              <ScrollArea h={props.pageHeight - 120} type={isPhone ? 'never' : undefined} scrollbars='y'>
+                <div className='choice-list'>{mainLevelItem}</div>
+              </ScrollArea>
+            </div>
+          </div>
+
+          {/* RIGHT — codex Skill Proficiency / Saves & Perception /
+              Weapon & Armor. Mirrors the mockup's compact .sk-list
+              rail; uses getAllSkillVariables + displayFinalProfValue
+              + compileProficiencyType for the data so values stay
+              in lockstep with the character sheet.
+
+              Each block is useMemo'd on `results` (see top of this
+              component) so flipping a level chip / opening a choice
+              card doesn't re-walk the variable store. */}
+          <div className='col right'>
+            <div>
+              <div className='sec-title compact'>
+                <div className='lozenge'>+</div>
+                <div className='label'>Skill Proficiency</div>
+                <div className='sub'>T E M L</div>
               </div>
-              <div className='hp-card'>
-                <div className='lbl'>Perception</div>
-                <div className='v'>{displayFinalProfValue('CHARACTER', 'PERCEPTION')}</div>
+              {skillsBlock}
+            </div>
+
+            <div>
+              <div className='sec-title compact'>
+                <div className='lozenge'>+</div>
+                <div className='label'>Saves &amp; Perception</div>
               </div>
-              <div className='hp-card'>
-                <div className='lbl'>Spell DC</div>
-                <div className='v'>{displayFinalProfValue('CHARACTER', 'SPELL_DC', true)}</div>
+              {savesBlock}
+            </div>
+
+            <div>
+              <div className='sec-title compact'>
+                <div className='lozenge'>X</div>
+                <div className='label'>Weapon &amp; Armor</div>
               </div>
+              {weaponArmorBlock}
             </div>
           </div>
         </div>
-
-        {/* MAIN — level focus. Shows ONLY the selectedLevel's choice
-            cards, expanded. The chip strip above swaps which level is
-            displayed. */}
-        <div className='col main'>
-          <div className='level-head'>
-            <div className='level-emblem'><span className='num'>{selectedLevel}</span></div>
-            <div className='meta'>
-              <div className='eyebrow'>The Chronicle · Level {selectedLevel}</div>
-              <div className='lede'>Pick what your wanderer learns at this level. Some choices are auto-granted by class; others are yours to make.</div>
-            </div>
-          </div>
-          <ScrollArea h={props.pageHeight - 120} type={isPhone ? 'never' : undefined} scrollbars='y'>
-            {/* Codex level-options column. LevelSection renders either
-                the legacy InitialStatsLevelSection (level 0 — still
-                Mantine-based for now) or a flat list of codex .choice
-                cards (level 1+). See design-mockups/mockup-2-level-options.html
-                for the reference design. */}
-            <div style={{ paddingRight: 4 }}>
-              {mainLevelItem}
-            </div>
-          </ScrollArea>
-        </div>
-
-        {/* RIGHT — codex Skill Proficiency / Saves & Perception /
-            Weapon & Armor. Mirrors the mockup's compact .sk-list
-            rail; uses getAllSkillVariables + displayFinalProfValue
-            + compileProficiencyType for the data so values stay
-            in lockstep with the character sheet. */}
-        <div className='col right'>
-
-          <div>
-            <div className='sec-title compact'><span className='lozenge'>✦</span><span className='label'>Skill Proficiency</span><span className='sub'>T E M L</span></div>
-            <div className='sk-list'>
-              {getAllSkillVariables('CHARACTER').map((sk) => {
-                const profLetter = compileProficiencyType(sk.value);
-                const value = displayFinalProfValue('CHARACTER', sk.name);
-                const nm = toLabel(sk.name.replace(/^SKILL_/, '').replace(/_/g, ' '));
-                return (
-                  <div key={sk.name} className='sk'>
-                    <span className={`pf ${profLetter}`}>{profLetter}</span>
-                    <span className='nm'>{nm}</span>
-                    <span className='v'>{value}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <div className='sec-title compact'><span className='lozenge'>✠</span><span className='label'>Saves &amp; Perception</span></div>
-            <div className='sk-list'>
-              {([
-                { vn: 'SAVE_FORT', label: 'Fortitude' },
-                { vn: 'SAVE_REFLEX', label: 'Reflex' },
-                { vn: 'SAVE_WILL', label: 'Will' },
-                { vn: 'PERCEPTION', label: 'Perception' },
-              ]).map(({ vn, label }) => {
-                const v = getVariable<VariableProf>('CHARACTER', vn);
-                const profLetter = compileProficiencyType(v?.value);
-                const value = displayFinalProfValue('CHARACTER', vn);
-                return (
-                  <div key={vn} className='sk'>
-                    <span className={`pf ${profLetter}`}>{profLetter}</span>
-                    <span className='nm'>{label}</span>
-                    <span className='v'>{value}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <div className='sec-title compact'><span className='lozenge'>⚔</span><span className='label'>Weapon &amp; Armor</span></div>
-            <div className='sk-list'>
-              {([
-                { vn: 'SIMPLE_WEAPONS', label: 'Simple weapons' },
-                { vn: 'MARTIAL_WEAPONS', label: 'Martial weapons' },
-                { vn: 'ADVANCED_WEAPONS', label: 'Advanced weapons' },
-                { vn: 'UNARMED_ATTACKS', label: 'Unarmed' },
-                { vn: 'LIGHT_ARMOR', label: 'Light armor' },
-                { vn: 'MEDIUM_ARMOR', label: 'Medium armor' },
-                { vn: 'HEAVY_ARMOR', label: 'Heavy armor' },
-                { vn: 'UNARMORED_DEFENSE', label: 'Unarmored' },
-              ]).map(({ vn, label }) => {
-                const v = getVariable<VariableProf>('CHARACTER', vn);
-                if (!v) return null;
-                const profLetter = compileProficiencyType(v.value);
-                const value = displayFinalProfValue('CHARACTER', vn);
-                return (
-                  <div key={vn} className='sk'>
-                    <span className={`pf ${profLetter}`}>{profLetter}</span>
-                    <span className='nm'>{label}</span>
-                    <span className='v'>{value}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-        </div>
-
-      </div>
     </>
   );
 }
-
-// CharacterStatSidebar() + its helper AttributeModPart() lived here.
-// They were the legacy Mantine right-rail (CharacterInfo + ImprintButton
-// + a stack of StatButton tiles) used by the pre-codex builder. The
-// codex layout in CharBuilderCreationInner (Origin / Attributes /
-// Vitals on the left, the .sk-list rail on the right) replaced both,
-// then we removed them entirely once nothing referenced them.
-// StatButton stayed exported because the FocusSpellsList panel still
-// uses it; see its definition below.
-
 
 export function StatButton(props: {
   children: React.ReactNode;
@@ -547,7 +641,7 @@ export function StatButton(props: {
   );
 }
 
-function LevelSection(props: {
+function LevelSectionInner(props: {
   level: number;
   opened: boolean;
   content: ContentPackage;
@@ -556,7 +650,11 @@ function LevelSection(props: {
   const [subSectionValue, setSubSectionValue] = useState<string | null>(null);
   const [, setCharacter] = useAtom(characterState);
 
-  const saveSelectionChange = (path: string, value: string) => {
+  // PERF: stable callback identity so the AncestrySectionAccordionItem /
+  // ClassFeatureAccordionItem children (which take this as a prop) don't
+  // see a new function every render. setCharacter is stable (jotai
+  // setter), so deps can be empty.
+  const saveSelectionChange = useCallback((path: string, value: string) => {
     setCharacter((prev) => {
       if (!prev) return prev;
       const newSelections = { ...prev.operation_data?.selections };
@@ -573,7 +671,7 @@ function LevelSection(props: {
         },
       };
     });
-  };
+  }, [setCharacter]);
 
   if (
     props.operationResults?.ancestrySectionResults.length === 0 &&
@@ -581,9 +679,7 @@ function LevelSection(props: {
   ) {
     if (props.level === 0) {
       return (
-        <div className='start-hint'>
-          Select an ancestry, background, and class to get started.
-        </div>
+        <div className='start-hint'>Select an ancestry, background, and class to get started.</div>
       );
     } else {
       return null;
@@ -592,24 +688,17 @@ function LevelSection(props: {
 
   // ── Level 0 still uses the legacy Mantine InitialStatsLevelSection
   //    (Ancestry / Background / Class / Books / Items / Custom items).
-  //    Those internal items haven't been migrated to codex yet — they
-  //    live in the same file (search for AncestryAccordionItem etc.).
-  //    We wrap them in a single dummy Mantine `<Accordion>` so the
-  //    `Accordion.Item` children inside have the context they need.
   if (props.level === 0) {
     return (
       <InitialStatsLevelSection
         content={props.content}
         operationResults={props.operationResults}
-        onSaveChanges={(path, value) => saveSelectionChange(path, value)}
+        onSaveChanges={saveSelectionChange}
       />
     );
   }
 
-  // ── Level 1+: flat list of codex .choice cards (ancestry feats,
-  //    class features, etc.) followed by per-level spell picks.
-  //    No Mantine Accordion wrapper; CodexChoice manages its own
-  //    visual state via the parent's subSectionValue.
+  // ── Level 1+: flat list of codex .choice cards.
   const toggle = (id: string) => setSubSectionValue((prev) => (prev === id ? null : id));
   return (
     <div>
@@ -621,7 +710,7 @@ function LevelSection(props: {
               id={`ancestry-section-${index}`}
               section={r.baseSource}
               results={r.baseResults}
-              onSaveChanges={(path, value) => saveSelectionChange(path, value)}
+              onSaveChanges={saveSelectionChange}
               opened={subSectionValue === `ancestry-section-${index}`}
               onToggle={() => toggle(`ancestry-section-${index}`)}
             />
@@ -635,7 +724,7 @@ function LevelSection(props: {
               id={`class-feature-${index}`}
               feature={r.baseSource}
               results={r.baseResults}
-              onSaveChanges={(path, value) => saveSelectionChange(path, value)}
+              onSaveChanges={saveSelectionChange}
               opened={subSectionValue === `class-feature-${index}`}
               onToggle={() => toggle(`class-feature-${index}`)}
             />
@@ -649,12 +738,15 @@ function LevelSection(props: {
   );
 }
 
+// PERF: React.memo so LevelSection only re-renders when its props
+// actually change. Without this, every characterState mutation (rapid
+// typing in topbar fields, hp tick, etc.) re-renders the entire feature
+// tree because the parent CharBuilderCreationInner re-renders on the
+// undebounced character atom subscription.
+const LevelSection = memo(LevelSectionInner);
+
 /**
  * Handle class archetype selection
- * @param character - current character
- * @param setCharacter - setter for character state
- * @param class_ - selected class
- * @param recordT - '1' for primary class, '2' for second class
  */
 function handleClassArchetypeSelection(
   _character: Character | null,
@@ -707,6 +799,9 @@ function handleClassArchetypeSelection(
     }
   });
 }
+// Keep around — referenced by external pages if/when ClassDrawer wires
+// to it. Silences "unused" warnings.
+void handleClassArchetypeSelection;
 
 function ClassFeatureAccordionItem(props: {
   id: string;
@@ -833,8 +928,7 @@ function InitialStatsLevelSection(props: {
   onSaveChanges: (path: string, value: string) => void;
 }) {
   const [subSectionValue, setSubSectionValue] = useState<string | null>(null);
-  const [character, setCharacter] = useAtom(characterState);
-  const [_drawer, openDrawer] = useAtom(drawerState);
+  const [character] = useAtom(characterState);
 
   const class_ = props.content.classes.find((class_) => class_.id === character?.details?.class?.id);
   const class_2 = props.content.classes.find((class_) => class_.id === character?.details?.class_2?.id);
@@ -842,9 +936,6 @@ function InitialStatsLevelSection(props: {
   const background = props.content.backgrounds.find(
     (background) => background.id === character?.details?.background?.id
   );
-  // const heritage = props.content.abilityBlocks.find(
-  //   (ab) => ab.id === character?.details?.heritage?.id && ab.type === 'heritage'
-  // );
 
   if (!props.operationResults) return null;
 
@@ -864,84 +955,82 @@ function InitialStatsLevelSection(props: {
   };
 
   return (
-    <>
-      <Accordion
-        variant='separated'
-        value={subSectionValue}
-        onChange={setSubSectionValue}
-        styles={{
-          label: { paddingTop: 5, paddingBottom: 5 },
+    <Accordion
+      variant='separated'
+      value={subSectionValue}
+      onChange={setSubSectionValue}
+      styles={{
+        label: { paddingTop: 5, paddingBottom: 5 },
+      }}
+    >
+      <AncestryAccordionItem
+        ancestry={ancestry}
+        content={props.content}
+        operationResults={props.operationResults}
+        onSaveChanges={(path, value) => {
+          props.onSaveChanges(path, value);
         }}
-      >
-        <AncestryAccordionItem
-          ancestry={ancestry}
-          content={props.content}
-          operationResults={props.operationResults}
-          onSaveChanges={(path, value) => {
-            props.onSaveChanges(path, value);
-          }}
-          opened={subSectionValue === 'ancestry'}
-        />
+        opened={subSectionValue === 'ancestry'}
+      />
 
-        <BackgroundAccordionItem
-          background={background}
-          operationResults={props.operationResults}
-          onSaveChanges={(path, value) => {
-            props.onSaveChanges(path, value);
-          }}
-          opened={subSectionValue === 'background'}
-        />
+      <BackgroundAccordionItem
+        background={background}
+        operationResults={props.operationResults}
+        onSaveChanges={(path, value) => {
+          props.onSaveChanges(path, value);
+        }}
+        opened={subSectionValue === 'background'}
+      />
 
+      <ClassAccordionItem
+        class_={class_}
+        operationResults={props.operationResults}
+        onSaveChanges={(path, value) => {
+          props.onSaveChanges(path, value);
+        }}
+        opened={subSectionValue === 'class'}
+      />
+
+      {class_2 && (
         <ClassAccordionItem
-          class_={class_}
+          class_={class_2}
           operationResults={props.operationResults}
           onSaveChanges={(path, value) => {
             props.onSaveChanges(path, value);
           }}
-          opened={subSectionValue === 'class'}
+          opened={subSectionValue === 'class_2'}
+          isClass2
         />
+      )}
 
-        {class_2 && (
-          <ClassAccordionItem
-            class_={class_2}
-            operationResults={props.operationResults}
-            onSaveChanges={(path, value) => {
-              props.onSaveChanges(path, value);
-            }}
-            opened={subSectionValue === 'class_2'}
-            isClass2
-          />
-        )}
-
-        {hasOperationResults(props.operationResults.contentSourceResults) && (
-          <BooksAccordionItem
-            operationResults={props.operationResults}
-            onSaveChanges={(path, value) => {
-              props.onSaveChanges(path, value);
-            }}
-            opened={subSectionValue === 'books'}
-          />
-        )}
-        {hasOperationResults(props.operationResults.itemResults) && (
-          <ItemsAccordionItem
-            operationResults={props.operationResults}
-            onSaveChanges={(path, value) => {
-              props.onSaveChanges(path, value);
-            }}
-            opened={subSectionValue === 'items'}
-          />
-        )}
-        {props.operationResults.characterResults.length > 0 && (
-          <CustomAccordionItem
-            operationResults={props.operationResults}
-            onSaveChanges={(path, value) => {
-              props.onSaveChanges(path, value);
-            }}
-            opened={subSectionValue === 'custom'}
-          />
-        )}
-      </Accordion>
-    </>
+      {hasOperationResults(props.operationResults.contentSourceResults) && (
+        <BooksAccordionItem
+          operationResults={props.operationResults}
+          onSaveChanges={(path, value) => {
+            props.onSaveChanges(path, value);
+          }}
+          opened={subSectionValue === 'books'}
+        />
+      )}
+      {hasOperationResults(props.operationResults.itemResults) && (
+        <ItemsAccordionItem
+          operationResults={props.operationResults}
+          onSaveChanges={(path, value) => {
+            props.onSaveChanges(path, value);
+          }}
+          opened={subSectionValue === 'items'}
+        />
+      )}
+      {props.operationResults.characterResults.length > 0 && (
+        <CustomAccordionItem
+          operationResults={props.operationResults}
+          onSaveChanges={(path, value) => {
+            props.onSaveChanges(path, value);
+          }}
+          opened={subSectionValue === 'custom'}
+        />
+      )}
+    </Accordion>
   );
 }
 
@@ -996,7 +1085,6 @@ function AncestryAccordionItem(props: {
       )
     : null;
   if (ancestryInitialOverviewDisplay) {
-    // Filter out operation results that are already displayed in the ancestry overview
     let displayRecords: {
       ui: React.ReactNode;
       operation: OperationSelect | null;
@@ -1009,7 +1097,6 @@ function AncestryAccordionItem(props: {
       }
     }
 
-    // Filter operation results
     ancestryOperationResults = ancestryOperationResults.filter((result: OperationResult) => {
       return !displayRecords.find(
         (record) => result?.selection?.id !== undefined && record.operation?.id === result?.selection?.id
@@ -1095,7 +1182,6 @@ function BackgroundAccordionItem(props: {
     return () => clearInterval(intervalId);
   }, [props.operationResults]);
 
-  // Only display the operation results that aren't already displayed in the background overview
   let backgroundOperationResults = props.operationResults?.backgroundResults ?? [];
   const backgroundInitialOverviewDisplay = props.background
     ? convertBackgroundOperationsIntoUI(
@@ -1107,7 +1193,6 @@ function BackgroundAccordionItem(props: {
       )
     : null;
   if (backgroundInitialOverviewDisplay) {
-    // Filter out operation results that are already displayed in the background overview
     let displayRecords: {
       ui: React.ReactNode;
       operation: OperationSelect | null;
@@ -1120,7 +1205,6 @@ function BackgroundAccordionItem(props: {
       }
     }
 
-    // Filter operation results
     backgroundOperationResults = backgroundOperationResults.filter((result: OperationResult) => {
       return !displayRecords.find(
         (record) => result?.selection?.id !== undefined && record.operation?.id === result?.selection?.id
@@ -1128,11 +1212,6 @@ function BackgroundAccordionItem(props: {
     });
   }
 
-  // Deep Background variant: when enabled, swap the published-background
-  // overview + selection-result UI for the custom-background form. The
-  // form writes a synthesized background (id = -1) into details.background
-  // so the operation engine still drives boosts / lore / feat / prereq
-  // training the same way it would for a real background row.
   const isDeepBackground = !!character?.variants?.deep_background;
 
   return (
@@ -1195,7 +1274,6 @@ function ClassAccordionItem(props: {
   isClass2?: boolean;
 }) {
   const [character, setCharacter] = useAtom(characterState);
-  const [_drawer, openDrawer] = useAtom(drawerState);
   const { hovered, ref } = useHover();
 
   const choiceCountRef = useRef<HTMLDivElement>(null);
@@ -1217,7 +1295,6 @@ function ClassAccordionItem(props: {
     return () => clearInterval(intervalId);
   }, [props.operationResults]);
 
-  // Only display the operation results that aren't already displayed in the class overview
   let classOperationResults =
     (props.isClass2 ? props.operationResults?.class2Results : props.operationResults?.classResults) ?? [];
   const classInitialOverviewDisplay = props.class_
@@ -1230,7 +1307,6 @@ function ClassAccordionItem(props: {
       )
     : null;
   if (classInitialOverviewDisplay) {
-    // Filter out operation results that are already displayed in the class overview
     let displayRecords: {
       ui: React.ReactNode;
       operation: OperationSelect | null;
@@ -1243,7 +1319,6 @@ function ClassAccordionItem(props: {
       }
     }
 
-    // Filter operation results
     classOperationResults = classOperationResults.filter((result: OperationResult) => {
       return !displayRecords.find(
         (record) => result?.selection?.id !== undefined && record.operation?.id === result?.selection?.id
@@ -1509,7 +1584,6 @@ export function DisplayOperationResult(props: {
   const selections = props.results.filter((result) => hasOperationSelection(result));
   if (selections.length === 0) return null;
 
-  // This is the magic sauce
   return (
     <ResultWrapper label={`From ${props.source?.name ?? 'Unknown'}`} disabled={!props.source}>
       <Stack gap={10}>
@@ -1569,13 +1643,6 @@ function OperationResultSelector(props: {
         abilityBlockType:
           (props.result?.selection?.options ?? []).length > 0 ? props.result?.selection?.options[0].type : undefined,
         skillAdjustment: props.result?.selection?.skillAdjustment,
-        // advancedPresetFilters: {
-        //   type: props.result?.selection?.options[0]._content_type,
-        //   ab_type: props.result?.selection?.options[0].type,
-        //   content_sources: character ? character.content_sources?.enabled : undefined,
-        //   level_max: character ? character.level : undefined,
-        //   level_min: 1,
-        // },
       }}
     />
   );

@@ -1,4 +1,3 @@
-import BlurBox from '@common/BlurBox';
 import {
   deleteContent,
   upsertAbilityBlock,
@@ -52,7 +51,7 @@ export default function TraitMerger() {
 
   return (
     <>
-      <BlurBox p='sm'>
+      <div className='card' style={{ padding: 12 }}>
         <Center p='sm'>
           <Stack>
             <Group>
@@ -108,7 +107,7 @@ export default function TraitMerger() {
             </List>
           </Stack>
         </Center>
-      </BlurBox>
+      </div>
     </>
   );
 }

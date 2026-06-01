@@ -26,12 +26,14 @@ export function Component() {
   }, []);
 
   return (
-    <Center py='xl'>
-      <Box w='100%' maw={760} px='md'>
-        <BlurBox w='100%' p='md'>
-          <CleaningLogPanel cleaningRecordId={recordId} inputData={inputData} />
-        </BlurBox>
-      </Box>
-    </Center>
+    <div className='wg4 wg4-screen wg4-page-root' style={{ minHeight: '100%' }}>
+      <Center py='xl'>
+        <Box w='100%' maw={760} px='md'>
+          <BlurBox w='100%' p='md'>
+            <CleaningLogPanel cleaningRecordId={recordId} inputData={inputData} />
+          </BlurBox>
+        </Box>
+      </Center>
+    </div>
   );
 }

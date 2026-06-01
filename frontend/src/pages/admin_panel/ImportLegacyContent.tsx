@@ -1,7 +1,6 @@
 import { Center, Group, Progress, Select, Text, Title, rem } from '@mantine/core';
 import { IconUpload, IconPhoto, IconX } from '@tabler/icons-react';
 import { Dropzone, FileWithPath } from '@mantine/dropzone';
-import BlurBox from '@common/BlurBox';
 import { getUploadStats, resetUploadStats, uploadContentList } from '@upload/content-upload';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -12,7 +11,7 @@ import { isAbilityBlockType } from '@content/content-utils';
 
 export default function ImportLegacyContent() {
   return (
-    <BlurBox p='sm'>
+    <div className='card' style={{ padding: 12 }}>
       <Center p='sm'>
         <Group>
           <Title order={3}>Import Legacy Content</Title>
@@ -36,6 +35,6 @@ export default function ImportLegacyContent() {
           />
         </Group>
       </Center>
-    </BlurBox>
+    </div>
   );
 }

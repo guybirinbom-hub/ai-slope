@@ -1,0 +1,1302 @@
+/*
+ * wg4-builder.css — Character Builder + Home redesign
+ *
+ * Ported verbatim from D:\Inst\Character Builder.html (the user's
+ * approved design). All selectors are scoped under .wg4 to keep the
+ * codex builder (Settings, Homebrew, Account, Content Update) on
+ * its old dark gold theme.
+ *
+ * The two pages this paints:
+ *   - CharBuilderHome (codex-home-page)     — Sources / Ancestry /
+ *     Class / Skills / Feats crumb tabs over a hero + sourcebook list.
+ *   - CharBuilderCreation (codex-builder-page) — Topbar + level
+ *     strip + 3-col body (Origin/Attributes/Vitals · Level head +
+ *     choice list · Skill Proficiency / Saves / Weapon&Armor).
+ *
+ * The CSS reads tokens from the wg4 root (--wg4-surface, --wg4-ink,
+ * --wg4-accent, etc.). For convenience we re-alias them to the names
+ * the mockup uses (--surface, --ink, --accent, ...).
+ */
+
+.wg4 .codex-home-page,
+.wg4 .codex-builder-page {
+  /* Re-alias wg4 tokens to mockup tokens so all selectors below can
+     stay verbatim from the mockup HTML.                            */
+  --page: var(--wg4-page);
+  --surface: var(--wg4-surface);
+  --surface-2: var(--wg4-surface-2);
+  --surface-hover: var(--wg4-surface-hover);
+  --border: var(--wg4-border);
+  --border-strong: var(--wg4-border-strong);
+  --border-soft: var(--wg4-border-soft);
+  --ink: var(--wg4-ink);
+  --ink-2: var(--wg4-ink-2);
+  --ink-3: var(--wg4-ink-3);
+  --ink-4: var(--wg4-ink-4);
+  --ink-5: var(--wg4-ink-5);
+  --accent: var(--wg4-accent);
+  --accent-soft: var(--wg4-accent-soft);
+  --accent-ink: var(--wg4-accent-ink);
+  --shadow-card: 0 1px 0 rgba(20,20,20,.02), 0 1px 2px rgba(20,20,20,.03);
+  --r-1: 4px; --r-2: 6px; --r-3: 8px; --r-pill: 999px;
+  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+  --font-serif: 'Newsreader', ui-serif, Georgia, serif;
+
+  max-width: 1680px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+}
+
+.wg4 .codex-home-page *,
+.wg4 .codex-builder-page * { box-sizing: border-box; }
+
+.wg4 .codex-home-page .mono,
+.wg4 .codex-builder-page .mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ============================== WINBAR ============================== */
+/* Window title bar — codex brand on the left, italic centre summary,
+   min/max/X window controls on the right. */
+.wg4 .codex-home-page .winbar,
+.wg4 .codex-builder-page .winbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 18px;
+  font-size: 11px;
+  color: var(--ink-4);
+  background: var(--page);
+}
+.wg4 .codex-home-page .winbar .title,
+.wg4 .codex-builder-page .winbar .title {
+  display: flex; align-items: baseline; gap: 8px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.wg4 .codex-home-page .winbar .title .dot,
+.wg4 .codex-builder-page .winbar .title .dot {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 2px;
+  transform: translateY(1px);
+}
+.wg4 .codex-home-page .winbar .title b,
+.wg4 .codex-builder-page .winbar .title b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.wg4 .codex-home-page .winbar .center,
+.wg4 .codex-builder-page .winbar .center {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.wg4 .codex-home-page .winbar .center b,
+.wg4 .codex-builder-page .winbar .center b {
+  color: var(--accent);
+  font-weight: 600;
+}
+.wg4 .codex-home-page .winbar .winbtns,
+.wg4 .codex-builder-page .winbar .winbtns { display: flex; gap: 4px; }
+.wg4 .codex-home-page .winbar .winbtn,
+.wg4 .codex-builder-page .winbar .winbtn {
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  color: var(--ink-4);
+  border-radius: var(--r-1);
+  cursor: pointer;
+}
+.wg4 .codex-home-page .winbar .winbtn:hover,
+.wg4 .codex-builder-page .winbar .winbtn:hover {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.wg4 .codex-home-page .winbar .winbtn.close:hover,
+.wg4 .codex-builder-page .winbar .winbtn.close:hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.wg4 .codex-home-page .winbar .winbtn svg,
+.wg4 .codex-builder-page .winbar .winbtn svg {
+  width: 9px; height: 9px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+/* ============================== TOPBAR ============================== */
+.wg4 .builder-topbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) 1fr 1fr 1fr auto;
+  align-items: stretch;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+.wg4 .builder-topbar .who {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 22px;
+  border-right: 1px solid var(--border-soft);
+  min-width: 0;
+}
+.wg4 .builder-topbar .crest {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink-2);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.wg4 .builder-topbar .crest img { width: 100%; height: 100%; object-fit: cover; }
+.wg4 .builder-topbar .label { min-width: 0; }
+.wg4 .builder-topbar .label .nm {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  line-height: 1.15;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wg4 .builder-topbar .label .sub {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+  margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wg4 .builder-topbar .label .sub i { font-style: normal; color: var(--ink-5); margin: 0 5px; }
+
+.wg4 .builder-topbar .nav-step {
+  appearance: none; border: 0; background: transparent;
+  border-right: 1px solid var(--border-soft);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 14px 18px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  position: relative;
+}
+.wg4 .builder-topbar .nav-step:hover { background: var(--surface-2); color: var(--ink); }
+.wg4 .builder-topbar .nav-step:disabled { color: var(--ink-5); cursor: not-allowed; }
+.wg4 .builder-topbar .nav-step:disabled:hover { background: transparent; color: var(--ink-5); }
+.wg4 .builder-topbar .nav-step.on { background: var(--surface-2); color: var(--ink); }
+.wg4 .builder-topbar .nav-step.on::after {
+  content: "";
+  position: absolute;
+  left: 18px; right: 18px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+}
+.wg4 .builder-topbar .nav-step svg { width: 16px; height: 16px; }
+
+.wg4 .builder-topbar .topbar-right {
+  display: flex; align-items: center; padding: 0 18px;
+}
+.wg4 .builder-topbar .menu {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-2);
+  cursor: pointer;
+  transition: background .1s, border-color .1s;
+}
+.wg4 .builder-topbar .menu:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.wg4 .builder-topbar .menu .lines { display: flex; flex-direction: column; gap: 3px; }
+.wg4 .builder-topbar .menu .lines span {
+  width: 14px; height: 1.6px;
+  background: var(--ink-3);
+  border-radius: 1px;
+  display: block;
+}
+.wg4 .builder-topbar .menu:hover .lines span { background: var(--ink); }
+
+/* ============================== CRUMB STRIP ============================== */
+.wg4 .crumb-strip {
+  display: flex; align-items: center; gap: 4px;
+  padding: 18px 32px 12px;
+  flex-wrap: wrap;
+}
+.wg4 .crumb-strip .seg {
+  padding: 5px 14px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+  color: var(--ink-4);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-pill);
+  background: transparent;
+  cursor: pointer;
+  transition: color .1s, border-color .1s, background .1s;
+}
+.wg4 .crumb-strip .seg:hover { color: var(--ink-2); border-color: var(--border); }
+.wg4 .crumb-strip .seg.on {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--ink);
+  position: relative;
+}
+.wg4 .crumb-strip .seg.on::before {
+  content: "";
+  width: 6px; height: 6px;
+  background: var(--accent);
+  transform: rotate(45deg);
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+  margin-bottom: 1px;
+}
+.wg4 .crumb-strip .sep {
+  color: var(--ink-5);
+  font-size: 10px;
+  padding: 0 3px;
+  font-family: var(--font-mono);
+}
+
+/* ============================== HOME-WRAP ============================== */
+.wg4 .home-wrap {
+  padding: 0 32px 60px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+/* ============================== HERO ============================== */
+.wg4 .hero {
+  display: grid;
+  grid-template-columns: 120px 1fr 220px;
+  gap: 18px;
+  align-items: stretch;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  padding: 18px;
+  box-shadow: var(--shadow-card);
+}
+.wg4 .hero .portrait {
+  position: relative;
+  width: 120px; height: 130px;
+  border-radius: var(--r-2);
+  background: linear-gradient(135deg, #dcb6a9, #c39483);
+  display: grid; place-items: center;
+  color: rgba(20,20,20,0.45);
+  cursor: pointer;
+  overflow: hidden;
+}
+.wg4 .hero .portrait img { width: 100%; height: 100%; object-fit: cover; }
+.wg4 .hero .portrait svg { width: 36px; height: 36px; }
+.wg4 .hero .portrait .tag {
+  position: absolute;
+  bottom: 6px; right: 6px;
+  width: 22px; height: 22px;
+  background: var(--ink);
+  color: var(--surface);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 14px;
+  font-weight: 500;
+  border: 2px solid var(--surface);
+  line-height: 1;
+}
+.wg4 .hero .name-field {
+  display: flex; flex-direction: column; justify-content: center; gap: 8px;
+  min-width: 0;
+}
+.wg4 .hero .name-field .lbl {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.wg4 .hero .name-field .lbl .rule { flex: 1; height: 1px; background: var(--border-soft); }
+.wg4 .hero .name-field .lbl em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--ink-4);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+  font-size: 12px;
+}
+.wg4 .hero .name-field .input-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.wg4 .hero .name-input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 6px 2px 8px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  outline: none;
+  line-height: 1.1;
+  width: 100%;
+}
+.wg4 .hero .name-input::placeholder { color: var(--ink-5); }
+.wg4 .hero .name-input:focus { border-bottom-color: var(--accent); }
+.wg4 .hero .reroll {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: var(--r-2);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+  flex-shrink: 0;
+}
+.wg4 .hero .reroll:hover { background: var(--surface); border-color: var(--border-strong); color: var(--accent); }
+.wg4 .hero .reroll svg { width: 16px; height: 16px; }
+
+.wg4 .hero .lvl-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
+  gap: 4px 10px;
+  align-content: center;
+  padding: 8px 14px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  position: relative;
+  height: auto !important;
+}
+/* Defeat the old codex-home.css corner-bracket decorations and gold
+   border + dark-codex fonts on .lvl-card. The wg4 lvl-card uses
+   parchment surface, no corners, hairline border. */
+.wg4 .hero .lvl-card::before,
+.wg4 .hero .lvl-card::after {
+  content: none !important;
+  display: none !important;
+}
+.wg4 .hero .lvl-card .lbl,
+.wg4 .hero .lvl-card .lbl small,
+.wg4 .hero .lvl-card .of {
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+}
+.wg4 .hero .lvl-card input[type='number'] {
+  background: transparent !important;
+  font-family: var(--font-mono) !important;
+  -webkit-appearance: none !important;
+}
+.wg4 .hero .lvl-card input[type='number']:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.wg4 .hero .lvl-card .lbl {
+  grid-column: 1 / -1;
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.wg4 .hero .lvl-card .lbl small {
+  font-family: var(--font-mono);
+  color: var(--ink-4);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+.wg4 .hero .lvl-card input[type="number"] {
+  grid-row: 2;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 38px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  width: 60px;
+  line-height: 1;
+  outline: none;
+}
+.wg4 .hero .lvl-card input[type="number"]::-webkit-outer-spin-button,
+.wg4 .hero .lvl-card input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.wg4 .hero .lvl-card .steps {
+  grid-row: 2;
+  display: flex; flex-direction: column; gap: 1px;
+  justify-self: end; align-self: center;
+}
+.wg4 .hero .lvl-card .steps button {
+  appearance: none;
+  width: 28px; height: 22px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  line-height: 1;
+  display: grid; place-items: center;
+  cursor: pointer;
+  transition: background .1s, border-color .1s, color .1s;
+  padding: 0;
+}
+.wg4 .hero .lvl-card .steps button:first-child { border-radius: var(--r-1) var(--r-1) 0 0; }
+.wg4 .hero .lvl-card .steps button:last-child { border-radius: 0 0 var(--r-1) var(--r-1); border-top: 0; }
+.wg4 .hero .lvl-card .steps button:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--accent);
+}
+.wg4 .hero .lvl-card .of {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  letter-spacing: 0.04em;
+  margin-top: -4px;
+}
+.wg4 .hero .lvl-card .of b { color: var(--ink-2); font-weight: 600; }
+
+/* ============================== PANEL ============================== */
+.wg4 .builder-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.wg4 .builder-panel .tabs-row {
+  display: flex; align-items: stretch;
+  padding: 0 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-soft);
+}
+.wg4 .builder-panel .tab-btn {
+  appearance: none; border: 0; background: transparent;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px 13px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .12s, border-color .12s;
+}
+.wg4 .builder-panel .tab-btn:hover { color: var(--ink); }
+.wg4 .builder-panel .tab-btn.on {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.wg4 .builder-panel .tab-btn svg { width: 13px; height: 13px; }
+.wg4 .builder-panel .tab-btn .ct {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  color: var(--ink-4);
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.wg4 .builder-panel .tab-btn.on .ct { color: var(--ink); border-color: var(--border); }
+.wg4 .builder-panel .tab-options {
+  appearance: none; border: 0; background: transparent;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 12px 16px 13px;
+  margin-left: auto;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.wg4 .builder-panel .tab-options:hover { color: var(--ink); }
+.wg4 .builder-panel .tab-options svg { width: 13px; height: 13px; }
+
+.wg4 .builder-panel .panel-subhead {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.wg4 .builder-panel .panel-subhead .lhs {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.wg4 .builder-panel .panel-subhead .lhs b {
+  color: var(--ink);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+.wg4 .builder-panel .panel-subhead .lhs em {
+  font-style: italic;
+  font-family: var(--font-serif);
+  color: var(--ink-4);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+  font-size: 12px;
+  margin-left: 6px;
+}
+.wg4 .builder-panel .panel-subhead .actions {
+  display: flex; gap: 2px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-2);
+  overflow: hidden;
+}
+.wg4 .builder-panel .panel-subhead .actions .act {
+  padding: 6px 14px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  background: transparent;
+  border: 0;
+}
+.wg4 .builder-panel .panel-subhead .actions .act + .act { border-left: 1px solid var(--border-soft); }
+.wg4 .builder-panel .panel-subhead .actions .act:hover { color: var(--ink); }
+.wg4 .builder-panel .panel-subhead .actions .act.on { background: var(--ink); color: var(--surface); }
+
+/* ============================== BOOK LIST ============================== */
+.wg4 .book-list { padding: 6px 0; }
+.wg4 .book-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 220px 84px 40px 18px;
+  align-items: center;
+  column-gap: 16px;
+  padding: 13px 20px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-soft);
+  transition: background .1s;
+}
+.wg4 .book-row:last-child { border-bottom: 0; }
+.wg4 .book-row:hover { background: var(--surface-2); }
+.wg4 .book-row.locked { opacity: 0.5; cursor: not-allowed; }
+.wg4 .book-row.divider-top { border-top: 1px solid var(--border-soft); }
+.wg4 .book-row .ico {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  color: var(--ink-3);
+}
+.wg4 .book-row .ico svg { width: 18px; height: 18px; }
+.wg4 .book-row .nm {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+}
+.wg4 .book-row .nm small {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--ink-4);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.wg4 .book-row .progress { display: flex; flex-direction: column; gap: 4px; }
+.wg4 .book-row .progress .nums {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  letter-spacing: -0.005em;
+}
+.wg4 .book-row .progress .nums b { color: var(--ink); font-weight: 600; }
+.wg4 .book-row .progress .nums em {
+  font-style: normal;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 9px;
+  margin-left: 4px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+.wg4 .book-row .progress .bar {
+  height: 3px;
+  background: var(--border-soft);
+  border-radius: var(--r-pill);
+  position: relative;
+  overflow: hidden;
+}
+.wg4 .book-row .progress .bar .fill {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  background: var(--ink-2);
+  border-radius: var(--r-pill);
+  transition: right .15s;
+}
+.wg4 .book-row .progress .bar .fill.partial { background: var(--accent); }
+.wg4 .book-row .pf {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-align: center;
+  font-weight: 500;
+}
+.wg4 .book-row .pf b { color: var(--ink-2); font-weight: 600; }
+.wg4 .book-row .toggle {
+  width: 36px; height: 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  position: relative;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.wg4 .book-row .toggle .knob {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: var(--ink-4);
+  border-radius: 50%;
+  transition: left .15s, background .12s;
+}
+.wg4 .book-row .toggle.on { background: var(--accent); border-color: var(--accent); }
+.wg4 .book-row .toggle.on .knob { left: 18px; background: var(--surface); }
+.wg4 .book-row .chev {
+  width: 8px; height: 8px;
+  border-right: 1.4px solid var(--ink-4);
+  border-bottom: 1.4px solid var(--ink-4);
+  transform: rotate(-45deg);
+  justify-self: end;
+}
+.wg4 .book-row:hover .chev { border-color: var(--ink-2); }
+
+/* ============================== VAR-GRID ============================== */
+.wg4 .var-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 14px 20px;
+}
+/* Override codex.css's 4-col var-row (it expected a .pip diamond as
+   the 4th column). The wg4 toggle row drops the diamond — only icon
+   + body + info button remain. */
+.wg4 .var-row {
+  grid-template-columns: 40px 1fr auto !important;
+}
+.wg4 .options-panel {
+  position: relative;
+  margin: 6px 20px 18px;
+  padding: 18px 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+}
+.wg4 .options-panel h3 {
+  margin: 0 0 12px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.wg4 .theme-row { display: grid; grid-template-columns: 130px 1fr; gap: 12px; align-items: center; padding: 8px 0; }
+.wg4 .theme-row + .theme-row { border-top: 1px solid var(--border-soft); }
+.wg4 .theme-row .lab {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.wg4 .swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.wg4 .sw {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px var(--border) inset;
+  transition: transform .1s;
+}
+.wg4 .sw:hover { transform: scale(1.08); }
+.wg4 .sw.on { border-color: var(--ink); }
+.wg4 .bg-picker { display: flex; gap: 8px; }
+.wg4 .bg-tile {
+  width: 80px; height: 50px;
+  border-radius: var(--r-2);
+  background-size: cover; background-position: center;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  position: relative;
+}
+.wg4 .bg-tile.on { border: 2px solid var(--accent); }
+
+.wg4 .empty-state {
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--ink-4);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+}
+.wg4 .empty-state a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+.wg4 .empty-state a:hover { border-bottom-color: var(--accent); }
+
+.wg4 .ops-btn {
+  margin: 12px 20px 0;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-pill);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.wg4 .ops-btn:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--ink); }
+.wg4 .ops-btn .ct { font-family: var(--font-mono); color: var(--ink-4); letter-spacing: 0; font-weight: 500; }
+
+/* ============================== BUILD PAGE ============================== */
+.wg4 .levels {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+}
+.wg4 .levels .lab {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-3);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wg4 .levels .lab b {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin: 0 3px;
+  letter-spacing: 0;
+}
+.wg4 .levels .nav-arrow {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-1);
+  color: var(--ink-3);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .1s, border-color .1s, color .1s;
+  font-family: var(--font-mono);
+}
+.wg4 .levels .nav-arrow:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--ink); }
+
+.wg4 .lv-track {
+  display: flex; gap: 4px; flex: 1;
+  overflow: hidden;
+}
+.wg4 .lv-track .lv {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-4);
+  cursor: pointer;
+  transition: background .1s, border-color .1s, color .1s;
+  letter-spacing: -0.01em;
+  position: relative;
+}
+.wg4 .lv-track .lv:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--ink); }
+/* `.done` is the legacy paint name; `.complete` is the new semantic
+   name (every pending choice for that level has been resolved). They
+   render identically — rust accent + tiny dot in the corner — so old
+   callsites don't break while CharBuilderCreation moves over. */
+.wg4 .lv-track .lv.done,
+.wg4 .lv-track .lv.complete {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.wg4 .lv-track .lv.done::before,
+.wg4 .lv-track .lv.complete::before {
+  /* Tiny rust dot in the top-right corner to signal a fully-built
+     level — picks up the user's "color the top of that level" cue. */
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+/* `.incomplete` — at least one pending pick remaining at that level.
+   Warm amber tint + matching dot so the user sees AT A GLANCE that
+   they still have to revisit this level. Same .ch-state.warn palette
+   used elsewhere in the choice card vocabulary. */
+.wg4 .lv-track .lv.incomplete {
+  background: #f4e3cf;
+  color: #946431;
+  border-color: #e1c8a4;
+  font-weight: 600;
+}
+.wg4 .lv-track .lv.incomplete::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #c98a3f;
+}
+.wg4 .lv-track .lv.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+.wg4 .builder-body {
+  display: grid;
+  grid-template-columns: 280px 1fr 280px;
+  gap: 14px;
+  padding: 18px 32px 24px;
+  align-items: start;
+}
+.wg4 .builder-body .col {
+  display: flex; flex-direction: column; gap: 18px;
+}
+.wg4 .builder-body .col > div {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  padding: 14px 16px 16px;
+  box-shadow: var(--shadow-card);
+}
+.wg4 .builder-body .col.main > div { padding: 0; }
+
+.wg4 .sec-title.compact {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.wg4 .sec-title.compact .lozenge {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  border-radius: var(--r-1);
+  color: var(--accent);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.wg4 .sec-title.compact .label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+  color: var(--ink);
+  flex: 1;
+}
+.wg4 .sec-title.compact .sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--ink-4);
+  font-weight: 500;
+}
+
+.wg4 .origin {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  cursor: pointer;
+  transition: background .1s, border-color .1s;
+}
+.wg4 .origin:hover { background: var(--surface-2); border-color: var(--border); }
+.wg4 .origin .ic {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 18px;
+  color: var(--ink-3);
+}
+.wg4 .origin .nm {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-4);
+  font-weight: 600;
+}
+.wg4 .origin .v {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 2px;
+  letter-spacing: -0.005em;
+}
+
+.wg4 .ab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.wg4 .ab {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  padding: 8px 10px 9px;
+  cursor: pointer;
+  transition: background .1s, border-color .1s;
+}
+.wg4 .ab:hover { background: var(--surface-2); border-color: var(--border); }
+.wg4 .ab .glyph {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-4);
+  font-weight: 600;
+}
+.wg4 .ab .mod {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 1px;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.wg4 .ab .score {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  margin-top: 0;
+}
+
+.wg4 .hp-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  padding: 8px 10px 9px;
+  cursor: pointer;
+}
+.wg4 .hp-card:hover { background: var(--surface-2); border-color: var(--border); }
+.wg4 .hp-card .lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-4);
+  font-weight: 600;
+}
+.wg4 .hp-card .v {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 2px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.wg4 .level-head {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 22px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.wg4 .level-emblem {
+  width: 56px; height: 56px;
+  display: grid; place-items: center;
+  background: var(--ink);
+  border-radius: var(--r-2);
+  color: var(--surface);
+  border: 1px solid var(--ink);
+  position: relative;
+}
+.wg4 .level-emblem .num {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.wg4 .level-head .meta { flex: 1; min-width: 0; }
+.wg4 .level-head .eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.wg4 .level-head .lede {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-3);
+  line-height: 1.45;
+}
+
+.wg4 .choice-list {
+  padding: 14px 18px 22px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.wg4 .choice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  overflow: hidden;
+  position: relative;
+  transition: background .1s, border-color .1s;
+}
+.wg4 .choice:hover { border-color: var(--border-strong); }
+.wg4 .choice.open {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.wg4 .choice-head {
+  display: grid;
+  grid-template-columns: 40px 1fr auto 14px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+.wg4 .choice-head:hover { background: var(--surface-2); }
+.wg4 .choice.open .choice-head { background: var(--surface-2); }
+.wg4 .choice-head .ico {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  color: var(--accent);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 18px;
+}
+.wg4 .choice.open .choice-head .ico {
+  background: var(--accent-soft);
+  border-color: #d8b9a4;
+}
+.wg4 .choice-head .nm {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+}
+.wg4 .choice-head .nm small {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--ink-4);
+  font-weight: 400;
+}
+.wg4 .pending-pip {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+.wg4 .ch-state {
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}
+.wg4 .ch-state.done {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  border: 1px solid var(--border-soft);
+}
+.wg4 .ch-state.required {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+.wg4 .ch-state.warn {
+  background: #f4e3cf;
+  color: #946431;
+  border: 1px solid #e1c8a4;
+}
+.wg4 .choice .chev {
+  width: 8px; height: 8px;
+  border-right: 1.4px solid var(--ink-4);
+  border-bottom: 1.4px solid var(--ink-4);
+  transform: rotate(-45deg);
+  transition: transform .15s;
+}
+.wg4 .choice.open .chev {
+  transform: rotate(45deg);
+  border-color: var(--accent);
+}
+.wg4 .choice-body {
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--border-soft);
+}
+.wg4 .choice-body p {
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.wg4 .choice-body p:last-child { margin-bottom: 0; }
+.wg4 .choice-body .pick-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  margin-top: 10px;
+}
+.wg4 .choice-body .pick-row .lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.wg4 .choice-body .pick-row .pick-btn {
+  appearance: none;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: -0.005em;
+  cursor: pointer;
+}
+.wg4 .choice-body .pick-row .pick-btn.unset { color: var(--accent); border-color: var(--accent-soft); }
+.wg4 .choice-body .pick-row .pick-btn:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--ink); }
+
+.wg4 .sk-list {
+  display: flex; flex-direction: column;
+}
+.wg4 .sk {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.wg4 .sk:last-child { border-bottom: 0; }
+.wg4 .sk .nm {
+  font-size: 12px;
+  color: var(--ink-2);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.wg4 .sk:hover .nm { color: var(--ink); }
+.wg4 .sk .v {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.wg4 .pf-chip {
+  width: 18px; height: 18px;
+  display: inline-grid; place-items: center;
+  background: var(--surface-2);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.wg4 .pf-chip.U { color: var(--ink-5); }
+.wg4 .pf-chip.T { color: var(--ink-3); }
+.wg4 .pf-chip.E { color: var(--ink); background: #dfdac9; }
+.wg4 .pf-chip.M { color: var(--surface); background: var(--ink); }
+.wg4 .pf-chip.L { color: var(--accent); background: var(--accent-soft); }
+
+.wg4 .start-hint {
+  padding: 28px 22px;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-4);
+}

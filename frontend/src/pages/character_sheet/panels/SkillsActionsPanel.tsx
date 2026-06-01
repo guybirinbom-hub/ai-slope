@@ -8,7 +8,14 @@ import { isAbilityBlockVisible } from '@content/content-hidden';
 import { getContentFast } from '@content/content-store';
 import { handleDeleteItem, handleMoveItem, handleUpdateItem } from '@items/inv-handlers';
 import { getFavorites, lookupFavoriteName } from '@character/favorites';
-import { getFillableSpellHolder, getScrollWandDisplayName, isItemWeapon } from '@items/inv-utils';
+import {
+  applyHandwrapsToUnarmed,
+  getEquippedHandwrapsRunes,
+  getFillableSpellHolder,
+  getScrollWandDisplayName,
+  isHandwrapsOfMightyBlows,
+  isItemWeapon,
+} from '@items/inv-utils';
 import { getWeaponStats, parseOtherDamage } from '@items/weapon-handler';
 import {
   useMantineTheme,
@@ -161,9 +168,14 @@ export default function SkillsActionsPanel(props: {
   }, [props.content.abilityBlocks, actionTypeFilter, searchQueryDebounced, props.id, props.entity]);
 
   const weapons = useMemo(() => {
+    // Handwraps of Mighty Blows are a rune-holder, not a Strike: drop
+    // them from the weapon list and merge their runes into the
+    // wearer's unarmed attacks (e.g. the auto-added Fist).
+    const wrapsRunes = getEquippedHandwrapsRunes(props.entity?.inventory);
     const weapons =
       props.entity?.inventory?.items
-        .filter((invItem) => invItem.is_equipped && isItemWeapon(invItem.item))
+        .filter((invItem) => invItem.is_equipped && isItemWeapon(invItem.item) && !isHandwrapsOfMightyBlows(invItem.item))
+        .map((invItem) => ({ ...invItem, item: applyHandwrapsToUnarmed(invItem.item, wrapsRunes) }))
         .sort((a, b) => a.item.name.localeCompare(b.item.name)) ?? [];
 
     // Filter weapons
@@ -1020,7 +1032,7 @@ function ActionSelectionOption(props: {
         py='sm'
         style={{
           cursor: 'pointer',
-          borderBottom: '1px solid ' + theme.colors.dark[6],
+          borderBottom: '1px solid ' + 'var(--wg4-border-soft)',
           // backgroundColor: hovered ? theme.colors.dark[6] : 'transparent',
           position: 'relative',
         }}

@@ -199,7 +199,7 @@ export function ConditionPills(props: {
                   width: '100%',
                 },
               },
-              zIndex: props.zIndex ?? 499,
+              zIndex: props.zIndex ?? 1100,
             });
           }}
         />
