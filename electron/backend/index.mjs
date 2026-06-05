@@ -1242,17 +1242,23 @@ async function runInitdbDirect(dataDir) {
   proc.stdout?.on('data', (d) => console.log('[initdb]', String(d).split('\n')[0]));
   proc.stderr?.on('data', (d) => console.error('[initdb]', String(d).split('\n')[0]));
 
+  // CRITICAL: wait for initdb to FULLY exit before deleting the pwfile or
+  // starting postgres. The sentinel files (PG_VERSION/postgresql.conf/
+  // pg_hba.conf) are written EARLY — before initdb's final password-set +
+  // sync steps. Proceeding (or removing the pwfile) on a sentinel poll
+  // makes initdb fail at the password step (exit 1) and delete the
+  // half-built cluster, so postgres then finds no postgresql.conf. Our
+  // direct spawn (unlike the library's) does fire 'exit', so we wait for
+  // it; the timeout + sentinel check is only a zombie safety net.
   try {
-    // initdb.exe can also zombie on Windows without firing 'exit' (same
-    // stdio quirk as the library), so race the process result against the
-    // sentinel-file poll — whichever signals completion first wins.
-    await Promise.race([
-      new Promise((resolve, reject) => {
-        proc.on('exit', (code) => (code === 0 ? resolve() : reject(new Error('initdb exited with code ' + code))));
-        proc.on('error', reject);
-      }),
-      waitForInitdbDone(dataDir, 90_000),
-    ]);
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const ok = ['PG_VERSION', 'postgresql.conf', 'pg_hba.conf'].every((n) => existsSync(path.join(dataDir, n)));
+        ok ? resolve() : reject(new Error('initdb timed out without producing a cluster'));
+      }, 120_000);
+      proc.on('exit', (code) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error('initdb exited with code ' + code)); });
+      proc.on('error', (e) => { clearTimeout(timer); reject(e); });
+    });
   } finally {
     try { unlinkSync(pwFile); } catch {}
   }
