@@ -5,7 +5,7 @@
 
 import EmbeddedPostgres from 'embedded-postgres';
 import { spawn, execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, mkdirSync, createReadStream, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, createReadStream, readdirSync, statSync, unlinkSync, writeFileSync, rmSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -1200,6 +1200,71 @@ function clearStalePostmasterPid() {
   }
 }
 
+// First-boot cluster creation. We deliberately do NOT use
+// pgEmbedded.initialise(): the embedded-postgres library resolves the
+// initdb binary relative to its own module location, which works in dev
+// but BREAKS in packaged (asar) builds — initdb is never spawned, the
+// cluster is never written, and postgres then dies on startup with
+// "could not access the server configuration file ... postgresql.conf".
+// Instead we run initdb.exe ourselves from config.pgBinDir — the same
+// unpacked bin dir runPostgresDirect uses for postgres.exe — which is
+// reliable in both dev and packaged builds.
+async function runInitdbDirect(dataDir) {
+  // initdb requires an empty (or absent) target. The caller already
+  // established there is no valid cluster here (no PG_VERSION), so any
+  // leftovers from a previous failed boot (a wg-log dir, a half-written
+  // cluster) are safe to wipe before we initialise cleanly.
+  try { if (existsSync(dataDir)) rmSync(dataDir, { recursive: true, force: true }); } catch {}
+  try { mkdirSync(dataDir, { recursive: true }); } catch {}
+
+  const initdbBin = path.join(config.pgBinDir, 'initdb.exe');
+  if (!existsSync(initdbBin)) throw new Error('[pg] initdb.exe not found at ' + initdbBin);
+
+  // Superuser password supplied via file (mirrors authMethod:'password').
+  // Written next to the data dir (a writable location) and removed right
+  // after initdb consumes it.
+  const pwFile = path.join(path.dirname(dataDir), '.wg-initpw');
+  writeFileSync(pwFile, String(config.pgPassword ?? ''), 'utf8');
+
+  console.log('[pg] running initdb directly:', initdbBin, '-D', dataDir);
+  const proc = spawn(
+    initdbBin,
+    [
+      '-D', dataDir,
+      '-U', config.pgUser,
+      '-A', 'password',
+      `--pwfile=${pwFile}`,
+      '--encoding=UTF8',
+      '--locale=C',
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }
+  );
+  proc.stdout?.on('data', (d) => console.log('[initdb]', String(d).split('\n')[0]));
+  proc.stderr?.on('data', (d) => console.error('[initdb]', String(d).split('\n')[0]));
+
+  try {
+    // initdb.exe can also zombie on Windows without firing 'exit' (same
+    // stdio quirk as the library), so race the process result against the
+    // sentinel-file poll — whichever signals completion first wins.
+    await Promise.race([
+      new Promise((resolve, reject) => {
+        proc.on('exit', (code) => (code === 0 ? resolve() : reject(new Error('initdb exited with code ' + code))));
+        proc.on('error', reject);
+      }),
+      waitForInitdbDone(dataDir, 90_000),
+    ]);
+  } finally {
+    try { unlinkSync(pwFile); } catch {}
+  }
+
+  // Hard-verify the cluster actually exists — fail loudly rather than
+  // letting postgres start against an empty dir.
+  if (!existsSync(path.join(dataDir, 'PG_VERSION')) || !existsSync(path.join(dataDir, 'postgresql.conf'))) {
+    throw new Error('[pg] initdb did not produce a valid cluster at ' + dataDir);
+  }
+  console.log('[pg] initdb cluster created');
+}
+
 export async function start() {
   const isFirstBoot = !existsSync(path.join(config.pgDataDir, 'PG_VERSION'));
   if (!isFirstBoot) clearStalePostmasterPid();
@@ -1226,22 +1291,11 @@ export async function start() {
   if (isFirstBoot) {
     console.log('[pg] first boot, initialising data dir at', config.pgDataDir);
     const t0 = Date.now();
-    // Race pgEmbedded.initialise() against a sentinel-file poll.
-    // On Windows the library spawns initdb.exe and waits for its
-    // child-process 'exit' event — but that event NEVER FIRES on
-    // Windows after initdb finishes (it's a stdio inheritance bug
-    // in the library's spawn options). initdb writes the data dir
-    // fully in 2-4 seconds then sits as a zombie, and the parent
-    // promise stays pending forever. Boot deadlocks at first start.
-    //
-    // The poll watches for the files initdb writes near the end of
-    // its run. Once PG_VERSION + postgresql.conf + pg_hba.conf are
-    // all present, the cluster is safe to start regardless of what
-    // the zombie initdb process is doing.
-    await Promise.race([
-      pgEmbedded.initialise(),
-      waitForInitdbDone(config.pgDataDir, 90_000),
-    ]);
+    // Spawn initdb.exe directly (see runInitdbDirect) rather than
+    // pgEmbedded.initialise(), whose binary resolution breaks in packaged
+    // builds and leaves the cluster unwritten — the bug behind "could not
+    // access ... postgresql.conf" on a fresh download.
+    await runInitdbDirect(config.pgDataDir);
     console.log('[pg] initdb took', Date.now() - t0, 'ms');
   }
   console.log('[pg] starting on port', config.pgPort);
