@@ -6,6 +6,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,14..32,400;1,14..32,500&display=swap" rel="stylesheet">
+<!-- wg4 theme — match the app's stored light/dark choice before paint. -->
+<script>try{if(localStorage.getItem('wg4-theme')==='dark')document.documentElement.classList.add('theme-dark')}catch(e){}</script>
 <style>
   :root {
     /* wg4 redesign palette — parchment + rust */
@@ -24,6 +26,23 @@
     --bg-card: #f6f3eb;
     --rule: rgba(176, 84, 47, 0.32);
     --rule-soft: rgba(216, 211, 196, 0.6);
+  }
+  /* Neutral charcoal/slate dark theme (matches css/wg4-dark.css). */
+  html.theme-dark {
+    --ink: #e8eaed;
+    --ink-dim: #c1c6cd;
+    --ink-muted: #969ba4;
+    --ink-deep: #6d737c;
+    --gold: #cf6a3f;
+    --gold-bright: #e2966a;
+    --gold-deep: #e2966a;
+    --crimson: #c8503a;
+    --bg: #14161a;
+    --bg-2: #1c1f25;
+    --bg-3: #23272e;
+    --bg-card: #1c1f25;
+    --rule: rgba(207, 106, 63, 0.32);
+    --rule-soft: rgba(74, 80, 90, 0.5);
   }
   * { box-sizing: border-box; }
   html, body {
@@ -45,54 +64,76 @@
       radial-gradient(circle at 50% 52%, rgba(176,84,47,0.06) 0%, rgba(176,84,47,0.02) 22%, transparent 55%);
   }
 
-  .page { position: relative; z-index: 1; height: 100%; display: grid; grid-template-rows: 26px 1fr auto auto; min-height: 0; }
+  .page { position: relative; z-index: 1; height: 100%; display: grid; grid-template-rows: auto 1fr auto auto; min-height: 0; }
 
+  /* Winbar — identical look to the in-app React bar (CodexWinBar /
+     wg4-atlas.css): parchment background, brand on the left with an
+     italic-serif "Codex", and 18px icon buttons (min/max/close) on the
+     right. The whole strip is the window-drag handle; the button
+     cluster opts out with -webkit-app-region:no-drag so clicks land. */
   .winbar {
-    display: grid; grid-template-columns: auto 1fr auto;
+    display: flex;
     align-items: center;
-    height: 26px;
-    padding: 0 4px 0 14px;
-    background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-3) 100%);
-    border-bottom: 1px solid var(--rule-soft);
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 18px;
+    background: var(--bg);
+    border-bottom: 0;
     font-family: 'Geist', ui-sans-serif, sans-serif;
-    font-size: 9px;
-    letter-spacing: .26em;
-    color: var(--ink-muted);
-    text-transform: uppercase;
+    font-size: 11px;
+    color: var(--ink-deep);
     user-select: none;
     -webkit-app-region: drag;
   }
-  .winbar .title { display: flex; align-items: center; gap: 8px; }
-  .winbar .title .dot {
+  /* When this page is embedded in the React loading overlay's iframe,
+     the parent already renders CodexWinBar above us — hide our own bar
+     so the user doesn't see two stacked top bars. We MUST also drop the
+     winbar's grid row: with the winbar display:none'd, the remaining
+     children (stage / footer / signoff) auto-flow up into the wrong
+     tracks — the stage lands in the `auto` row and collapses to the top
+     instead of filling the `1fr` row, throwing the dice off-center and
+     leaving a huge gap. Re-declaring 3 rows keeps the stage on `1fr`. */
+  html.embed .winbar { display: none; }
+  html.embed .page { grid-template-rows: 1fr auto auto; }
+  .winbar .brand { display: flex; align-items: baseline; gap: 8px; }
+  .winbar .brand .mark {
     width: 6px; height: 6px;
     background: var(--gold);
-    box-shadow: 0 0 6px rgba(201,161,59,.55);
-    border-radius: 50%;
-    animation: pulse 1.6s ease-in-out infinite;
+    border-radius: 2px;
+    transform: translateY(1px);
+    display: inline-block;
   }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 6px rgba(201,161,59,.55); opacity: 1; }
-    50%      { box-shadow: 0 0 12px rgba(201,161,59,.85); opacity: .65; }
+  .winbar .brand .name { color: var(--ink-dim); font-weight: 500; }
+  .winbar .brand .name em {
+    font-family: 'Newsreader', ui-serif, Georgia, serif;
+    font-style: italic; font-weight: 500; color: var(--ink);
   }
-  .winbar .title b { color: var(--gold); font-weight: 700; letter-spacing: .26em; }
   .winbar .center {
+    flex: 1;
     text-align: center;
     font-style: italic;
-    color: var(--ink-deep);
-    font-family: 'Newsreader', ui-serif, Georgia, serif; font-style: italic;
-    font-size: 11px;
-    letter-spacing: .14em;
+    color: var(--ink-muted);
+    font-family: 'Newsreader', ui-serif, Georgia, serif;
+    font-size: 12px;
+    letter-spacing: 0;
     text-transform: none;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .winbar .center b { color: var(--ink-dim); font-style: normal; font-weight: 600; }
-  .winbtns { display: flex; align-items: stretch; gap: 0; -webkit-app-region: no-drag; }
-  .winbtn {
-    width: 38px; height: 26px;
+  .wbtns { display: flex; gap: 4px; align-items: center; -webkit-app-region: no-drag; }
+  .wbtn {
+    width: 18px; height: 18px;
     display: grid; place-items: center;
-    color: var(--ink-muted);
+    border-radius: 4px;
+    background: transparent;
+    border: 0; padding: 0; margin: 0;
+    cursor: pointer;
+    color: var(--ink-deep);
+    -webkit-app-region: no-drag;
   }
-  .winbtn svg { width: 10px; height: 10px; }
-  .winbtn svg path { stroke: currentColor; stroke-width: 1.4; fill: none; stroke-linecap: square; }
+  .wbtn svg { display: block; width: 9px; height: 9px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+  .wbtn:hover { background: var(--bg-3); color: var(--ink-dim); }
+  .wbtn.close:hover { background: #ebd9cb; color: #8a3f1f; }
 
   .stage {
     position: relative;
@@ -416,15 +457,15 @@
 <div class="page">
 
   <div class="winbar">
-    <div class="title">
-      <span class="dot"></span>
-      <span><b>Wanderer's Codex</b> &middot; Loading</span>
+    <div class="brand">
+      <span class="mark"></span>
+      <span class="name">Wanderer's <em>Codex</em> &middot; Loading</span>
     </div>
-    <div class="center">Opening the tome <b>&middot;</b> Local edition <b>&middot;</b> Whisper Elf <b>&middot;</b> Maestro Bard <b>&middot;</b> Level 5</div>
-    <div class="winbtns">
-      <div class="winbtn"><svg viewBox="0 0 10 10"><path d="M1 8 L9 8"/></svg></div>
-      <div class="winbtn"><svg viewBox="0 0 10 10"><path d="M1 1 L9 1 L9 9 L1 9 Z"/></svg></div>
-      <div class="winbtn"><svg viewBox="0 0 10 10"><path d="M1 1 L9 9 M9 1 L1 9"/></svg></div>
+    <div class="center">Opening the tome&hellip;</div>
+    <div class="wbtns">
+      <button class="wbtn" id="win-min" type="button" title="Minimize" aria-label="Minimize"><svg viewBox="0 0 10 10"><path d="M1 8 L9 8"/></svg></button>
+      <button class="wbtn" id="win-max" type="button" title="Maximize" aria-label="Maximize"><svg viewBox="0 0 10 10"><path d="M1 1 L9 1 L9 9 L1 9 Z"/></svg></button>
+      <button class="wbtn close" id="win-close" type="button" title="Close" aria-label="Close"><svg viewBox="0 0 10 10"><path d="M1 1 L9 9 M9 1 L1 9"/></svg></button>
     </div>
   </div>
 
@@ -758,6 +799,26 @@
     seen.push(pick);
     try { localStorage.setItem(KEY, JSON.stringify(seen)); } catch (e) {}
     tipEl.textContent = TIPS[pick];
+  })();
+
+  // Window controls. On the standalone launch splash this page is the
+  // top frame, so preload.cjs's window.wgElectron bridge is present and
+  // these drive the real OS window. When this same file is loaded inside
+  // the React loading overlay's <iframe>, it has no wgElectron (preload
+  // doesn't run in sub-frames) — so we flag <html class="embed"> to hide
+  // our own winbar and let the parent CodexWinBar drive the window.
+  (function() {
+    if (window.top !== window.self) {
+      document.documentElement.classList.add('embed');
+      return; // embedded: parent owns the window controls
+    }
+    var w = window.wgElectron || {};
+    var min = document.getElementById('win-min');
+    var max = document.getElementById('win-max');
+    var close = document.getElementById('win-close');
+    if (min) min.onclick = function() { w.windowMinimize && w.windowMinimize(); };
+    if (max) max.onclick = function() { w.windowMaximize && w.windowMaximize(); };
+    if (close) close.onclick = function() { w.windowClose && w.windowClose(); };
   })();
 </script>
 

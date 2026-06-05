@@ -54,7 +54,9 @@ export default function Layout(props: { children: React.ReactNode }) {
   // the builder page owns the entire viewport (otherwise this strip
   // showed as a thin grey hamburger-only band above the codex chrome
   // AND above the codex loading screen).
-  const codexRoutes = ['/sheet/', '/characters', '/builder/'];
+  // /homebrew and /account now render their own codex winbar (with window
+  // controls) too, so the drag strip shouldn't double up on them.
+  const codexRoutes = ['/sheet/', '/characters', '/builder/', '/homebrew', '/account'];
   const hasOwnMenu = codexRoutes.some((p) => location.pathname.startsWith(p)) ||
     location.pathname === '/';
 

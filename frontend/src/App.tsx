@@ -424,6 +424,21 @@ export default function App() {
             },
           }),
         },
+        Modal: {
+          // wg4 — give every Modal a `wg4` root so the parchment
+          // `.wg4 .mantine-Modal-*` rules (wg4-modals.css) win over the
+          // legacy dark codex modal styling (unscoped .mantine-Modal-content
+          // in codex-bridge.css). Manager-opened modals already set this via
+          // ModalsProvider modalProps. Applies to direct <Modal> components
+          // that DON'T set their own classNames (the homebrew content editors
+          // + utility dialogs). Modals with bespoke chrome — the hub, item
+          // editor, manage-spells — set their own classNames, so this default
+          // is replaced wholesale for them and they keep their own styling
+          // (their buttons/forms are skinned explicitly instead).
+          defaultProps: {
+            classNames: { root: 'wg4' },
+          },
+        },
       },
     });
   };

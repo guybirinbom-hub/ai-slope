@@ -1590,11 +1590,21 @@ export function CodexSpellsPanel(props: {
 // =======================================================================
 
 export function CodexInventoryPanel(props: {
-  characterId: number;
-  character: Character | null;
-  setCharacter: SetterOrUpdater<Character | null>;
+  characterId?: number;
+  character?: Character | null;
+  setCharacter?: SetterOrUpdater<Character | null>;
+  // Optional overrides so this exact wg4 inventory UI can also drive a
+  // companion's inventory (any LivingEntity + its own variable store).
+  // They default to the character, so the player's Inventory tab is
+  // completely unchanged.
+  storeId?: string;
+  entity?: LivingEntity | null;
+  setEntity?: SetterOrUpdater<LivingEntity | null>;
 }) {
-  const { character } = props;
+  const storeId = props.storeId ?? 'CHARACTER';
+  const entity = (props.entity ?? props.character ?? null) as LivingEntity | null;
+  const setEntity =
+    props.setEntity ?? (props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>);
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'equipped'>('all');
@@ -1602,7 +1612,7 @@ export function CodexInventoryPanel(props: {
   // and every container header is toggled via this hook.
   const { isCollapsed, toggle: toggleCollapsed } = useCollapsedSections();
 
-  const inv = character?.inventory ?? null;
+  const inv = entity?.inventory ?? null;
   // Filter out "meta" inventory items — these are unarmed strikes (Fist),
   // unarmed defenses, and other engine-only synthetic items that get
   // injected into inventory.items by operations like `addAttackItem`.
@@ -1621,8 +1631,8 @@ export function CodexInventoryPanel(props: {
   // can carry at most 10 + Str mod. getBulkLimit returns 5 + Str
   // (encumbered threshold); getBulkLimitImmobile returns 10 + Str
   // (the max — can't carry beyond this).
-  const encumberedAt = getBulkLimit('CHARACTER');
-  const maxBulk = getBulkLimitImmobile('CHARACTER');
+  const encumberedAt = getBulkLimit(storeId);
+  const maxBulk = getBulkLimitImmobile(storeId);
   const isEncumbered = totalBulk > encumberedAt;
 
   // Classify an item — drives the left-border color. We don't have
@@ -1646,6 +1656,11 @@ export function CodexInventoryPanel(props: {
   };
   const matchesFilter = (i: InventoryItem) => {
     if (categoryFilter === 'all') return true;
+    // Test the equipped flag directly — NOT classify(), which returns
+    // 'consumable' before 'equipped', so an equipped consumable (a worn
+    // talisman, invested wand, readied bomb…) would otherwise be hidden
+    // by the Equipped filter.
+    if (categoryFilter === 'equipped') return !!i.is_equipped;
     return classify(i) === categoryFilter;
   };
 
@@ -1697,12 +1712,11 @@ export function CodexInventoryPanel(props: {
   // favorite star, delete, edit, and Move-To picker all silently
   // failed. Routing through this single helper guarantees the codex
   // panel uses the same data flow the legacy InventoryPanel did.
-  const setEntity = props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>;
   const openItemDrawer = (invItem: InventoryItem) => {
     openDrawer({
       type: 'inv-item',
       data: {
-        storeID: 'CHARACTER',
+        storeID: storeId,
         invItem,
         onItemUpdate: (next: InventoryItem) => handleUpdateItem(setEntity, next),
         onItemDelete: (next: InventoryItem) => handleDeleteItem(setEntity, next),
@@ -1771,8 +1785,8 @@ export function CodexInventoryPanel(props: {
   // Whether the invest / implant cap has been reached. Used to grey
   // out the buttons on items that AREN'T already invested/implanted —
   // already-toggled-on items can still toggle off regardless.
-  const investCapped = reachedInvestedLimit('CHARACTER', inv ?? undefined);
-  const implantCapped = reachedImplantLimit('CHARACTER', inv ?? undefined);
+  const investCapped = reachedInvestedLimit(storeId, inv ?? undefined);
+  const implantCapped = reachedImplantLimit(storeId, inv ?? undefined);
 
   // Open the Add Item modal — extracted so the toolbar button and any
   // future entry point share the same wiring. Re-fetches the inventory
@@ -1788,21 +1802,17 @@ export function CodexInventoryPanel(props: {
       overlayProps: { backgroundOpacity: 0.85, blur: 3 },
       innerProps: {
         onAddItem: async (item: Item, type: 'GIVE' | 'BUY' | 'FORMULA') => {
-          if (!character) return;
+          if (!entity) return;
           if (type === 'BUY') {
             openContextModal({
               modal: 'buyItem',
               title: <Title order={3}>Buy {item.name}</Title>,
               innerProps: {
-                inventory: character.inventory,
+                inventory: entity.inventory,
                 item,
                 onConfirm: async (coins: { cp: number; sp: number; gp: number; pp: number }) => {
-                  await handleAddItem(
-                    props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>,
-                    item,
-                    false
-                  );
-                  props.setCharacter((prev) =>
+                  await handleAddItem(setEntity, item, false);
+                  setEntity((prev) =>
                     prev
                       ? {
                           ...prev,
@@ -1822,11 +1832,7 @@ export function CodexInventoryPanel(props: {
               zIndex: 1000,
             });
           } else {
-            await handleAddItem(
-              props.setCharacter as unknown as SetterOrUpdater<LivingEntity | null>,
-              item,
-              type === 'FORMULA'
-            );
+            await handleAddItem(setEntity, item, type === 'FORMULA');
             setTimeout(() => modals.closeAll(), 100);
           }
         },
@@ -1878,7 +1884,20 @@ export function CodexInventoryPanel(props: {
             <span className='max'>{encumberedAt}</span>
             <span className='hint'>(max {maxBulk})</span>
           </div>
-          <div className='rule' />
+          {/* Progress bar — fill = bulk / max-carry; the marker line is
+              the encumbered threshold (the divide between un-encumbered
+              and encumbered). Turns red once over the threshold. */}
+          <div className='bulk-bar' aria-hidden='true'>
+            <div
+              className='bulk-bar-fill'
+              style={{ width: `${maxBulk > 0 ? Math.max(0, Math.min(100, (totalBulk / maxBulk) * 100)) : 0}%` }}
+            />
+            <div
+              className='bulk-bar-mark'
+              title={`Encumbered above ${encumberedAt}`}
+              style={{ left: `${maxBulk > 0 ? Math.max(0, Math.min(100, (encumberedAt / maxBulk) * 100)) : 0}%` }}
+            />
+          </div>
           <div className='caption'>
             Encumbered &gt; <b>{encumberedAt}</b> · Max <b>{maxBulk}</b>
           </div>

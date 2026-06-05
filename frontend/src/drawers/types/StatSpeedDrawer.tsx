@@ -1,12 +1,14 @@
 import { Wg4 } from '@common/wg4/primitives';
 import RichText from '@common/RichText';
-import { Title, Text, Group, Box, HoverCard, List, Divider } from '@mantine/core';
+import { Title, Text, Group, Box, HoverCard, List, Divider, NumberInput, Button } from '@mantine/core';
 import { LivingEntity } from '@schemas/content';
 import { StoreID, VariableNum } from '@schemas/variables';
 import { sign } from '@utils/numbers';
 import { toLabel } from '@utils/strings';
 import { getSpeedValue, getVariableBreakdown } from '@variables/variable-helpers';
 import { getAllSpeedVariables } from '@variables/variable-manager';
+import { useAtom } from 'jotai';
+import { characterState } from '@atoms/characterAtoms';
 
 function speedLabel(name: string) {
   if (name === 'SPEED') return 'Land';
@@ -27,6 +29,23 @@ export function StatSpeedDrawerTitle(props: { data: { id: StoreID } }) {
 }
 
 export function StatSpeedDrawerContent(props: { data: { id: StoreID; entity: LivingEntity | null } }) {
+  // Temporary speed — a play-time override of the computed Speed (e.g.
+  // difficult terrain, a spell, a status). Stored on the character's
+  // meta_data and backed by the global characterState atom so the change
+  // propagates to the sheet's Speed stat (and persists). Only the
+  // CHARACTER store can edit it; other stores read the computed value.
+  const [character, setCharacter] = useAtom(characterState);
+  const isChar = props.data.id === 'CHARACTER';
+  const tempSpeed = isChar
+    ? ((character?.meta_data as { temp_speed?: number } | undefined)?.temp_speed ?? null)
+    : null;
+  const tempActive = typeof tempSpeed === 'number';
+  const setTempSpeed = (v: number | null) => {
+    setCharacter((c) =>
+      c ? { ...c, meta_data: { ...c.meta_data, temp_speed: v == null ? undefined : v } } : c
+    );
+  };
+
   const speedVars = getAllSpeedVariables(props.data.id);
   const activeSpeeds = speedVars
     .map((variable) => ({ variable, data: getSpeedValue(props.data.id, variable, props.data.entity) }))
@@ -42,14 +61,56 @@ export function StatSpeedDrawerContent(props: { data: { id: StoreID; entity: Liv
   return (
     <Box>
       <Wg4.StatHero
-        value={`${primary.data.total} ft`}
-        metaLabel={others.length > 0 ? 'Other speeds' : 'Speed'}
+        value={
+          tempActive ? (
+            <span style={{ color: '#d9742e' }}>{tempSpeed} ft</span>
+          ) : (
+            `${primary.data.total} ft`
+          )
+        }
+        metaLabel={tempActive ? 'Temporary speed' : others.length > 0 ? 'Other speeds' : 'Speed'}
         metaValue={
           others.length > 0
             ? others.map((s) => `${speedLabel(s.variable.name).toLowerCase()} ${s.data.total}`).join(' · ')
             : speedLabel(primary.variable.name)
         }
       />
+
+      {isChar && (
+        <Box px={22} pt={4} pb={10}>
+          <Wg4.Lbl>Temporary speed</Wg4.Lbl>
+          <Group gap={8} mt={5} wrap='nowrap' align='center'>
+            <NumberInput
+              value={tempSpeed ?? ''}
+              onChange={(v) => setTempSpeed(v === '' || v === null || v === undefined ? null : Number(v))}
+              placeholder={`${primary.data.total}`}
+              min={0}
+              step={5}
+              suffix=' ft'
+              size='xs'
+              w={120}
+              aria-label='Temporary speed'
+            />
+            <Button
+              variant='light'
+              color='gray'
+              size='xs'
+              disabled={!tempActive}
+              onClick={() => setTempSpeed(null)}
+            >
+              Reset to default
+            </Button>
+          </Group>
+          <Text fz='xs' c='dimmed' mt={5}>
+            Override your Speed during play. While a temporary speed is set the Speed shows in{' '}
+            <Text c='#d9742e' span fz='xs' fw={600}>
+              this color
+            </Text>
+            ; Reset returns to the computed default.
+          </Text>
+        </Box>
+      )}
+
       {activeSpeeds.map((s, idx) => (
         <StatSpeedBreakdown key={idx} id={props.data.id} variable={s.variable} entity={props.data.entity} showHeader={activeSpeeds.length > 1} />
       ))}

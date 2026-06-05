@@ -1,0 +1,205 @@
+/* ============================================================
+   wg4-popups.css — skin for popup surfaces the global theme didn't
+   reach, plus a fullscreen-modal shell override. Imported after
+   wg4-modals.css so these rules win.
+
+   Uses the --wg4-* tokens throughout (now declared on :root in
+   wg4-dark.css, so they resolve even for surfaces portaled to <body>).
+   That means everything here follows the light/dark theme automatically.
+
+   1. Fullscreen hub modal shell.
+   2. Select / Multi-Select / Autocomplete / TagsInput dropdowns (Combobox).
+   3. Date-picker calendar.
+   4. Loaders / loading overlays.
+   5. Rich-text editor (tiptap) toolbar inside modals.
+   6. Homebrew bundle "Details" form (.cs-editor).
+   ============================================================ */
+
+/* 1. Fullscreen homebrew hub — no border/radius/shadow on a
+   viewport-filling surface. (0,3,0) beats `.wg4 .mantine-Modal-content`. */
+.wg4 .mantine-Modal-content.codex-hb-editor {
+  background: var(--wg4-page) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* 2. Combobox dropdowns — Select / MultiSelect / Autocomplete / TagsInput. */
+.mantine-Combobox-dropdown {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
+  color: var(--wg4-ink) !important;
+}
+.mantine-Combobox-option {
+  color: var(--wg4-ink-2) !important;
+  border-radius: 6px !important;
+}
+.mantine-Combobox-option:hover,
+.mantine-Combobox-option[data-combobox-active],
+.mantine-Combobox-option[data-combobox-selected] {
+  background: var(--wg4-accent-soft) !important;
+  color: var(--wg4-accent-ink) !important;
+}
+.mantine-Combobox-empty {
+  color: var(--wg4-ink-4) !important;
+}
+.mantine-Combobox-search {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink) !important;
+}
+.mantine-Combobox-groupLabel {
+  color: var(--wg4-ink-4) !important;
+}
+.mantine-Combobox-header,
+.mantine-Combobox-footer {
+  border-color: var(--wg4-border-soft) !important;
+}
+
+/* 3. Date-picker calendar — parchment days, rust selected day.
+   Covers the common static-selector variants for the day button. */
+.mantine-Day-day,
+.mantine-DatePicker-day,
+.mantine-DatePickerInput-day,
+.mantine-DateInput-day,
+.mantine-Calendar-day,
+.mantine-MonthPicker-day {
+  color: var(--wg4-ink-2) !important;
+  border-radius: 6px !important;
+}
+.mantine-Day-day:hover,
+.mantine-DatePicker-day:hover,
+.mantine-DatePickerInput-day:hover,
+.mantine-DateInput-day:hover,
+.mantine-Calendar-day:hover,
+.mantine-MonthPicker-day:hover {
+  background: var(--wg4-surface-hover) !important;
+}
+.mantine-Day-day[data-selected],
+.mantine-DatePicker-day[data-selected],
+.mantine-DatePickerInput-day[data-selected],
+.mantine-DateInput-day[data-selected],
+.mantine-Calendar-day[data-selected],
+.mantine-MonthPicker-day[data-selected] {
+  background: var(--wg4-accent) !important;
+  color: #fff !important;
+}
+.mantine-Day-day[data-today],
+.mantine-DatePicker-day[data-today],
+.mantine-DatePickerInput-day[data-today],
+.mantine-DateInput-day[data-today] {
+  box-shadow: inset 0 0 0 1px var(--wg4-border-strong) !important;
+}
+.mantine-Day-day[data-outside],
+.mantine-DatePicker-day[data-outside],
+.mantine-DatePickerInput-day[data-outside],
+.mantine-DateInput-day[data-outside] {
+  color: var(--wg4-ink-5) !important;
+}
+.mantine-PickerControl-pickerControl {
+  color: var(--wg4-ink-2) !important;
+  border-radius: 6px !important;
+}
+.mantine-PickerControl-pickerControl:hover {
+  background: var(--wg4-surface-hover) !important;
+}
+.mantine-PickerControl-pickerControl[data-selected] {
+  background: var(--wg4-accent) !important;
+  color: #fff !important;
+}
+.mantine-CalendarHeader-calendarHeaderControl {
+  color: var(--wg4-ink-3) !important;
+}
+.mantine-CalendarHeader-calendarHeaderControl:hover {
+  background: var(--wg4-surface-hover) !important;
+}
+.mantine-CalendarHeader-calendarHeaderLevel {
+  color: var(--wg4-ink) !important;
+  font-weight: 600 !important;
+}
+.mantine-CalendarHeader-calendarHeaderLevel:hover {
+  background: var(--wg4-surface-hover) !important;
+}
+.mantine-WeekdaysRow-weekday {
+  color: var(--wg4-ink-4) !important;
+}
+
+/* 4. Loaders / loading overlays — Mantine's spinner color comes from the
+   theme primaryColor 'guide' (the Wanderer's-Guide blue) whenever no
+   character-sheet theme is active. Paint loaders rust and the overlay a
+   translucent veil of the page color (theme-aware via color-mix). */
+.mantine-Modal-content .mantine-Loader-root,
+.wg4-screen .mantine-Loader-root {
+  --loader-color: var(--wg4-accent) !important;
+}
+.mantine-Modal-content .mantine-LoadingOverlay-overlay,
+.wg4-screen .mantine-LoadingOverlay-overlay {
+  background-color: color-mix(in srgb, var(--wg4-page) 65%, transparent) !important;
+}
+
+/* 5. Rich-text editor (tiptap) toolbar inside modals. */
+.mantine-Modal-content .mantine-RichTextEditor-root {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+}
+.mantine-Modal-content .mantine-RichTextEditor-toolbar {
+  background: var(--wg4-surface-2) !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+}
+.mantine-Modal-content .mantine-RichTextEditor-control {
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink-2) !important;
+}
+.mantine-Modal-content .mantine-RichTextEditor-control:hover {
+  background: var(--wg4-surface-hover) !important;
+}
+.mantine-Modal-content .mantine-RichTextEditor-control[data-active] {
+  background: var(--wg4-accent-soft) !important;
+  border-color: var(--wg4-border-strong) !important;
+  color: var(--wg4-accent-ink) !important;
+}
+.mantine-Modal-content .mantine-RichTextEditor-content,
+.mantine-Modal-content .mantine-RichTextEditor-content .ProseMirror {
+  background: var(--wg4-surface) !important;
+  color: var(--wg4-ink) !important;
+}
+
+/* 6. Homebrew bundle "Details" form (ContentSourceEditor, .cs-editor).
+   The hub modal intentionally has no `wg4` root, so skin its controls
+   explicitly: rust Save, parchment Cancel/Operations, parchment divider. */
+.cs-editor .mantine-Button-root[type='submit'] {
+  background: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  color: #fff !important;
+}
+.cs-editor .mantine-Button-root[type='submit']:hover {
+  background: var(--wg4-accent-ink) !important;
+  border-color: var(--wg4-accent-ink) !important;
+}
+.cs-editor .mantine-Button-root[data-variant='default'] {
+  background: var(--wg4-surface) !important;
+  border-color: var(--wg4-border) !important;
+  color: var(--wg4-ink-2) !important;
+}
+.cs-editor .mantine-Button-root[data-variant='default']:hover {
+  background: var(--wg4-surface-hover) !important;
+}
+.cs-editor .cs-ops-divider {
+  --divider-color: var(--wg4-border-soft);
+}
+
+/* Character-sheet topbar crest — show the selected portrait image. The
+   crest is a 38px circle (the initial letter is the fallback); fill it
+   with the image and round to match. */
+.wg4 .topbar .who .crest {
+  overflow: hidden !important;
+}
+.wg4 .topbar .who .crest img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  display: block !important;
+}

@@ -52,16 +52,11 @@
   color: var(--wg4-ink-2) !important;
   font-weight: 500 !important;
 }
-.wg4 .winbar .wbtn {
-  width: 11px !important; height: 11px !important;
-  border-radius: 50% !important;
-  background: var(--wg4-border) !important;
-  border: 0 !important;
-  padding: 0 !important;
-}
-.wg4 .winbar .wbtn:hover {
-  background: var(--wg4-border-strong) !important;
-}
+/* NOTE: the window-control buttons (.wbtn) are styled authoritatively
+ * in wg4-atlas.css (icon buttons with min/max/close glyphs + no-drag).
+ * The old rule here forced them into 11px filled "empty circles" — the
+ * exact look the user rejected — so it's been removed to avoid fighting
+ * the atlas rule by load order. Do not re-add a .wbtn box style here. */
 .wg4 .winbar .title b {
   font-family: var(--wg4-font-sans) !important;
   color: var(--wg4-ink) !important;
@@ -414,6 +409,12 @@
   font-weight: 500 !important;
   letter-spacing: -0.01em !important;
 }
+/* Temporary speed — the Speed stat turns orange while a temp speed is set.
+ * Must out-specify the `.wg4 .stat-strip .v { color: …!important }` rule
+ * above (an inline style alone loses to its !important), so the
+ * .speed-temp class gives (0,4,0) which wins. */
+.wg4 .stat-strip .v.speed-temp { color: #d9742e !important; }
+.wg4 .stat-strip .v.speed-temp small { color: #d9742e !important; opacity: 0.85; }
 .wg4 .senses-row .chip {
   background: var(--wg4-surface-2) !important;
   border: 1px solid var(--wg4-border-soft) !important;
@@ -925,6 +926,26 @@
   font-family: var(--wg4-font-sans), ui-sans-serif, system-ui, sans-serif !important;
 }
 
+/* ── Action-cost glyphs (PF2e 'ActionIcons' font) ──────────────────────
+ * The kitchen-sink rule above forces Geist sans on EVERY element with
+ * !important, which clobbers the 'ActionIcons' font used to draw the
+ * action-cost symbols. The characters 1-5 map to the one/two/three-
+ * action, free-action and reaction glyphs, so when the font is lost the
+ * symbols fall back to the bare digits "1 2 3 4 5". This showed up in the
+ * spell-search "Actions" filter chips (<span class="action-glyph">, which
+ * only had a font rule when nested in a .codex-pill) and the notes editor
+ * toolbar's Mantine <ActionSymbol> (which sets font-family: ActionIcons
+ * inline). Restore the font wherever it's requested. Specificity here is
+ * (0,2,x) which beats the kitchen-sink rule's (0,1,7), so it wins on
+ * specificity regardless of source order. Mirrors the scoped .ai
+ * restorations elsewhere in this file. */
+.wg4 .action-glyph,
+.wg4 .action-symbol,
+.wg4 .ActionIcons,
+.wg4 [style*="ActionIcons"] {
+  font-family: ActionIcons, sans-serif !important;
+}
+
 /* Newsreader italic for character / spell / feat names and titles
  * inside codex panels (the .nm / [class*="-name"] / h1-h3 selectors). */
 .wg4 h1,
@@ -1123,35 +1144,452 @@
   color: var(--wg4-ink) !important;
 }
 
-/* ============================== Conditions / Modes Modal (.cm-*) ============================== */
-.wg4 .cm-tabs,
-.wg4 .cm-head,
-.wg4 .cm-foot,
-.wg4 .cm-desc-head {
-  background: var(--wg4-surface-2) !important;
-  border-color: var(--wg4-border-soft) !important;
+/* ============================== Conditions / Modes Modal (.cm-*) ==============================
+ * Full wg4 redesign — a clean parchment dialog. Replaces the dark-codex
+ * base (codex-panels.css) which only had the tabs reskinned, leaving a
+ * mismatched gold/dark body. Every `.wg4 .cm-*` rule wins on specificity
+ * over the unprefixed codex rules. */
+
+/* Scrim — soft dark wash + slight blur. */
+.wg4 .cm-modal-overlay,
+.cm-modal-overlay {
+  background: rgba(26, 20, 12, 0.46) !important;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+/* Dialog shell — parchment card, rounded, soft shadow, flex column so
+ * tabs / search / body / footer stack cleanly regardless of which are
+ * present. */
+.wg4 .cm-modal {
+  width: min(600px, calc(100vw - 32px)) !important;
+  max-height: min(82vh, 760px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 24px 64px rgba(40, 30, 18, 0.28) !important;
+  font-family: var(--wg4-font-sans) !important;
+  color: var(--wg4-ink) !important;
+}
+/* Kill the codex corner ticks + tab underline glow. */
+.wg4 .cm-modal::before,
+.wg4 .cm-modal::after,
+.wg4 .cm-tab.on::after { display: none !important; }
+
+/* Header / tabs — text tabs with an accent underline, close at the far
+ * right. */
+.wg4 .cm-tabs {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  grid-template-columns: none !important;
+  padding: 4px 8px 0 16px !important;
+  background: var(--wg4-surface) !important;
+  border-bottom: 1px solid var(--wg4-border) !important;
 }
 .wg4 .cm-tab {
   font-family: var(--wg4-font-sans) !important;
-  letter-spacing: 0.14em !important;
-  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
   color: var(--wg4-ink-3) !important;
-  border-right: 1px solid var(--wg4-border-soft) !important;
-  text-transform: uppercase !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 11px 4px 12px !important;
+  margin: 0 18px -1px 0 !important;
+  cursor: pointer !important;
 }
+.wg4 .cm-tab:hover { color: var(--wg4-ink) !important; background: transparent !important; }
 .wg4 .cm-tab.on,
 .wg4 .cm-tab[data-active] {
   color: var(--wg4-ink) !important;
+  background: transparent !important;
+  font-weight: 600 !important;
+  border-bottom-color: var(--wg4-accent) !important;
+}
+.wg4 .cm-close {
+  margin-left: auto !important;
+  width: 30px !important;
+  height: 30px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  color: var(--wg4-ink-4) !important;
+  font-size: 15px !important;
+  cursor: pointer !important;
+}
+.wg4 .cm-close:hover { background: var(--wg4-surface-hover) !important; color: var(--wg4-accent-ink) !important; }
+
+/* Search strip */
+.wg4 .cm-search-strip {
+  display: flex !important;
+  gap: 8px !important;
+  padding: 12px 14px !important;
   background: var(--wg4-surface) !important;
+  border-bottom: 1px solid var(--wg4-border-soft) !important;
+}
+.wg4 .cm-search {
+  flex: 1 1 auto !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 8px !important;
+  color: var(--wg4-ink) !important;
+  outline: none !important;
+}
+.wg4 .cm-search::placeholder { color: var(--wg4-ink-4) !important; }
+.wg4 .cm-search:focus { border-color: var(--wg4-accent) !important; box-shadow: 0 0 0 3px var(--wg4-accent-soft) !important; }
+.wg4 .cm-create-btn {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  padding: 0 14px !important;
+  background: var(--wg4-accent-soft) !important;
+  border: 1px solid var(--wg4-accent-soft) !important;
+  border-radius: 8px !important;
+  color: var(--wg4-accent-ink) !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+}
+.wg4 .cm-create-btn:hover { background: #e3cdb8 !important; }
+
+/* Body / scroll */
+.wg4 .cm-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  padding: 6px 0 !important;
+  background: var(--wg4-surface) !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--wg4-border-strong) transparent !important;
+}
+.wg4 .cm-body::-webkit-scrollbar { width: 9px; }
+.wg4 .cm-body::-webkit-scrollbar-thumb { background: var(--wg4-border-strong); border-radius: 5px; border: 2px solid var(--wg4-surface); }
+
+/* Rows (conditions + modes) */
+.wg4 .cm-cond-list { display: flex !important; flex-direction: column !important; gap: 2px !important; padding: 4px 8px !important; }
+.wg4 .cm-cond-row {
+  padding: 9px 12px !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  border-radius: 9px !important;
+  cursor: pointer !important;
+  transition: background 0.1s, box-shadow 0.1s !important;
+}
+.wg4 .cm-cond-row:hover { background: var(--wg4-surface-hover) !important; }
+.wg4 .cm-cond-row.selected {
+  background: var(--wg4-accent-soft) !important;
+  border-left: 0 !important;
+  padding-left: 12px !important;
+  box-shadow: inset 0 0 0 1px var(--wg4-accent) !important;
+}
+.wg4 .cm-cond-head { display: flex !important; align-items: center !important; gap: 10px !important; }
+.wg4 .cm-cond-name {
+  font-family: var(--wg4-font-serif) !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--wg4-ink) !important;
+  cursor: pointer !important;
+}
+.wg4 .cm-cond-row.already .cm-cond-name { color: var(--wg4-accent-ink) !important; }
+.wg4 .cm-cond-already {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-accent-ink) !important;
+  background: var(--wg4-accent-soft) !important;
+  border: 0 !important;
+  padding: 2px 8px !important;
+  border-radius: 999px !important;
+}
+.wg4 .cm-cond-scope {
+  margin-left: 8px !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 9px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  border-radius: 999px !important;
+  padding: 1px 8px !important;
+  vertical-align: 1px !important;
+}
+/* Harmful conditions — distinct danger red so severity scans fast. */
+.wg4 .cm-cond-row.harmful .cm-cond-name { color: #a8392a !important; }
+.wg4 .cm-cond-row.harmful.selected {
+  background: rgba(168, 57, 42, 0.10) !important;
+  box-shadow: inset 0 0 0 1px #a8392a !important;
+}
+
+/* Value chips (1-4) */
+.wg4 .cm-cond-vals { margin-left: auto !important; display: flex !important; gap: 5px !important; }
+.wg4 .cm-cond-val {
+  width: 27px !important;
+  height: 27px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border-strong) !important;
+  border-radius: 7px !important;
+  color: var(--wg4-ink-3) !important;
+  font-family: var(--wg4-font-mono) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+}
+.wg4 .cm-cond-val:hover { border-color: var(--wg4-accent) !important; color: var(--wg4-accent-ink) !important; }
+.wg4 .cm-cond-val.on { background: var(--wg4-accent) !important; border-color: var(--wg4-accent) !important; color: #fff !important; }
+
+/* Mode toggle + edit/delete buttons */
+.wg4 .cm-mode-toggle {
+  margin-left: auto !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  padding: 5px 15px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border-strong) !important;
+  border-radius: 999px !important;
+  color: var(--wg4-ink-2) !important;
+  cursor: pointer !important;
+}
+.wg4 .cm-mode-toggle:hover { border-color: var(--wg4-accent) !important; color: var(--wg4-accent-ink) !important; background: var(--wg4-surface) !important; }
+.wg4 .cm-mode-toggle.on { background: var(--wg4-accent) !important; border-color: var(--wg4-accent) !important; color: #fff !important; }
+.wg4 .cm-mode-edit {
+  width: 28px !important;
+  height: 28px !important;
+  margin-left: 4px !important;
+  background: transparent !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 7px !important;
+  color: var(--wg4-ink-4) !important;
+  cursor: pointer !important;
+}
+.wg4 .cm-mode-edit:hover { border-color: var(--wg4-accent) !important; color: var(--wg4-accent-ink) !important; background: var(--wg4-surface-hover) !important; }
+.wg4 .cm-mode-edit.danger:hover { border-color: #a8392a !important; color: #a8392a !important; background: rgba(168, 57, 42, 0.08) !important; }
+
+/* Footer */
+.wg4 .cm-footer {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 12px 16px !important;
+  border-top: 1px solid var(--wg4-border) !important;
+  background: var(--wg4-surface-2) !important;
+}
+.wg4 .cm-foot-hint {
+  flex: 1 1 auto !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 14px !important;
+  color: var(--wg4-ink-3) !important;
+}
+.wg4 .cm-add-btn {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  padding: 9px 22px !important;
+  background: var(--wg4-accent) !important;
+  border: 1px solid var(--wg4-accent) !important;
+  border-radius: 9px !important;
+  color: #fff !important;
+  cursor: pointer !important;
+  filter: none !important;
+}
+.wg4 .cm-add-btn:hover:not(:disabled) { background: var(--wg4-accent-ink) !important; border-color: var(--wg4-accent-ink) !important; filter: none !important; }
+.wg4 .cm-add-btn:disabled {
+  opacity: 1 !important;
+  background: var(--wg4-surface-2) !important;
+  border-color: var(--wg4-border) !important;
+  color: var(--wg4-ink-5) !important;
+  cursor: not-allowed !important;
+  filter: none !important;
+}
+
+/* Empty state */
+.wg4 .cm-empty {
+  padding: 36px 28px !important;
+  text-align: center !important;
+  font-family: var(--wg4-font-serif) !important;
+  font-style: italic !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  color: var(--wg4-ink-4) !important;
+}
+
+/* Mode editor form */
+.wg4 .cm-editor { padding: 18px !important; gap: 16px !important; background: var(--wg4-surface) !important; }
+.wg4 .cm-editor-row label,
+.wg4 .cm-editor-effects-head {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--wg4-ink-4) !important;
+}
+.wg4 .cm-editor-row input[type='text'],
+.wg4 .cm-editor-row textarea,
+.wg4 .cm-effect-row select,
+.wg4 .cm-effect-row input {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 13px !important;
+  padding: 8px 10px !important;
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 8px !important;
+  color: var(--wg4-ink) !important;
+  outline: none !important;
+}
+.wg4 .cm-editor-row input[type='text']:focus,
+.wg4 .cm-editor-row textarea:focus,
+.wg4 .cm-effect-row select:focus,
+.wg4 .cm-effect-row input:focus { border-color: var(--wg4-accent) !important; box-shadow: 0 0 0 3px var(--wg4-accent-soft) !important; }
+.wg4 .cm-scope-btn,
+.wg4 .cm-mini-btn {
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  padding: 7px 14px !important;
+  background: var(--wg4-surface) !important;
+  border: 1px solid var(--wg4-border-strong) !important;
+  border-radius: 8px !important;
+  color: var(--wg4-ink-2) !important;
+  cursor: pointer !important;
+}
+.wg4 .cm-scope-btn:hover,
+.wg4 .cm-mini-btn:hover { border-color: var(--wg4-accent) !important; color: var(--wg4-accent-ink) !important; }
+.wg4 .cm-scope-btn.on { background: var(--wg4-accent-soft) !important; border-color: var(--wg4-accent) !important; color: var(--wg4-accent-ink) !important; }
+.wg4 .cm-mini-btn.danger:hover { border-color: #a8392a !important; color: #a8392a !important; }
+.wg4 .cm-editor-effects { border-top: 1px solid var(--wg4-border-soft) !important; padding-top: 14px !important; }
+.wg4 .cm-editor-footer { border-top: 1px solid var(--wg4-border) !important; padding-top: 14px !important; }
+
+/* Description drawer */
+.wg4 .cm-desc-overlay { background: rgba(26, 20, 12, 0.40) !important; }
+.wg4 .cm-desc-box {
+  background: var(--wg4-surface) !important;
+  border-left: 1px solid var(--wg4-border) !important;
+  box-shadow: -12px 0 40px rgba(40, 30, 18, 0.22) !important;
+}
+.wg4 .cm-desc-head {
+  background: var(--wg4-surface-2) !important;
+  border-bottom: 1px solid var(--wg4-border) !important;
+  padding: 14px 18px !important;
 }
 .wg4 .cm-desc-title {
   font-family: 'Newsreader', ui-serif, Georgia, serif !important;
   font-style: italic !important;
-  text-transform: none !important;
-  letter-spacing: -0.005em !important;
-  color: var(--wg4-ink) !important;
   font-weight: 500 !important;
+  font-size: 18px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: var(--wg4-ink) !important;
 }
+.wg4 .cm-desc-body {
+  font-family: 'Newsreader', ui-serif, Georgia, serif !important;
+  font-size: 15px !important;
+  line-height: 1.6 !important;
+  color: var(--wg4-ink-2) !important;
+  padding: 18px !important;
+}
+.wg4 .cm-cond-link {
+  color: var(--wg4-accent-ink) !important;
+  text-decoration-color: var(--wg4-accent) !important;
+}
+.wg4 .cm-cond-link:hover { color: var(--wg4-accent) !important; text-decoration-color: var(--wg4-accent) !important; }
+
+/* ============================== Builder spell-pick rows (.bsp-*) ==============================
+ * BuilderSpellPicks.tsx — count badge + the chosen-spell chips (with
+ * remove / replace) that show what's been picked at each rank. */
+.wg4 .bsp-row { display: flex; flex-direction: column; gap: 6px; }
+/* Count badge — neutral pill while incomplete; solid green + check once the
+ * rank's picks are all chosen, so "done" reads clearly at a glance. */
+.wg4 .bsp-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 36px;
+  font-family: var(--wg4-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-strong);
+  color: var(--wg4-ink-3);
+  white-space: nowrap;
+}
+.wg4 .bsp-count.done {
+  background: #3f8159;
+  border-color: #356f4c;
+  color: #fff;
+  box-shadow: 0 1px 5px rgba(63, 129, 89, 0.40);
+}
+.wg4 .bsp-count.done svg { stroke: #fff; }
+/* Chosen-spell chips */
+.wg4 .bsp-picks { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 2px; }
+.wg4 .bsp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px 4px 2px 11px;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
+  border-radius: 999px;
+  font-family: var(--wg4-font-serif);
+  font-size: 12.5px;
+  color: var(--wg4-ink);
+}
+.wg4 .bsp-chip-name { cursor: pointer; }
+.wg4 .bsp-chip-name:hover {
+  color: var(--wg4-accent-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--wg4-accent);
+  text-underline-offset: 2px;
+}
+.wg4 .bsp-chip-act {
+  width: 19px;
+  height: 19px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: var(--wg4-ink-4);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.wg4 .bsp-chip-act:hover { background: var(--wg4-surface-hover); color: var(--wg4-accent-ink); }
+.wg4 .bsp-chip-act.danger:hover { background: rgba(168, 57, 42, 0.10); color: #a8392a; }
+.wg4 .bsp-chip-act svg { display: block; }
 .wg4 .cm-foot-hint {
   font-family: 'Newsreader', ui-serif, Georgia, serif !important;
   color: var(--wg4-ink-3) !important;
@@ -1260,11 +1698,42 @@
   color: var(--wg4-ink-4) !important;
   margin-left: 4px !important;
 }
-.wg4 .bulk-indicator .rule {
-  width: 90px !important;
-  height: 1px !important;
+/* Bulk progress bar — fill = carried/max-carry; the dark marker line is
+   the encumbered threshold (the divide between un-encumbered and
+   encumbered). Replaces the old static .rule divider; fill goes red once
+   over the threshold (.over). */
+.wg4 .bulk-indicator .bulk-bar {
+  position: relative !important;
+  width: 100% !important;
+  min-width: 150px !important;
+  height: 6px !important;
+  margin: 5px 0 3px !important;
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-radius: 4px !important;
+}
+.wg4 .bulk-indicator .bulk-bar-fill {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  min-width: 2px !important;
+  background: var(--wg4-accent) !important;
+  border-radius: 4px 0 0 4px !important;
+  transition: width 0.2s ease !important;
+}
+.wg4 .bulk-indicator .bulk-bar-mark {
+  position: absolute !important;
+  top: -3px !important;
+  bottom: -3px !important;
+  width: 2px !important;
+  margin-left: -1px !important;
   background: var(--wg4-ink) !important;
-  margin: 2px 0 !important;
+  border-radius: 1px !important;
+}
+.wg4 .bulk-indicator.over .bulk-bar-fill {
+  background: #a8392a !important;
+  border-radius: 4px !important;
 }
 .wg4 .bulk-indicator .caption {
   font-family: var(--wg4-font-sans) !important;
@@ -1350,6 +1819,24 @@
   text-transform: uppercase !important;
   color: var(--wg4-ink-4) !important;
 }
+/* Let the middle (1fr) info column shrink — without min-width:0 a long
+   item name keeps the column at its content width, pushing the card
+   wider than the panel and producing a horizontal scrollbar at the
+   bottom of the inventory (player AND companion, since both render the
+   same .inv-card / .inv-stack). Names truncate with an ellipsis. */
+.wg4 .inv-card .info {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+.wg4 .inv-card .info .name,
+.wg4 .inv-card .nm {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 100% !important;
+}
+/* Safety net: the inventory column never scrolls sideways. */
+.wg4 .codex-tab-body.inv-stack { overflow-x: hidden !important; }
 
 /* ============================== ABILITIES GRID FIX ============================== */
 /* The .abilities grid is `1fr 1fr` so each tile should be 50% of the
@@ -2269,6 +2756,12 @@
   background: var(--wg4-surface-2) !important;
   border: 1px solid var(--wg4-border) !important;
   border-radius: var(--wg4-r-pill) !important;
+  /* The silver coin's denomination class `sp` collides with the spell-
+     card alias `.sp` (wg4-character-sheet.css), which sets min-height:
+     50px and cursor:pointer — making ONLY the silver pill tall/larger.
+     Pin these so the leaked spell-card box styling can't apply. */
+  min-height: 0 !important;
+  cursor: default !important;
 }
 .wg4 .coin .pic.disk,
 .wg4 .coin .disk {
@@ -3147,8 +3640,10 @@
 }
 .wg4 .notes-editor .mantine-RichTextEditor-control[data-active],
 .wg4 .notes-editor .mantine-RichTextEditor-control[data-active='true'] {
-  background: var(--wg4-ink) !important;
-  color: var(--wg4-surface) !important;
+  /* Active = soft rust tint, not a solid black ink fill (the latter
+     read as a jarring black box). Distinct from the neutral hover. */
+  background: var(--wg4-accent-soft) !important;
+  color: var(--wg4-accent-ink) !important;
 }
 
 /* Page footer (PAGE N OF M bottom-right) */
@@ -3619,7 +4114,7 @@
   background: var(--wg4-accent-soft);
 }
 .wg4 .codex-details-rail .cd-prof-row .prof[data-r="M"] {
-  color: #f6f3eb;
+  color: var(--wg4-surface);
   background: var(--wg4-ink);
 }
 .wg4 .codex-details-rail .cd-prof-row .prof[data-r="L"] {
@@ -4418,4 +4913,223 @@
 .wg4 .inv-sec.collapsed > .inv-grid,
 .wg4 .inv-sec.collapsed > .row-list {
   display: none !important;
+}
+
+/* ============================================================
+   Homebrew authoring hub — CreateContentSourceModal reskin.
+   Full-page parchment editor: header (back · identity · Done)
+   + category rail (vertical Tabs.List) + content panel.
+   The modal portals outside `.wg4`, so selectors are scoped to
+   `.codex-hb-editor` (tokens bridged in codex-bridge.css).
+   ============================================================ */
+.codex-hb-editor {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+  background: var(--wg4-page) !important;
+  color: var(--wg4-ink) !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+.codex-hb-editor .mantine-Modal-header {
+  display: none !important;
+}
+.codex-hb-editor .mantine-Modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* ---- Header ---- */
+.codex-hb-editor .hb-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 26px;
+  border-bottom: 1px solid var(--wg4-border);
+  background: var(--wg4-surface);
+  flex: 0 0 auto;
+}
+.codex-hb-editor .hb-back {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--wg4-accent-ink);
+  font-family: var(--wg4-font-sans);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.codex-hb-editor .hb-back:hover {
+  text-decoration: underline;
+}
+.codex-hb-editor .hb-cover {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #d8b878, #b18a3e);
+  display: grid;
+  place-items: center;
+  color: #4a3a16;
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-size: 20px;
+  border: 1px solid var(--wg4-border-strong);
+  flex: 0 0 auto;
+}
+.codex-hb-editor .hb-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.codex-hb-editor .hb-name {
+  font-family: var(--wg4-font-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--wg4-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.codex-hb-editor .hb-sub {
+  font-size: 12px;
+  color: var(--wg4-ink-3);
+}
+.codex-hb-editor .hb-done {
+  margin-left: auto;
+  flex: 0 0 auto;
+  background: var(--wg4-accent);
+  border: 1px solid var(--wg4-accent);
+  color: #fff;
+  font-family: var(--wg4-font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 999px;
+  padding: 8px 24px;
+  cursor: pointer;
+}
+.codex-hb-editor .hb-done:hover {
+  background: var(--wg4-accent-ink);
+  border-color: var(--wg4-accent-ink);
+}
+
+/* ---- Body: rail + panel ---- */
+.codex-hb-editor .hb-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.codex-hb-editor .hb-body .mantine-Tabs-root {
+  display: flex !important;
+  height: 100% !important;
+  gap: 0 !important;
+}
+
+/* Rail (vertical Tabs.List) */
+.codex-hb-editor .hb-rail.mantine-Tabs-list,
+.codex-hb-editor .mantine-Tabs-list {
+  flex: 0 0 240px !important;
+  width: 240px !important;
+  border-right: 1px solid var(--wg4-border) !important;
+  border-left: 0 !important;
+  background: var(--wg4-surface);
+  padding: 14px 10px !important;
+  gap: 2px !important;
+  overflow-y: auto !important;
+  align-content: flex-start;
+}
+.codex-hb-editor .mantine-Tabs-list::before {
+  display: none !important;
+}
+.codex-hb-editor .mantine-Tabs-tab {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  padding: 8px 11px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+.codex-hb-editor .mantine-Tabs-tab:hover {
+  background: var(--wg4-surface-hover) !important;
+}
+.codex-hb-editor .mantine-Tabs-tab[data-active] {
+  background: var(--wg4-accent-soft) !important;
+  color: var(--wg4-accent-ink) !important;
+  box-shadow: inset 2px 0 0 var(--wg4-accent) !important;
+}
+.codex-hb-editor .mantine-Tabs-tabLabel {
+  flex: 1 1 auto;
+  text-align: left;
+}
+.codex-hb-editor .mantine-Tabs-tabSection {
+  color: var(--wg4-ink-4);
+}
+.codex-hb-editor .mantine-Tabs-tab[data-active] .mantine-Tabs-tabSection {
+  color: var(--wg4-accent);
+}
+.codex-hb-editor .hb-tab-ic {
+  color: inherit;
+  font-size: 12px;
+  opacity: 0.8;
+}
+/* count badge */
+.codex-hb-editor .mantine-Tabs-tab .mantine-Badge-root {
+  background: var(--wg4-surface-2) !important;
+  color: var(--wg4-ink-4) !important;
+  border: 1px solid var(--wg4-border-soft) !important;
+  font-family: var(--wg4-font-mono) !important;
+  font-weight: 500 !important;
+}
+.codex-hb-editor .mantine-Tabs-tab[data-active] .mantine-Badge-root {
+  background: #e3cdb8 !important;
+  border-color: #e3cdb8 !important;
+  color: var(--wg4-accent-ink) !important;
+}
+
+/* Panel */
+.codex-hb-editor .mantine-Tabs-panel {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow-y: auto !important;
+  padding: 20px 28px !important;
+}
+
+/* Inputs inside the hub (Details form + ContentList search) */
+.codex-hb-editor .mantine-TextInput-input,
+.codex-hb-editor .mantine-Textarea-input,
+.codex-hb-editor .mantine-Select-input,
+.codex-hb-editor .mantine-NumberInput-input {
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  color: var(--wg4-ink) !important;
+  font-family: var(--wg4-font-sans) !important;
+}
+.codex-hb-editor .mantine-InputWrapper-label {
+  color: var(--wg4-ink-2) !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-weight: 600 !important;
+}
+
+/* Create / Import buttons in the content panel — rust-tinted parchment */
+.codex-hb-editor .mantine-Tabs-panel .mantine-Button-root {
+  font-family: var(--wg4-font-sans) !important;
+}
+.codex-hb-editor .mantine-Tabs-panel .mantine-Button-root[data-variant='light'] {
+  background: var(--wg4-accent-soft) !important;
+  color: var(--wg4-accent-ink) !important;
+  border-color: var(--wg4-accent-soft) !important;
+}
+.codex-hb-editor .mantine-Tabs-panel .mantine-Button-root[data-variant='light']:hover {
+  background: #e3cdb8 !important;
 }

@@ -822,8 +822,9 @@
   color: var(--wg4-ink) !important;
 }
 .codex-edit-item .mantine-RichTextEditor-control[data-active='true'] {
-  background: var(--wg4-ink) !important;
-  color: var(--wg4-surface) !important;
+  /* Soft rust tint when active — not a solid black ink fill. */
+  background: var(--wg4-accent-soft) !important;
+  color: var(--wg4-accent-ink) !important;
 }
 .codex-edit-item .mantine-RichTextEditor-content,
 .codex-edit-item .mantine-RichTextEditor-content .ProseMirror {

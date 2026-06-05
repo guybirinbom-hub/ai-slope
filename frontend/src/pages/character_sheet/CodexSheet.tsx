@@ -38,6 +38,9 @@ import {
 import { cloneDeep } from 'lodash-es';
 import { makeRequest } from '@requests/request-manager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { openContextModal } from '@mantine/modals';
+import { getAllPortraitImages } from '@utils/portrait-images';
+import { ImageOption } from '@schemas/index';
 import { fetchContentAll, getDefaultSources } from '@content/content-store';
 import { useAtom } from 'jotai';
 import { drawerState } from '@atoms/navAtoms';
@@ -166,6 +169,11 @@ export default function CodexSheet(props: {
   const spellDcStr = getFinalProfValue('CHARACTER', 'SPELL_DC', true);
   const dcMerged = classDcStr === spellDcStr;
   const speed = getVariable<VariableNum>('CHARACTER', 'SPEED')?.value ?? 25;
+  // Temporary speed override (typed in the Speed popup). When set it
+  // replaces the displayed Speed and is shown in the accent color.
+  const tempSpeed = (character?.meta_data as { temp_speed?: number } | undefined)?.temp_speed;
+  const tempSpeedActive = typeof tempSpeed === 'number';
+  const displaySpeed = tempSpeedActive ? tempSpeed : speed;
   const hasSpellcasting =
     !!getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value &&
     compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value) !== 'U';
@@ -396,6 +404,28 @@ export default function CodexSheet(props: {
     }
   };
 
+  // Open a language's description drawer (languages are a top-level
+  // content type). Resolves the language name → content id, mirroring
+  // openSenseDrawer; falls back to a generic note if the content pack
+  // doesn't include the language.
+  const openLanguageDrawer = (name: string) => {
+    const all = getCachedContent<{ id: number; name: string }>('language') ?? [];
+    const targetKey = labelToVariable(name);
+    const hit = all.find((b) => labelToVariable(b.name) === targetKey);
+    if (hit) {
+      openDrawer({ type: 'language', data: { id: hit.id }, extra: { addToHistory: true } });
+    } else {
+      openDrawer({
+        type: 'generic',
+        data: {
+          title: name,
+          description: 'No description registered for this language in the current content pack.',
+        },
+        extra: { addToHistory: true },
+      });
+    }
+  };
+
   // Split skills + lores into 4 columns
   const lores = discoverLoreSkills();
   const allSkillEntries: { var: string; name: string; lore?: string }[] = [
@@ -420,7 +450,7 @@ export default function CodexSheet(props: {
               Wanderer's <em>Codex</em> · Character Sheet
             </span>
           </div>
-          <div className='crumbs'>
+          <div className='center'>
             <b>{character?.name || 'Unnamed'}</b>
             {ancestryName && <> · {ancestryName}</>}
             {className && <> · {className}</>}
@@ -434,7 +464,41 @@ export default function CodexSheet(props: {
         {/* TOPBAR — matches design HTML structure exactly */}
         <div className='topbar'>
           <div className='who'>
-            <div className='crest'>{initial}</div>
+            <div
+              className='crest'
+              title='Select portrait'
+              style={{ cursor: 'pointer' }}
+              onClick={() => {
+                openContextModal({
+                  modal: 'selectImage',
+                  title: 'Select Portrait',
+                  classNames: { content: 'codex-select-image-modal' },
+                  innerProps: {
+                    options: getAllPortraitImages(),
+                    onSelect: (option: ImageOption) => {
+                      setCharacter((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              details: {
+                                ...prev.details,
+                                image_url: prev.details?.image_url === option.url ? undefined : option.url,
+                              },
+                            }
+                          : prev
+                      );
+                    },
+                    category: 'portraits',
+                  },
+                });
+              }}
+            >
+              {character?.details?.image_url ? (
+                <img src={character.details.image_url} alt='Character Portrait' />
+              ) : (
+                initial
+              )}
+            </div>
             <div className='label'>
               <div className='nm'>{character?.name || 'Unnamed'}</div>
               <div className='sub'>
@@ -648,8 +712,11 @@ export default function CodexSheet(props: {
                         }
                       >
                         <div className='k'>Speed</div>
-                        <div className='num v v-num'>
-                          {speed}
+                        <div
+                          className={`num v v-num${tempSpeedActive ? ' speed-temp' : ''}`}
+                          title={tempSpeedActive ? 'Temporary speed active — reset it in the Speed popup' : undefined}
+                        >
+                          {displaySpeed}
                           <small> ft</small>
                         </div>
                       </div>
@@ -685,12 +752,12 @@ export default function CodexSheet(props: {
                     </div>
                   </div>
                   <div className='sec-body'>
-                    <div className='hero hp-points'>
-                      <div className='hero-pips hp-pips'>
+                    <div className='hp-points'>
+                      <div className='hp-pips'>
                         {[0, 1, 2].map((i) => (
                           <span
                             key={i}
-                            className={`pip hp-pip${i < heroPoints ? ' on' : ''}`}
+                            className={`hp-pip${i < heroPoints ? ' on' : ''}`}
                             onClick={() => {
                               if (i < heroPoints) setHeroPoints(i);
                               else setHeroPoints(i + 1);
@@ -698,7 +765,7 @@ export default function CodexSheet(props: {
                           />
                         ))}
                       </div>
-                      <div className='hero-count num hp-count'>
+                      <div className='hp-count num'>
                         <b>{heroPoints}</b> / 3
                       </div>
                     </div>
@@ -866,7 +933,13 @@ export default function CodexSheet(props: {
                         languages.map((l, i) => (
                           <Fragment key={l}>
                             {i > 0 && <span className='dot'>·</span>}
-                            <span>{l}</span>
+                            <span
+                              className='lang'
+                              onClick={() => openLanguageDrawer(l)}
+                              title={`Open ${l} description`}
+                            >
+                              {l}
+                            </span>
                           </Fragment>
                         ))
                       )}
@@ -1059,8 +1132,9 @@ export default function CodexSheet(props: {
       <ConditionsModesModal
         opened={cmModalOpen}
         onClose={() => setCmModalOpen(false)}
-        character={character}
-        setCharacter={setCharacter}
+        storeId='CHARACTER'
+        entity={character}
+        setEntity={setEntity}
         content={content}
       />
 
@@ -1422,9 +1496,21 @@ function WinButtons() {
   ).wgElectron;
   return (
     <>
-      <button className='wbtn' aria-label='Minimize' onClick={() => w?.windowMinimize?.()} />
-      <button className='wbtn' aria-label='Maximize' onClick={() => w?.windowMaximize?.()} />
-      <button className='wbtn' aria-label='Close' onClick={() => w?.windowClose?.()} />
+      <button className='wbtn' aria-label='Minimize' title='Minimize' onClick={() => w?.windowMinimize?.()}>
+        <svg viewBox='0 0 10 10'>
+          <path d='M1 8 L9 8' />
+        </svg>
+      </button>
+      <button className='wbtn' aria-label='Maximize' title='Maximize' onClick={() => w?.windowMaximize?.()}>
+        <svg viewBox='0 0 10 10'>
+          <path d='M1 1 L9 1 L9 9 L1 9 Z' />
+        </svg>
+      </button>
+      <button className='wbtn close' aria-label='Close' title='Close' onClick={() => w?.windowClose?.()}>
+        <svg viewBox='0 0 10 10'>
+          <path d='M1 1 L9 9 M9 1 L1 9' />
+        </svg>
+      </button>
     </>
   );
 }

@@ -1,5 +1,6 @@
 import CodexLoadingOverlay from '@common/CodexLoadingOverlay';
 import { Center, Menu, Text, rem } from '@mantine/core';
+import { useViewportSize } from '@mantine/hooks';
 import { makeRequest } from '@requests/request-manager';
 import { IconAsset, IconHammer, IconHome, IconSettings, IconUser, IconUsers } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
@@ -10,8 +11,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLoaderData, useNavigate } from 'react-router-dom';
 import CharBuilderCreation from './CharBuilderCreation';
 import CharBuilderHome from './CharBuilderHome';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { characterState } from '@atoms/characterAtoms';
+import { openContextModal } from '@mantine/modals';
+import { getAllPortraitImages } from '@utils/portrait-images';
+import { ImageOption } from '@schemas/index';
 
 export function Component() {
   setPageTitle(`Builder`);
@@ -48,9 +52,17 @@ export function Component() {
     }
   }, [active]);
 
-  const pageHeight = 550;
+  // Drive the builder's scrollable areas off the REAL window height so
+  // the middle "level choices" panel fills the page instead of being
+  // pinned to a short fixed height (the old hardcoded 550 left a large
+  // empty gap below the choices on anything but a tiny window). Subtract
+  // the chrome above/below the body (winbar + topbar + level strip +
+  // body padding ≈ 190px); floor at 550 so short windows stay usable.
+  const { height: viewportHeight } = useViewportSize();
+  const pageHeight = Math.max(550, viewportHeight - 190);
 
   const globalCharacter = useAtomValue(characterState);
+  const setCharacter = useSetAtom(characterState);
   // If the user came from /sheet/<id>, the characterState atom is
   // already populated with this character — no need to refetch +
   // show a second loader. We compute "already have it" before the
@@ -119,28 +131,28 @@ export function Component() {
           gone in favour of these window controls (which the codex
           mockup explicitly calls for). */}
       <div className='winbar'>
-        <div className='title'>
-          <span className='dot' />
-          <span>
-            <b>Wanderer's Codex</b> · {step === 1 ? 'Builder' : step === 2 ? 'Sheet' : 'Home'}
+        <div className='brand'>
+          <span className='mark'></span>
+          <span className='name'>
+            Wanderer's <em>Codex</em> · {step === 1 ? 'Builder' : step === 2 ? 'Sheet' : 'Home'}
           </span>
         </div>
         <div className='center'>
           {character?.name || 'Unknown'}
-          {ancestryName !== '—' && (<> <b>·</b> {ancestryName}</>)}
-          {className !== '—' && (<> <b>·</b> {className}</>)}
-          {character?.level != null && (<> <b>·</b> Level {character.level}</>)}
+          {ancestryName !== '—' && (<> · {ancestryName}</>)}
+          {className !== '—' && (<> · {className}</>)}
+          {character?.level != null && (<> · Level {character.level}</>)}
         </div>
-        <div className='winbtns'>
-          <div className='winbtn' title='Minimize' onClick={() => wgElectron?.windowMinimize?.()}>
+        <div className='wbtns'>
+          <button className='wbtn' aria-label='Minimize' title='Minimize' onClick={() => wgElectron?.windowMinimize?.()}>
             <svg viewBox='0 0 10 10'><path d='M1 8 L9 8' /></svg>
-          </div>
-          <div className='winbtn' title='Maximize' onClick={() => wgElectron?.windowMaximize?.()}>
+          </button>
+          <button className='wbtn' aria-label='Maximize' title='Maximize' onClick={() => wgElectron?.windowMaximize?.()}>
             <svg viewBox='0 0 10 10'><path d='M1 1 L9 1 L9 9 L1 9 Z' /></svg>
-          </div>
-          <div className='winbtn close' title='Close' onClick={() => wgElectron?.windowClose?.()}>
+          </button>
+          <button className='wbtn close' aria-label='Close' title='Close' onClick={() => wgElectron?.windowClose?.()}>
             <svg viewBox='0 0 10 10'><path d='M1 1 L9 9 M9 1 L1 9' /></svg>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -152,7 +164,41 @@ export function Component() {
           rendered as nav-step columns, never as pill buttons. */}
       <div className='builder-topbar'>
         <div className='who'>
-          <div className='crest'>{initial}</div>
+          <div
+            className='crest'
+            title='Select portrait'
+            style={{ cursor: 'pointer' }}
+            onClick={() => {
+              openContextModal({
+                modal: 'selectImage',
+                title: 'Select Portrait',
+                classNames: { content: 'codex-select-image-modal' },
+                innerProps: {
+                  options: getAllPortraitImages(),
+                  onSelect: (option: ImageOption) => {
+                    setCharacter((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            details: {
+                              ...prev.details,
+                              image_url: prev.details?.image_url === option.url ? undefined : option.url,
+                            },
+                          }
+                        : prev
+                    );
+                  },
+                  category: 'portraits',
+                },
+              });
+            }}
+          >
+            {character?.details?.image_url ? (
+              <img src={character.details.image_url} alt='Character Portrait' />
+            ) : (
+              initial
+            )}
+          </div>
           <div className='label'>
             <div className='nm'>{(character?.name || 'UNNAMED').toUpperCase()}</div>
             <div className='sub'>

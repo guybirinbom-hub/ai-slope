@@ -24,7 +24,6 @@ import { collectEntitySpellcasting } from '@content/collect-content';
 import { fetchContentAll, getDefaultSources } from '@content/content-store';
 import {
   ActionIcon,
-  Badge,
   Box,
   Group,
   Stack,
@@ -32,7 +31,7 @@ import {
   useMantineTheme,
 } from '@mantine/core';
 import { AbilityBlock, Character, Spell } from '@schemas/content';
-import { IconPlus, IconX } from '@tabler/icons-react';
+import { IconCheck, IconPlus, IconX } from '@tabler/icons-react';
 import { useAtom } from 'jotai';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -86,6 +85,21 @@ export default function BuilderSpellPicks(props: { level: number }) {
     queryFn: async () => extractCurriculumSpellIds(),
     enabled: isWizardWithCurriculumPick,
   });
+
+  // Resolve spell_id → spell so each row can list the spells already
+  // picked (and let the player remove / replace them). One shared fetch
+  // across every level's rows — the stable query key dedupes, and it's
+  // gated so non-casters never trigger it.
+  const { data: allSpells } = useQuery({
+    queryKey: ['builder-spell-picks-all-spells'],
+    queryFn: () => fetchContentAll<Spell>('spell', getDefaultSources('PAGE')),
+    enabled: !!profile && picksAtThisLevel.length > 0,
+  });
+  const spellsById = useMemo(() => {
+    const m = new Map<number, Spell>();
+    for (const s of allSpells ?? []) m.set(s.id, s);
+    return m;
+  }, [allSpells]);
 
   if (!profile || picksAtThisLevel.length === 0) return null;
   // If the class's spellcasting hasn't been set up yet (no CASTING_SOURCES
@@ -155,6 +169,7 @@ export default function BuilderSpellPicks(props: { level: number }) {
             character={character}
             setCharacter={setCharacter}
             curriculumSpellIds={curriculumSpellIds ?? null}
+            spellsById={spellsById}
           />
         ))}
       </Stack>
@@ -229,6 +244,8 @@ function SpellPickRow(props: {
   // Null = no curriculum constraint (either not a curriculum pick, or the
   // school hasn't been selected yet, or the school is Universalist).
   curriculumSpellIds: number[] | null;
+  // id → spell lookup so we can show the names of spells already picked.
+  spellsById: Map<number, Spell> | null;
 }) {
   const theme = useMantineTheme();
   const [_drawer, openDrawer] = useAtom(drawerState);
@@ -287,9 +304,23 @@ function SpellPickRow(props: {
     return 0;
   }, [props.character, props.pick, props.sourceName]);
 
-  const picked = props.character?.spells?.list ?? [];
   const filled = current >= target;
   const needed = Math.max(0, target - current);
+
+  // The spells already chosen that belong to THIS row (matching source +
+  // rank bucket). Surfaced as removable / replaceable chips below the row
+  // so the player can see and edit what they've picked at this rank.
+  const chosenEntries = useMemo(() => {
+    const list = props.character?.spells?.list ?? [];
+    const pick = props.pick;
+    if (pick.kind === 'cantrip') return list.filter((e) => e.source === props.sourceName && e.rank === 0);
+    if (pick.kind === 'spellbook') return list.filter((e) => e.source === props.sourceName && e.rank > 0);
+    if (pick.kind === 'spell' || pick.kind === 'curriculum-spell') {
+      const wantRank = pick.rank;
+      return list.filter((e) => e.source === props.sourceName && e.rank === wantRank);
+    }
+    return [];
+  }, [props.character, props.pick, props.sourceName]);
 
   // Label and filter parameters for the picker
   const { label, rank, rankMin, rankMax } = (() => {
@@ -354,27 +385,13 @@ function SpellPickRow(props: {
   const restrictToCurriculum =
     props.pick.kind === 'curriculum-spell' && props.curriculumSpellIds && props.curriculumSpellIds.length > 0;
 
-  const openPicker = () => {
+  // Open the spell picker with this row's filters; `onSelect` receives the
+  // chosen spell. Shared by both "add" (+) and per-chip "replace".
+  const openSpellPicker = (onSelect: (spell: Spell) => void) => {
     selectContent<Spell>(
       'spell',
       (option) => {
-        if (!option) return;
-        const newEntry = { spell_id: option.id, rank, source: props.sourceName };
-        props.setCharacter((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            spells: {
-              ...(prev.spells ?? {
-                slots: [],
-                list: [],
-                focus_point_current: 0,
-                innate_casts: [],
-              }),
-              list: [...(prev.spells?.list ?? []), newEntry],
-            },
-          };
-        });
+        if (option) onSelect(option);
       },
       {
         showButton: true,
@@ -415,42 +432,125 @@ function SpellPickRow(props: {
     );
   };
 
+  const emptySpells = { slots: [], list: [], focus_point_current: 0, innate_casts: [] };
+
+  // Add a freshly-picked spell at this row's slot rank.
+  const addSpell = () =>
+    openSpellPicker((spell) => {
+      props.setCharacter((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          spells: {
+            ...(prev.spells ?? emptySpells),
+            list: [...(prev.spells?.list ?? []), { spell_id: spell.id, rank, source: props.sourceName }],
+          },
+        };
+      });
+    });
+
+  // Remove a chosen spell from the character's list.
+  const removeSpell = (spellId: number, entryRank: number) => {
+    props.setCharacter((prev) => {
+      if (!prev) return prev;
+      const list = prev.spells?.list ?? [];
+      const idx = list.findIndex(
+        (e) => e.spell_id === spellId && e.rank === entryRank && e.source === props.sourceName
+      );
+      if (idx < 0) return prev;
+      const next = list.slice();
+      next.splice(idx, 1);
+      return { ...prev, spells: { ...(prev.spells ?? emptySpells), list: next } };
+    });
+  };
+
+  // Swap a chosen spell for a different one (same slot) via the picker.
+  const replaceSpell = (oldSpellId: number, entryRank: number) => {
+    openSpellPicker((spell) => {
+      props.setCharacter((prev) => {
+        if (!prev) return prev;
+        const list = (prev.spells?.list ?? []).slice();
+        const idx = list.findIndex(
+          (e) => e.spell_id === oldSpellId && e.rank === entryRank && e.source === props.sourceName
+        );
+        const entry = { spell_id: spell.id, rank, source: props.sourceName };
+        if (idx >= 0) list[idx] = entry;
+        else list.push(entry);
+        return { ...prev, spells: { ...(prev.spells ?? emptySpells), list } };
+      });
+    });
+  };
+
   return (
-    <Group justify='space-between' wrap='nowrap' gap='xs' align='center'>
-      <Group gap={8} wrap='nowrap'>
-        <Badge
-          variant='outline'
-          color={filled ? 'teal' : needed > 0 ? 'yellow' : 'gray.5'}
+    <div className='bsp-row'>
+      <Group justify='space-between' wrap='nowrap' gap='xs' align='center'>
+        <Group gap={8} wrap='nowrap'>
+          <span className={`bsp-count${filled ? ' done' : ''}`}>
+            {filled && <IconCheck size={11} stroke={3} />}
+            {current}/{target}
+          </span>
+          <Text c='gray.2' fz='sm'>
+            {label}
+            {needed > 0 && (
+              <Text c='dimmed' span fz='xs'>
+                {' '}· need {needed} more
+              </Text>
+            )}
+          </Text>
+        </Group>
+        <ActionIcon
           size='sm'
-          styles={{ root: { textTransform: 'none' } }}
+          variant='light'
+          // No-overshoot: once the count hits target we dim & disable the +.
+          // To swap a pick once full, use a chip's Replace below; to exceed
+          // the class baseline, use Learn a Spell (managed elsewhere).
+          color={filled ? 'gray.5' : theme.primaryColor}
+          radius='xl'
+          disabled={filled}
+          aria-label={filled ? `${label} target reached` : `Add ${label}`}
+          title={filled ? 'Target reached — use Replace on a spell below to swap, or Learn a Spell elsewhere to add more' : undefined}
+          onClick={addSpell}
         >
-          {current}/{target}
-        </Badge>
-        <Text c='gray.2' fz='sm'>
-          {label}
-          {needed > 0 && (
-            <Text c='dimmed' span fz='xs'>
-              {' '}· need {needed} more
-            </Text>
-          )}
-        </Text>
+          <IconPlus size='0.9rem' />
+        </ActionIcon>
       </Group>
-      <ActionIcon
-        size='sm'
-        variant='light'
-        // No-overshoot: once the count hits target we dim & disable the
-        // button. To go beyond the class baseline the player must use
-        // Learn a Spell (managed elsewhere). This prevents accidentally
-        // double-picking and exceeding the class's expected spells known.
-        color={filled ? 'gray.5' : theme.primaryColor}
-        radius='xl'
-        disabled={filled}
-        aria-label={filled ? `${label} target reached` : `Add ${label}`}
-        title={filled ? 'Target reached — use Learn a Spell elsewhere to add more' : undefined}
-        onClick={openPicker}
-      >
-        <IconPlus size='0.9rem' />
-      </ActionIcon>
-    </Group>
+
+      {chosenEntries.length > 0 && (
+        <div className='bsp-picks'>
+          {chosenEntries.map((e, i) => {
+            const sp = props.spellsById?.get(e.spell_id) ?? null;
+            return (
+              <span className='bsp-chip' key={`${e.spell_id}-${i}`}>
+                <span
+                  className='bsp-chip-name'
+                  title='View spell'
+                  onClick={() => openDrawer({ type: 'spell', data: { id: e.spell_id } })}
+                >
+                  {sp?.name ?? `Spell #${e.spell_id}`}
+                </span>
+                <button
+                  type='button'
+                  className='bsp-chip-act'
+                  title='Replace this spell'
+                  aria-label='Replace spell'
+                  onClick={() => replaceSpell(e.spell_id, e.rank)}
+                >
+                  ⇄
+                </button>
+                <button
+                  type='button'
+                  className='bsp-chip-act danger'
+                  title='Remove this spell'
+                  aria-label='Remove spell'
+                  onClick={() => removeSpell(e.spell_id, e.rank)}
+                >
+                  <IconX size='0.7rem' />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

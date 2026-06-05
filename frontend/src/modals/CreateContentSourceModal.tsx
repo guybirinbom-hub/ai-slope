@@ -16,22 +16,19 @@ import {
   upsertVersatileHeritage,
   upsertClassArchetype,
 } from '@content/content-creation';
-import { fetchContentPackage, fetchContentSources, resetContentStore } from '@content/content-store';
+import { clearContentSourceCache, fetchContentPackage, fetchContentSources } from '@content/content-store';
 import { getIconFromContentType, toHTML } from '@content/content-utils';
 import {
-  ActionIcon,
   Badge,
   Box,
   Button,
   Center,
   Divider,
   Group,
-  List,
   LoadingOverlay,
   Menu,
   Modal,
   Stack,
-  Switch,
   Tabs,
   Text,
   TextInput,
@@ -42,7 +39,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useDebouncedState } from '@mantine/hooks';
 import { showNotification } from '@mantine/notifications';
-import { IconChevronDown, IconDatabaseImport, IconRefreshDot, IconSearch } from '@tabler/icons-react';
+import { IconChevronDown, IconDatabaseImport, IconSearch } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { JSONContent } from '@tiptap/react';
 import {
@@ -82,7 +79,6 @@ import { useAtom } from 'jotai';
 import Paginator from '@common/Paginator';
 import TraitsDisplay from '@common/TraitsDisplay';
 import { ActionSymbol } from '@common/Actions';
-import { modals } from '@mantine/modals';
 import useRefresh from '@utils/use-refresh';
 import { defineDefaultSourcesForSource } from '@content/homebrew';
 import OperationsModal from './OperationsModal';
@@ -213,16 +209,15 @@ export function ContentSourceEditor(props: {
   };
 
   return (
-    <form onSubmit={form.onSubmit(onSubmit)}>
-      <LoadingOverlay visible={isFetching} />
-      <Center maw={350}>
-        <Stack gap={10}>
-          <Group wrap='nowrap' justify='space-between'>
+    <form onSubmit={form.onSubmit(onSubmit)} className='cs-editor'>
+      <LoadingOverlay visible={isFetching} loaderProps={{ color: '#b0542f' }} />
+      <Stack gap={14} maw={760}>
+          <Group grow wrap='nowrap' align='flex-start'>
             <TextInput label='Name' required {...form.getInputProps('name')} />
             <TextInput label='Contact Info' {...form.getInputProps('contact_info')} />
           </Group>
 
-          <Group wrap='nowrap' justify='space-between'>
+          <Group grow wrap='nowrap' align='flex-start'>
             <TextInput label='Source URL' {...form.getInputProps('url')} />
             <TextInput label='Image URL' {...form.getInputProps('artwork_url')} />
           </Group>
@@ -241,9 +236,10 @@ export function ContentSourceEditor(props: {
           )}
 
           <Divider
+            className='cs-ops-divider'
             label={
-              <Group gap={3} wrap='nowrap'>
-                <Button variant={openedOperations ? 'filled' : 'subtle'} size='compact-sm' color='gray'>
+              <Group gap={6} wrap='nowrap'>
+                <Button variant='default' size='compact-sm' onClick={() => setOpenedOperations(true)}>
                   Operations
                 </Button>
                 {form.values.operations && form.values.operations.length > 0 && (
@@ -254,7 +250,6 @@ export function ContentSourceEditor(props: {
               </Group>
             }
             labelPosition='left'
-            onClick={() => setOpenedOperations((o) => !o)}
           />
 
           <OperationsModal
@@ -266,118 +261,13 @@ export function ContentSourceEditor(props: {
             zIndex={491}
           />
 
-          <Group wrap='nowrap' justify='space-between' h={40}>
-            <Switch
-              pl='xs'
-              size='sm'
-              checked={form.values.require_key}
-              onChange={(e) => {
-                form.setValues({ ...form.values, require_key: e.currentTarget.checked });
-              }}
-              label='Require Key'
-            />
-            {form.values.require_key && (
-              <TextInput
-                size='xs'
-                placeholder='Access Key'
-                value={form.values.keys?.access_key}
-                onChange={(e) => {
-                  form.setValues({ ...form.values, keys: { access_key: e.currentTarget.value } });
-                }}
-                rightSection={
-                  <ActionIcon
-                    size={22}
-                    radius='xl'
-                    color={theme.primaryColor}
-                    variant='light'
-                    onClick={() => {
-                      const randKey = crypto.randomUUID().slice(0, 18);
-                      form.setValues({ ...form.values, keys: { access_key: randKey } });
-                    }}
-                  >
-                    <IconRefreshDot style={{ width: rem(18), height: rem(18) }} stroke={1.5} />
-                  </ActionIcon>
-                }
-              />
-            )}
-          </Group>
-
-          <Group justify='space-between'>
-            <Box>
-              <Switch
-                pl='xs'
-                size='sm'
-                checked={form.values.is_published}
-                onChange={(e) => {
-                  if (e.currentTarget.checked) {
-                    modals.openConfirmModal({
-                      title: <Title order={3}>Publish Bundle</Title>,
-                      children: (
-                        <Stack pr='sm'>
-                          <Text size='sm'>
-                            By clicking publish, you are agreeing to the following about the content you are publishing:
-                          </Text>
-                          <List>
-                            <List.Item>
-                              <Text size='sm'>
-                                The content is published under the ORC license and complies with Paizo's Community Use
-                                Policy.
-                              </Text>
-                            </List.Item>
-                            <List.Item>
-                              <Text size='sm'>
-                                The content does not contain any third party’s intellectual property without their
-                                permission.
-                              </Text>
-                            </List.Item>
-                            <List.Item>
-                              <Text size='sm'>
-                                The content preserves a high standard of quality; it is not "low-effort content."
-                              </Text>
-                            </List.Item>
-                            <List.Item>
-                              <Text size='sm'>
-                                The content does not contain material that the general public would classify as "adult
-                                content," offensive, or inappropriate for minors.
-                              </Text>
-                            </List.Item>
-                          </List>
-                          <Text size='sm'>
-                            Failure to comply with these agreements may result in your content being removed and
-                            potentially further repercussions.
-                          </Text>
-                        </Stack>
-                      ),
-                      labels: { confirm: 'Publish', cancel: 'Cancel' },
-                      onCancel: () => {},
-                      onConfirm: () => {
-                        form.setValues({ ...form.values, is_published: true });
-                      },
-                    });
-                  } else {
-                    form.setValues({ ...form.values, is_published: false });
-                  }
-                }}
-                label='Published'
-              />
-            </Box>
-            <Group justify='flex-end'>
-              <Button
-                variant='default'
-                size='compact-sm'
-                onClick={() => {
-                  onReset();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button size='compact-sm' type='submit'>
-                Save
-              </Button>
-            </Group>
+          <Group justify='flex-end' mt={6}>
+            <Button variant='default' onClick={() => onReset()}>
+              Cancel
+            </Button>
+            <Button type='submit'>Save</Button>
           </Group>
         </Stack>
-      </Center>
     </form>
   );
 }
@@ -441,33 +331,47 @@ export function CreateContentSourceModal(props: {
   return (
     <Modal
       opened={props.opened}
-      onClose={() => {
-        props.onClose();
-      }}
-      title={<Title order={3}>{'Update Bundle'}</Title>}
-      styles={{
-        body: {
-          paddingRight: 2,
-        },
-      }}
+      onClose={() => props.onClose()}
+      withCloseButton={false}
+      title={null}
+      padding={0}
       fullScreen
       closeOnClickOutside={false}
       closeOnEscape={false}
       keepMounted={false}
+      classNames={{ content: 'codex-hb-editor' }}
     >
       <LoadingOverlay visible={isFetching} />
-      <Group align='flex-start'>
-        <ContentSourceEditor
-          opened={props.opened}
-          sourceId={props.sourceId}
-          onComplete={(source) => {
-            onSave(source);
-          }}
-          onCancel={() => {}}
-        />
-        <Center style={{ flex: 1 }}>
-          <Tabs w='100%' variant='outline' defaultValue='feats' orientation='vertical' keepMounted={false}>
-            <Tabs.List>
+      {/* Hub header — back to bundles · bundle identity · Done. */}
+      <div className='hb-head'>
+        <button type='button' className='hb-back' onClick={() => props.onClose()}>
+          ‹ Your bundles
+        </button>
+        <div className='hb-cover'>{(data?.source.name || 'B').trim().charAt(0).toUpperCase()}</div>
+        <div className='hb-title-wrap'>
+          <div className='hb-name'>{data?.source.name || 'New Bundle'}</div>
+          <div className='hb-sub'>Homebrew bundle</div>
+        </div>
+        <button type='button' className='hb-done' onClick={() => props.onClose()}>
+          Done
+        </button>
+      </div>
+      {/* Body — category rail (vertical Tabs.List) + content panel.
+          "Details" is the first category and holds the bundle's name,
+          description, settings, and publish controls. */}
+      <div className='hb-body'>
+        <Tabs
+          w='100%'
+          variant='outline'
+          defaultValue='details'
+          orientation='vertical'
+          keepMounted={false}
+          classNames={{ list: 'hb-rail' }}
+        >
+          <Tabs.List>
+            <Tabs.Tab value='details' leftSection={<span className='hb-tab-ic'>◆</span>}>
+              Details
+            </Tabs.Tab>
               <Tabs.Tab
                 value='actions'
                 leftSection={getIconFromContentType('ability-block', '1rem')}
@@ -915,10 +819,18 @@ export function CreateContentSourceModal(props: {
                 onUpdate={() => props.onUpdate?.()}
               />
             </Tabs.Panel>
+
+            <Tabs.Panel value='details'>
+              <ContentSourceEditor
+                opened={props.opened}
+                sourceId={props.sourceId}
+                onComplete={(source) => onSave(source)}
+                onCancel={() => {}}
+              />
+            </Tabs.Panel>
           </Tabs>
-        </Center>
-      </Group>
-    </Modal>
+        </div>
+      </Modal>
   );
 }
 
@@ -980,7 +892,12 @@ function ContentList<
   const handleReset = () => {
     const query = searchQuery;
     setSearchQuery('');
-    resetContentStore(false);
+    // Evict ONLY this bundle's cached content (not the whole library) so the
+    // refetch below pulls the edited/created/deleted record fresh while the
+    // large full-library cache stays warm — this is the main fix for the
+    // homebrew-editing lag (previously resetContentStore(false) wiped
+    // everything and forced a full library re-download on every change).
+    clearContentSourceCache(props.sourceId);
     setTimeout(() => {
       setOpenedId(undefined);
       initJsSearch();
@@ -989,7 +906,7 @@ function ContentList<
       setSearchQuery(query);
       setLoading(false);
       props.onUpdate();
-    }, 500);
+    }, 250);
   };
 
   async function copyData(itemId?: number, data?: Record<string, any>) {

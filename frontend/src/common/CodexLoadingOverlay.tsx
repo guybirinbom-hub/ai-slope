@@ -20,6 +20,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { CodexWinBar } from './CodexWinBar';
 
 interface Props {
   visible: boolean;
@@ -137,15 +138,22 @@ export default function CodexLoadingOverlay(props: Props) {
         background: '#e8e4d8', // wg4 parchment to match the iframe's interior
         zIndex,
         pointerEvents: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
+      {/* Full-screen loaders show the working window bar on top so
+          min / max / close stay usable while loading (the iframe would
+          otherwise cover the page's own bar). */}
+      {position === 'fixed' && <CodexWinBar />}
       <iframe
         ref={iframeRef}
         src='/codex-loading.html'
         title='Loading'
         style={{
           width: '100%',
-          height: '100%',
+          flex: 1,
+          minHeight: 0,
           border: 0,
           display: 'block',
         }}

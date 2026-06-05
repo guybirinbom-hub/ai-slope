@@ -84,6 +84,14 @@ import './css/wg4-companion.css';
 // bar, Spotlight) + dark-patch components. Component styles ported
 // verbatim from proposals/wg4-redesigns.html, scoped under `.wg4-screen`.
 import './css/wg4-screens.css';
+// wg4 — parchment skin for the remaining dark popups (Select/Combobox
+// dropdowns + date-picker calendar) and a fullscreen-modal shell fixup.
+// MUST load after wg4-modals.css so the modal/shell overrides win on cascade.
+import './css/wg4-popups.css';
+// Dark theme (opt-in). Declares the wg4 tokens on :root + neutral-slate
+// dark overrides gated by `html.theme-dark`. Imported last so it wins on
+// cascade. Toggle + persistence live in utils/theme.ts (Account page).
+import './css/wg4-dark.css';
 import { ErrorPage } from './pages/ErrorPage.tsx';
 import { MantineProvider } from '@mantine/core';
 

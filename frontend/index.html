@@ -42,6 +42,15 @@
       href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,14..32,400;1,14..32,500&display=swap"
       rel="stylesheet"
     />
+    <!-- wg4 theme — apply the stored dark-mode class before first paint so
+         there's no flash of the light theme on load. Mirrors utils/theme.ts. -->
+    <script>
+      try {
+        if (localStorage.getItem('wg4-theme') === 'dark') {
+          document.documentElement.classList.add('theme-dark');
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

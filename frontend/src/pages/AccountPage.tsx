@@ -1,5 +1,6 @@
 import { ColorSwatch, Popover, ColorPicker, Loader, Slider } from '@mantine/core';
 import { setPageTitle } from '@utils/document-change';
+import { CodexWinBar } from '@common/CodexWinBar';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getPublicUser } from '@auth/user-manager';
 import { GUIDE_BLUE } from '@constants/data';
@@ -17,6 +18,7 @@ import { showNotification } from '@mantine/notifications';
 import { useAtom } from 'jotai';
 import { userState } from '@atoms/userAtoms';
 import { useState } from 'react';
+import { applyTheme, getStoredTheme } from '@utils/theme';
 
 export function Component() {
   setPageTitle(`Settings`);
@@ -34,7 +36,7 @@ export function Component() {
 
   if (!data)
     return (
-      <div className='wg4 wg4-screen wg4-page-root' style={{ position: 'relative', minHeight: '100%' }}>
+      <div className='wg4 wg4-screen wg4-page-root' style={{ position: 'relative', minHeight: '100dvh', background: 'var(--wg4-page)' }}>
         <Loader
           size='lg'
           type='bars'
@@ -116,6 +118,10 @@ function ProfileSection() {
   const [openSection, setOpenSection] = useState<string>('appearance');
   const toggle = (key: string) => setOpenSection((cur) => (cur === key ? '' : key));
 
+  // wg4 light/dark theme toggle — utils/theme.ts flips `theme-dark` on <html>
+  // and persists the choice; css/wg4-dark.css does the actual recolor.
+  const [darkMode, setDarkMode] = useState(getStoredTheme() === 'dark');
+
   // Local-only build: every query/handler that fed the deleted UI is
   // gone — character / campaign / bundle counts, GM-tier benefitingUsers,
   // approvedContentUpdates → contentTier badge, patronTier badge. The
@@ -143,9 +149,10 @@ function ProfileSection() {
   return (
     <div
       className='wg4 wg4-screen wg4-page-root'
-      style={{ display: 'flex', justifyContent: 'center', padding: 16, minHeight: '100%' }}
+      style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', background: 'var(--wg4-page)' }}
     >
-      <div style={{ width: '100%', maxWidth: 460 }}>
+      <CodexWinBar subtitle='Settings' nav />
+      <div style={{ width: '100%', maxWidth: 460, margin: '0 auto', padding: 16 }}>
         {/* Local-only build: stripped the profile/avatar/name/summary/stats/
             badges/Patreon-connect/GM-tier-share blocks. None of those apply
             to a single local user, so the page is just the settings
@@ -158,6 +165,20 @@ function ProfileSection() {
             open={openSection === 'appearance'}
             onToggle={() => toggle('appearance')}
           >
+            <SettingRow label='Dark Mode' description='Switch the entire app to a dark color theme'>
+              <button
+                type='button'
+                className={`sw${darkMode ? ' on' : ''}`}
+                aria-pressed={darkMode}
+                aria-label='Toggle dark mode'
+                onClick={() => {
+                  const next = darkMode ? 'light' : 'dark';
+                  applyTheme(next);
+                  setDarkMode(next === 'dark');
+                }}
+              />
+            </SettingRow>
+
             <SettingRow label='Theme Color' description='Primary accent color for the site'>
               <Popover position='bottom-end' withArrow shadow='md'>
                 <Popover.Target>

@@ -1,0 +1,136 @@
+/* ============================================================
+   wg4-dark.css — neutral charcoal/slate dark theme (opt-in).
+
+   The wg4 palette is 15 CSS tokens used ~2400× across the app, so a
+   dark theme is mostly a token swap. This file:
+
+   (1) re-declares the LIGHT palette on :root so the tokens resolve
+       EVERYWHERE — including surfaces portaled to <body> (Select /
+       Combobox dropdowns, date calendars) that sit outside any `.wg4`
+       element. (Previously tokens were only declared on `.wg4` and the
+       per-modal bridge classes, which is why those portals needed
+       hardcoded hex.)
+
+   (2) provides DARK values gated by `html.theme-dark`, overriding the
+       light tokens at EVERY place they're declared — :root (global /
+       portals), `.wg4` (the app), and the codex bridge modal classes —
+       since CSS custom properties resolve by proximity, not selector
+       specificity, so a closer light declaration would otherwise win.
+
+   Toggle: add / remove `theme-dark` on <html> (see utils/theme.ts).
+   Absent the class, the app stays on the light parchment theme, so this
+   is fully opt-in and instantly revertible.
+
+   NOTE: token-based colors flip automatically. Hardcoded-hex spots in
+   other css files (and inline component colors) are "leaks" patched
+   incrementally as they're found.
+   ============================================================ */
+
+/* (1) Light palette on :root — global token resolution (incl. portals).
+   Same values as the canonical block in wg4.css. */
+:root {
+  --wg4-page: #e8e4d8;
+  --wg4-surface: #f6f3eb;
+  --wg4-surface-2: #efebe1;
+  --wg4-surface-hover: #ece8dd;
+  --wg4-border: #d8d3c4;
+  --wg4-border-strong: #c2bdac;
+  --wg4-border-soft: #e0dbcd;
+  --wg4-ink: #1a1a1a;
+  --wg4-ink-2: #3a3a37;
+  --wg4-ink-3: #6b6962;
+  --wg4-ink-4: #91897c;
+  --wg4-ink-5: #aea69a;
+  --wg4-accent: #b0542f;
+  --wg4-accent-soft: #ebd9cb;
+  --wg4-accent-ink: #8a3f1f;
+}
+
+/* (2) Dark palette — neutral charcoal / slate. Listed against every
+   selector where the light tokens are declared so the override wins. */
+html.theme-dark,
+html.theme-dark .wg4,
+html.theme-dark .codex-add-items,
+html.theme-dark .codex-manage-spells,
+html.theme-dark .codex-spell-picker,
+html.theme-dark .codex-select-content,
+html.theme-dark .codex-confirm-modal,
+html.theme-dark .codex-operations-modal,
+html.theme-dark .codex-select-image-modal,
+html.theme-dark .codex-edit-item,
+html.theme-dark .codex-hb-editor {
+  --wg4-page: #14161a;
+  --wg4-surface: #1c1f25;
+  --wg4-surface-2: #23272e;
+  --wg4-surface-hover: #2a2f37;
+  --wg4-border: #353a43;
+  --wg4-border-strong: #474d57;
+  --wg4-border-soft: #2b3038;
+  --wg4-ink: #e8eaed;
+  --wg4-ink-2: #c1c6cd;
+  --wg4-ink-3: #969ba4;
+  --wg4-ink-4: #6d737c;
+  --wg4-ink-5: #545a63;
+  --wg4-accent: #cf6a3f;
+  --wg4-accent-soft: #38271f;
+  --wg4-accent-ink: #e2966a;
+}
+
+/* Native form controls + scrollbars render dark; ensure the base page
+   background is dark behind any uncovered gaps. */
+html.theme-dark {
+  color-scheme: dark;
+}
+html.theme-dark body {
+  background-color: var(--wg4-page);
+}
+
+/* ---- Dark-mode emphasis fixes -------------------------------------------
+   A number of "filled" emphasis elements invert via background: var(--wg4-ink)
+   — a dark box + light text in LIGHT mode. In DARK mode --wg4-ink becomes
+   near-white, so they render as glaring light boxes; the key-ability box even
+   hardcodes white text, so it became white-on-white (unreadable). In dark
+   mode, paint these emphases with the rust accent + white text instead. */
+html.theme-dark .wg4 .abilities > .ability.key,
+html.theme-dark .wg4 .abilities > button.ability.key,
+html.theme-dark .level-emblem,
+html.theme-dark .lv-track .lv.on,
+html.theme-dark .builder-panel .panel-subhead .actions .act.on,
+html.theme-dark .hero .portrait .tag,
+html.theme-dark .prof[data-r="M"],
+html.theme-dark .pf-chip.M,
+html.theme-dark .csp-row-lvl.pf-chip.pf-L,
+html.theme-dark .cai-pg.on,
+html.theme-dark .csp-pg.on,
+html.theme-dark .ch-portrait .level,
+html.theme-dark .wg4 .codex-tab-body .inv-card .badge.invested,
+html.theme-dark .wg4 .codex-tab-body .inv-card .pill-btn.on {
+  background: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent) !important;
+  color: #fff !important;
+}
+html.theme-dark .ability.key .k,
+html.theme-dark .ability.key .mod,
+html.theme-dark .ability.key .score,
+html.theme-dark .ability.key .star,
+html.theme-dark .level-emblem .num {
+  color: #fff !important;
+}
+html.theme-dark .ability.key:hover {
+  background: var(--wg4-accent-ink) !important;
+}
+
+/* Expert (cream #dfdac9) and warn/incomplete (amber #f4e3cf) badges are
+   hardcoded light tints — repaint them as dark, readable chips. */
+html.theme-dark .prof[data-r="E"],
+html.theme-dark .pf-chip.E {
+  background: var(--wg4-surface-hover) !important;
+  color: var(--wg4-ink) !important;
+}
+html.theme-dark .lv-track .lv.incomplete,
+html.theme-dark .ch-state.warn,
+html.theme-dark .ch-card .ribbon.unfinished {
+  background: #3a3320 !important;
+  color: #e0b974 !important;
+  border-color: #5a4d2c !important;
+}

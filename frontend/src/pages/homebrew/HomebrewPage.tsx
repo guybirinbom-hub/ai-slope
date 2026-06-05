@@ -27,6 +27,7 @@ import { ContentSource } from '@schemas/content';
 import { setPageTitle } from '@utils/document-change';
 import { phoneQuery } from '@utils/mobile-responsive';
 import { pluralize, toLabel } from '@utils/strings';
+import { CodexWinBar } from '@common/CodexWinBar';
 import { useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 
@@ -35,13 +36,19 @@ export function Component() {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <div className='wg4 wg4-screen wg4-page-root' style={{ minHeight: '100%', padding: 16 }}>
-      <div style={{ maxWidth: 875, margin: '0 auto', width: '100%' }}>
-        <MyBundlesSection
-          searchQuery={searchQuery.trim()}
-          rawSearchQuery={searchQuery}
-          onSearch={setSearchQuery}
-        />
+    <div
+      className='wg4 wg4-screen wg4-page-root'
+      style={{ minHeight: '100dvh', background: 'var(--wg4-page)' }}
+    >
+      <CodexWinBar subtitle='Homebrew' nav />
+      <div style={{ padding: 16 }}>
+        <div style={{ maxWidth: 875, margin: '0 auto', width: '100%' }}>
+          <MyBundlesSection
+            searchQuery={searchQuery.trim()}
+            rawSearchQuery={searchQuery}
+            onSearch={setSearchQuery}
+          />
+        </div>
       </div>
     </div>
   );

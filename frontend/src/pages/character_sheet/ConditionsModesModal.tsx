@@ -23,7 +23,7 @@
  * walks the active list and pushes addVariableBonus for each effect.
  */
 
-import { Condition, AbilityBlock, ContentPackage, Character } from '@schemas/content';
+import { Condition, AbilityBlock, ContentPackage, LivingEntity } from '@schemas/content';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import { getAllConditions } from '@conditions/condition-handler';
 import {
@@ -38,7 +38,7 @@ import {
 } from '@modes/custom-modes';
 import { useMemo, useState } from 'react';
 import { getVariable, setVariable } from '@variables/variable-manager';
-import { VariableListStr } from '@schemas/variables';
+import { StoreID, VariableListStr } from '@schemas/variables';
 import { labelToVariable } from '@variables/variable-utils';
 import { cloneDeep } from 'lodash-es';
 
@@ -90,11 +90,20 @@ export const HARMFUL_CONDITIONS = new Set([
 export default function ConditionsModesModal(props: {
   opened: boolean;
   onClose: () => void;
-  character: Character | null;
-  setCharacter: SetterOrUpdater<Character | null>;
+  // The entity these conditions / modes apply to. Defaults to the
+  // character; companions pass their own creature + COMPANION_N store so
+  // the picker scopes to (and affects) each individual companion.
+  entity: LivingEntity | null;
+  setEntity: SetterOrUpdater<LivingEntity | null>;
+  storeId?: StoreID;
   content: ContentPackage;
 }) {
-  const { opened, onClose, character, setCharacter, content } = props;
+  const { opened, onClose, content } = props;
+  const storeId = props.storeId ?? 'CHARACTER';
+  // Internal aliases — the existing character-oriented logic below works
+  // unchanged for any LivingEntity (Character or companion Creature).
+  const character = props.entity;
+  const setCharacter = props.setEntity;
   const [tab, setTab] = useState<Tab>('conditions');
   const [search, setSearch] = useState('');
   // Selected row in the Conditions tab — `null` until the user picks.
@@ -123,7 +132,7 @@ export default function ConditionsModesModal(props: {
   // props — a useMemo over [content] would never re-fire when a feat
   // that grants modes finishes processing.
   const givenModeIds =
-    getVariable<VariableListStr>('CHARACTER', 'MODE_IDS')?.value || [];
+    getVariable<VariableListStr>(storeId, 'MODE_IDS')?.value || [];
   const builtinModes: AbilityBlock[] = content
     ? content.abilityBlocks.filter(
         (block) => block.type === 'mode' && givenModeIds.includes(block.id + '')
@@ -136,7 +145,7 @@ export default function ConditionsModesModal(props: {
       ?.custom_modes ?? [];
   const customModes = getAllCustomModes(charCustomModes);
 
-  const activeModes = (getVariable<VariableListStr>('CHARACTER', 'ACTIVE_MODES')?.value || []) as string[];
+  const activeModes = (getVariable<VariableListStr>(storeId, 'ACTIVE_MODES')?.value || []) as string[];
   const isBuiltinModeActive = (mode: AbilityBlock) =>
     activeModes.includes(labelToVariable(mode.name));
   const isCustomModeActive = (mode: CustomMode) =>
@@ -174,10 +183,10 @@ export default function ConditionsModesModal(props: {
 
   const toggleBuiltinMode = (mode: AbilityBlock) => {
     const modeName = labelToVariable(mode.name);
-    let next = getVariable<VariableListStr>('CHARACTER', 'ACTIVE_MODES')?.value || [];
+    let next = getVariable<VariableListStr>(storeId, 'ACTIVE_MODES')?.value || [];
     if (next.includes(modeName)) next = next.filter((m) => m !== modeName);
     else next = [...next, modeName];
-    setVariable('CHARACTER', 'ACTIVE_MODES', next, 'Selected');
+    setVariable(storeId, 'ACTIVE_MODES', next, 'Selected');
     setCharacter((prev) =>
       prev ? { ...prev, meta_data: { ...prev.meta_data, active_modes: cloneDeep(next) } } : null
     );
@@ -185,10 +194,10 @@ export default function ConditionsModesModal(props: {
 
   const toggleCustomMode = (mode: CustomMode) => {
     const key = getModeToggleKey(mode);
-    let next = getVariable<VariableListStr>('CHARACTER', 'ACTIVE_MODES')?.value || [];
+    let next = getVariable<VariableListStr>(storeId, 'ACTIVE_MODES')?.value || [];
     if (next.includes(key)) next = next.filter((m) => m !== key);
     else next = [...next, key];
-    setVariable('CHARACTER', 'ACTIVE_MODES', next, 'Selected');
+    setVariable(storeId, 'ACTIVE_MODES', next, 'Selected');
     setCharacter((prev) =>
       prev ? { ...prev, meta_data: { ...prev.meta_data, active_modes: cloneDeep(next) } } : null
     );

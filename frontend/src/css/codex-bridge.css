@@ -51,7 +51,8 @@
 .codex-confirm-modal,
 .codex-operations-modal,
 .codex-select-image-modal,
-.codex-edit-item {
+.codex-edit-item,
+.codex-hb-editor {
   --wg4-page: #e8e4d8;
   --wg4-surface: #f6f3eb;
   --wg4-surface-2: #efebe1;
@@ -104,7 +105,8 @@
 .mantine-Modal-root:has(.codex-confirm-modal) .mantine-Modal-overlay,
 .mantine-Modal-root:has(.codex-operations-modal) .mantine-Modal-overlay,
 .mantine-Modal-root:has(.codex-select-image-modal) .mantine-Modal-overlay,
-.mantine-Modal-root:has(.codex-edit-item) .mantine-Modal-overlay {
+.mantine-Modal-root:has(.codex-edit-item) .mantine-Modal-overlay,
+.mantine-Modal-root:has(.codex-hb-editor) .mantine-Modal-overlay {
   background-color: rgba(0, 0, 0, 0.92) !important;
   backdrop-filter: blur(2px);
 }

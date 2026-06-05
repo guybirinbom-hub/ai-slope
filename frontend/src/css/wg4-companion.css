@@ -68,6 +68,41 @@
   border: 1px solid var(--wg4-border-soft);
   display: grid;
   place-items: center;
+  position: relative;
+  cursor: pointer;
+}
+.wg4 .codex-companion .cmp-portrait:hover {
+  border-color: var(--wg4-accent);
+}
+/* DisplayIcon floats its content right + adds a left margin, which threw
+   the portrait/pill avatars off-center. Force them centered and, for real
+   uploaded images, fill the frame. */
+.wg4 .codex-companion .cmp-portrait > *,
+.wg4 .codex-companion-tab .cmp-pill-av > * {
+  float: none !important;
+  margin: 0 !important;
+}
+.wg4 .codex-companion .cmp-portrait img,
+.wg4 .codex-companion-tab .cmp-pill-av img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+/* "+" badge hinting the portrait is clickable to change the image. */
+.wg4 .codex-companion .cmp-portrait .cmp-portrait-edit {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--wg4-accent);
+  color: #fff;
+  font-size: 12px;
+  line-height: 14px;
+  text-align: center;
+  border: 1.5px solid var(--wg4-surface);
+  pointer-events: none;
 }
 .wg4 .codex-companion .cmp-name {
   font-family: var(--wg4-font-serif);
@@ -187,6 +222,46 @@
 .wg4 .codex-companion .cmp-line .muted {
   color: var(--wg4-ink-4);
 }
+/* Conditions & Modes row — condition pills + active-mode pills + a small
+   add (+) button that opens the per-companion ConditionsModesModal. */
+.wg4 .codex-companion .cmp-cond-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.wg4 .codex-companion .cmp-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--wg4-font-sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--wg4-accent-ink);
+  background: var(--wg4-accent-soft);
+  border: 1px solid var(--wg4-accent-soft);
+  border-radius: 999px;
+  padding: 1px 9px;
+}
+.wg4 .codex-companion .cmp-cm-add {
+  display: inline-grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  padding: 0;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border-strong);
+  border-radius: 50%;
+  color: var(--wg4-ink-3);
+  cursor: pointer;
+}
+.wg4 .codex-companion .cmp-cm-add:hover {
+  border-color: var(--wg4-accent);
+  color: var(--wg4-accent-ink);
+  background: var(--wg4-surface-hover);
+}
+.wg4 .codex-companion .cmp-cm-add svg { display: block; }
 /* Clickable senses — dotted underline, rust on hover. */
 .wg4 .codex-companion .cmp-sense {
   cursor: pointer;
@@ -365,25 +440,27 @@
 }
 
 /* ───────────────────────────────────────────────────────────────────
- *  Companion management bar — sticky switcher + Add Companion button.
- *  Lives at the top of the companions tab, OUTSIDE .codex-companion,
- *  so it's scoped to .codex-companion-tab. Sticky to the top of the
- *  scrolling tab body so switching / adding / (and the per-companion
- *  Edit + Delete in the stat-block header) stay reachable while the
- *  block scrolls under it.
+ *  Companion management bar — switcher pills + Add Companion button.
+ *  Lives at the top of the companions tab (.codex-companion-tab), which
+ *  renders inside `.col.main` of the document-scrolled sheet.
+ *
+ *  It is a PLAIN, in-flow block — explicitly `position: static`. An
+ *  earlier `position: sticky` (and negative margins sized for a
+ *  different parent's padding) pinned it to the top of the WINDOW and
+ *  floated it over the sheet header. No sticky, no negative margins, no
+ *  z-index: it simply sits at the top of the tab and scrolls with it.
  * ─────────────────────────────────────────────────────────────────── */
 .wg4 .codex-companion-tab {
   width: 100%;
 }
 .wg4 .codex-companion-tab .cmp-switchbar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  position: static;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  background: var(--wg4-page);
+  margin: 0 0 4px;
+  padding: 8px 0 10px;
+  background: transparent;
   border-bottom: 1px solid var(--wg4-border);
 }
 /* Switcher pill — one per companion; the active one reads rust. */
@@ -459,8 +536,8 @@
  * .wg4), so --wg4-* tokens don't resolve here — use literal parchment
  * values matching --wg4-surface / --wg4-border. */
 .cmp-add-pop.mantine-Popover-dropdown {
-  background: #f6f3eb;
-  border: 1px solid #d8d3c4;
+  background: var(--wg4-surface);
+  border: 1px solid var(--wg4-border);
 }
 
 /* ── Stat-block header: Edit / configure toggle ───────────────────── */
@@ -521,4 +598,78 @@
 }
 .wg4 .codex-companion .cmp-section-body {
   padding: 0 2px;
+}
+
+/* ── Edit "Choices" — the build-selection buttons (DisplayOperationResult
+ *    → SelectContentButton) default to Mantine's filled blue/rust bars.
+ *    Re-skin to clean parchment chips: an empty choice is a DASHED
+ *    "slot to fill"; a chosen one is a soft rust chip. Direct properties
+ *    + !important because the Mantine/bridge filled background beats the
+ *    --button-* CSS vars. */
+.wg4 .codex-companion .cmp-edit-body .selection-choice-unselected,
+.wg4 .codex-companion .cmp-edit-body .selection-choice-selected,
+.wg4 .codex-companion .cmp-edit-body .selection-choice-base .mantine-Button-root {
+  background: var(--wg4-surface) !important;
+  color: var(--wg4-accent-ink) !important;
+  border: 1px dashed var(--wg4-accent-edge, #d8b9a4) !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: none !important;
+  letter-spacing: 0.01em !important;
+}
+.wg4 .codex-companion .cmp-edit-body .selection-choice-unselected:hover {
+  background: var(--wg4-accent-soft) !important;
+  border-color: var(--wg4-accent) !important;
+}
+.wg4 .codex-companion .cmp-edit-body .selection-choice-selected,
+.wg4 .codex-companion .cmp-edit-body .selection-choice-base:has(.selection-choice-selected) .mantine-Button-root {
+  background: var(--wg4-accent-soft) !important;
+  border-style: solid !important;
+}
+/* Lay each group of selectors out as a wrapping row. The structure is
+   Stack > Stack(per-choice) > .selection-choice-base, so wrapping the
+   outer Stack puts the per-choice selectors side by side. */
+.wg4 .codex-companion .cmp-edit-body .mantine-Stack-root:has(> .mantine-Stack-root > .selection-choice-base) {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px !important;
+}
+/* Tighten the "From …" choice boxes — they were mostly empty space. */
+.wg4 .codex-companion .cmp-edit-body .cmp-section-body {
+  padding-top: 4px;
+}
+
+/* ── Use pips — mark a limited-use spell / ability as expended. ─────── */
+.wg4 .codex-companion .cmp-uses {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.wg4 .codex-companion .cmp-use {
+  cursor: pointer;
+  color: var(--wg4-accent);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+  transition: color 0.12s;
+}
+.wg4 .codex-companion .cmp-use.used {
+  color: var(--wg4-ink-5);
+}
+.wg4 .codex-companion .cmp-use:hover {
+  color: var(--wg4-accent-ink);
+}
+/* The frequency tag on an ability card. */
+.wg4 .codex-companion .cmp-ability .freq {
+  font-family: var(--wg4-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wg4-ink-4);
+  background: var(--wg4-surface-2);
+  border: 1px solid var(--wg4-border-soft);
+  border-radius: var(--wg4-r-1);
+  padding: 1px 6px;
+  margin-left: 6px;
 }

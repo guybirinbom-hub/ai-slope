@@ -446,6 +446,16 @@
   font-family: var(--wg4-font-sans);
 }
 .wg4 .lang-list .dot { color: var(--wg4-ink-5); margin: 0 6px; }
+/* Clickable language names — open the language description drawer. */
+.wg4 .lang-list .lang {
+  cursor: pointer;
+  border-bottom: 1px dotted transparent;
+  transition: color 0.12s, border-color 0.12s;
+}
+.wg4 .lang-list .lang:hover {
+  color: var(--wg4-accent-ink);
+  border-bottom-color: var(--wg4-accent);
+}
 
 /* ─── ABILITIES & SKILLS ──────────────────────────── */
 .wg4 .as-body {

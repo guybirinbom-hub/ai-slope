@@ -206,21 +206,21 @@ export function Component() {
         </div>
         <div className='center'>All your wanderers, in one tome</div>
         <div className='wbtns'>
-          <button
-            className='wbtn'
-            aria-label='Minimize'
-            onClick={() => w?.windowMinimize?.()}
-          />
-          <button
-            className='wbtn'
-            aria-label='Maximize'
-            onClick={() => w?.windowMaximize?.()}
-          />
-          <button
-            className='wbtn'
-            aria-label='Close'
-            onClick={() => w?.windowClose?.()}
-          />
+          <button className='wbtn' aria-label='Minimize' title='Minimize' onClick={() => w?.windowMinimize?.()}>
+            <svg viewBox='0 0 10 10'>
+              <path d='M1 8 L9 8' />
+            </svg>
+          </button>
+          <button className='wbtn' aria-label='Maximize' title='Maximize' onClick={() => w?.windowMaximize?.()}>
+            <svg viewBox='0 0 10 10'>
+              <path d='M1 1 L9 1 L9 9 L1 9 Z' />
+            </svg>
+          </button>
+          <button className='wbtn close' aria-label='Close' title='Close' onClick={() => w?.windowClose?.()}>
+            <svg viewBox='0 0 10 10'>
+              <path d='M1 1 L9 9 M9 1 L1 9' />
+            </svg>
+          </button>
         </div>
       </div>
 

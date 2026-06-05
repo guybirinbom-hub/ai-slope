@@ -341,6 +341,44 @@ export function resetContentStore(resetSources = true) {
   idStore = emptyIdStore();
 }
 
+/**
+ * Targeted cache eviction for the homebrew editor.
+ *
+ * Evicts ONLY the per-source content fetches (the ones keyed by
+ * `{ content_sources: [sourceId] }`, i.e. what `fetchContentPackage([sourceId])`
+ * stores) so a bundle's own content is re-fetched fresh after a create / edit /
+ * delete — while leaving the (large, unchanged) full-library cache intact.
+ *
+ * Previously the editor called `resetContentStore(false)` on every change, which
+ * wiped the entire cache and forced the whole content library (all sources, all
+ * types, every creature) to be re-downloaded each time — the source of the
+ * homebrew-editing lag.
+ */
+export function clearContentSourceCache(sourceId: number) {
+  const types: ContentType[] = [
+    'ancestry',
+    'background',
+    'class',
+    'ability-block',
+    'item',
+    'language',
+    'spell',
+    'trait',
+    'creature',
+    'archetype',
+    'versatile-heritage',
+    'class-archetype',
+  ];
+  for (const type of types) {
+    // Mirror the exact fetch key used by fetchContentAll(type, [sourceId]) →
+    // fetchContent(type, { content_sources: [sourceId] }).
+    contentStore.delete(hashFetch(type, { content_sources: [sourceId] }));
+  }
+  // The subsequent re-fetch repopulates the by-id store (idStore) with the
+  // fresh records via setStoredIds, so edited items resolve correctly by id;
+  // no separate idStore eviction is needed.
+}
+
 ///////////////////////////////////////////////////////
 //                 Utility Functions                 //
 ///////////////////////////////////////////////////////

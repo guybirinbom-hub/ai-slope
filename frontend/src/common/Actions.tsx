@@ -14,6 +14,11 @@ function ActionStructure(props: ActionStructureProps) {
     <Text pos='relative' mx={mx}>
       <Text
         {...props}
+        // Stable class so the wg4 reskin's kitchen-sink font override
+        // (.wg4 *) can be countered by a single `.wg4 .action-glyph`
+        // rule — otherwise the inline ActionIcons font loses to that
+        // !important rule and the glyph renders as the raw digit 1-5.
+        className={['action-glyph', props.className].filter(Boolean).join(' ')}
         fz={size}
         ff='ActionIcons, sans-serif'
         c={props.c ?? 'gray.5'}

@@ -62,6 +62,7 @@
 .wg4-screen .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   padding: 8px 16px;
   border-radius: var(--rpill);
@@ -71,6 +72,8 @@
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
 }
 .wg4-screen .btn:hover {

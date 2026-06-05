@@ -627,16 +627,16 @@
    These rules sit AFTER the design rules so they win on cascade.
    ═══════════════════════════════════════════════════════════════ */
 .wg4 .mantine-Modal-content {
-  background: var(--surface, #f6f3eb) !important;
-  border: 1px solid var(--border, #d8d3c4) !important;
+  background: var(--surface, var(--wg4-surface)) !important;
+  border: 1px solid var(--border, var(--wg4-border)) !important;
   border-radius: 10px !important;
   box-shadow: 0 1px 0 rgba(20,20,20,.02), 0 6px 20px rgba(20,20,20,.06), 0 18px 60px rgba(20,20,20,.05) !important;
-  color: var(--ink, #1a1a1a) !important;
+  color: var(--ink, var(--wg4-ink)) !important;
   font-family: 'Geist', ui-sans-serif, system-ui, sans-serif !important;
 }
 .wg4 .mantine-Modal-header {
-  background: var(--surface, #f6f3eb) !important;
-  border-bottom: 1px solid var(--border-soft, #e0dbcd) !important;
+  background: var(--surface, var(--wg4-surface)) !important;
+  border-bottom: 1px solid var(--border-soft, var(--wg4-border-soft)) !important;
   padding: 14px 22px 12px !important;
 }
 .wg4 .mantine-Modal-title {
@@ -644,23 +644,23 @@
   font-style: italic !important;
   font-size: 18px !important;
   font-weight: 500 !important;
-  color: var(--ink, #1a1a1a) !important;
+  color: var(--ink, var(--wg4-ink)) !important;
   letter-spacing: -0.01em !important;
 }
 .wg4 .mantine-Modal-body {
-  background: var(--surface, #f6f3eb) !important;
-  color: var(--ink, #1a1a1a) !important;
+  background: var(--surface, var(--wg4-surface)) !important;
+  color: var(--ink, var(--wg4-ink)) !important;
   padding: 16px 22px !important;
 }
 .wg4 .mantine-Modal-close,
 .wg4 .mantine-CloseButton-root {
-  color: var(--ink-3, #6b6962) !important;
+  color: var(--ink-3, var(--wg4-ink-3)) !important;
   background: transparent !important;
 }
 .wg4 .mantine-Modal-close:hover,
 .wg4 .mantine-CloseButton-root:hover {
-  background: var(--surface-hover, #ece8dd) !important;
-  color: var(--ink, #1a1a1a) !important;
+  background: var(--surface-hover, var(--wg4-surface-hover)) !important;
+  color: var(--ink, var(--wg4-ink)) !important;
 }
 .wg4 .mantine-Modal-overlay {
   background-color: rgba(26, 24, 18, 0.55) !important;
@@ -668,20 +668,20 @@
 
 /* Filled (primary) Mantine buttons inside modals → rust */
 .wg4 .mantine-Modal-content .mantine-Button-root[data-variant='filled'] {
-  background: var(--accent, #b0542f) !important;
-  border-color: var(--accent, #b0542f) !important;
+  background: var(--accent, var(--wg4-accent)) !important;
+  border-color: var(--accent, var(--wg4-accent)) !important;
   color: #fff !important;
 }
 .wg4 .mantine-Modal-content .mantine-Button-root[data-variant='filled']:hover {
-  background: var(--accent-ink, #8a3f1f) !important;
-  border-color: var(--accent-ink, #8a3f1f) !important;
+  background: var(--accent-ink, var(--wg4-accent-ink)) !important;
+  border-color: var(--accent-ink, var(--wg4-accent-ink)) !important;
 }
 .wg4 .mantine-Modal-content .mantine-Button-root[data-variant='outline'],
 .wg4 .mantine-Modal-content .mantine-Button-root[data-variant='default'],
 .wg4 .mantine-Modal-content .mantine-Button-root[data-variant='light'] {
-  background: var(--surface, #f6f3eb) !important;
-  border-color: var(--border, #d8d3c4) !important;
-  color: var(--ink-2, #3a3a37) !important;
+  background: var(--surface, var(--wg4-surface)) !important;
+  border-color: var(--border, var(--wg4-border)) !important;
+  color: var(--ink-2, var(--wg4-ink-2)) !important;
 }
 
 /* Inputs inside modals */
@@ -690,19 +690,19 @@
 .wg4 .mantine-Modal-content .mantine-Select-input,
 .wg4 .mantine-Modal-content .mantine-Textarea-input,
 .wg4 .mantine-Modal-content .mantine-NumberInput-input {
-  background: var(--surface, #f6f3eb) !important;
-  border-color: var(--border, #d8d3c4) !important;
-  color: var(--ink, #1a1a1a) !important;
+  background: var(--surface, var(--wg4-surface)) !important;
+  border-color: var(--border, var(--wg4-border)) !important;
+  color: var(--ink, var(--wg4-ink)) !important;
   font-family: 'Geist', ui-sans-serif, system-ui, sans-serif !important;
 }
 .wg4 .mantine-Modal-content .mantine-Input-input:focus,
 .wg4 .mantine-Modal-content .mantine-TextInput-input:focus,
 .wg4 .mantine-Modal-content .mantine-Select-input:focus,
 .wg4 .mantine-Modal-content .mantine-Textarea-input:focus {
-  border-color: var(--accent, #b0542f) !important;
+  border-color: var(--accent, var(--wg4-accent)) !important;
 }
 .wg4 .mantine-Modal-content .mantine-InputLabel-root {
-  color: var(--ink-2, #3a3a37) !important;
+  color: var(--ink-2, var(--wg4-ink-2)) !important;
   font-family: 'Geist', ui-sans-serif, system-ui, sans-serif !important;
   font-weight: 600 !important;
 }

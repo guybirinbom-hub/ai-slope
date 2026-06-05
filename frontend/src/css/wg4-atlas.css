@@ -33,21 +33,21 @@
  * Redeclare them inside `.wg4` so the ported selectors below work
  * without rewriting every var() call. Values match the mockup. */
 .wg4 {
-  --page: #e8e4d8;
-  --surface: #f6f3eb;
-  --surface-2: #efebe1;
-  --surface-hover: #ece8dd;
-  --border: #d8d3c4;
-  --border-strong: #c2bdac;
-  --border-soft: #e0dbcd;
-  --ink: #1a1a1a;
-  --ink-2: #3a3a37;
-  --ink-3: #6b6962;
-  --ink-4: #91897c;
-  --ink-5: #aea69a;
-  --accent: #b0542f;
-  --accent-soft: #ebd9cb;
-  --accent-ink: #8a3f1f;
+  --page: var(--wg4-page);
+  --surface: var(--wg4-surface);
+  --surface-2: var(--wg4-surface-2);
+  --surface-hover: var(--wg4-surface-hover);
+  --border: var(--wg4-border);
+  --border-strong: var(--wg4-border-strong);
+  --border-soft: var(--wg4-border-soft);
+  --ink: var(--wg4-ink);
+  --ink-2: var(--wg4-ink-2);
+  --ink-3: var(--wg4-ink-3);
+  --ink-4: var(--wg4-ink-4);
+  --ink-5: var(--wg4-ink-5);
+  --accent: var(--wg4-accent);
+  --accent-soft: var(--wg4-accent-soft);
+  --accent-ink: var(--wg4-accent-ink);
   --shadow-card: 0 1px 0 rgba(20,20,20,.02), 0 1px 2px rgba(20,20,20,.03);
   --r-1: 4px;
   --r-2: 6px;
@@ -92,12 +92,18 @@
   padding: 8px 18px !important;
   font-size: 11px !important;
   color: var(--ink-4) !important;
-  background: transparent !important;
+  /* Opaque parchment so scrolled content doesn't show through the
+     sticky top bar. */
+  background: var(--page) !important;
   border-bottom: 0 !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
   height: auto !important;
   grid-template-columns: none !important;
+  /* The whole bar is the window-drag handle (frameless window —
+     titleBarStyle:'hidden', no native buttons). Buttons below opt out
+     with no-drag so they stay clickable. */
+  -webkit-app-region: drag !important;
 }
 .wg4 .winbar .brand {
   display: flex !important;
@@ -136,22 +142,41 @@
   display: flex !important;
   gap: 4px !important;
   align-items: center !important;
+  /* Opt the control cluster out of the window-drag region so the OS
+     doesn't eat clicks on min/max/close (and the optional nav). */
+  -webkit-app-region: no-drag !important;
 }
+/* Window controls — match the builder's icon buttons (min / max / close
+   with real glyphs), not empty dots. */
 .wg4 .winbar .wbtn {
-  width: 11px !important;
-  height: 11px !important;
-  border-radius: 50% !important;
-  background: var(--border) !important;
+  width: 18px !important;
+  height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 4px !important;
+  background: transparent !important;
   border: 0 !important;
   padding: 0 !important;
   cursor: pointer !important;
-  color: transparent !important;
+  color: var(--ink-4) !important;
+  -webkit-app-region: no-drag !important;
 }
 .wg4 .winbar .wbtn svg {
-  display: none !important;
+  display: block !important;
+  width: 9px !important;
+  height: 9px !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.4 !important;
+  stroke-linecap: round !important;
 }
 .wg4 .winbar .wbtn:hover {
-  background: var(--border-strong) !important;
+  background: var(--surface-2) !important;
+  color: var(--ink-2) !important;
+}
+.wg4 .winbar .wbtn.close:hover {
+  background: var(--accent-soft) !important;
+  color: var(--accent-ink) !important;
 }
 
 /* App header — sigil + brand name on left, hamburger on right. */
@@ -838,18 +863,18 @@
 .wg4 .ch-ctxmenu,
 .ch-ctxmenu {
   min-width: 180px;
-  background: #f6f3eb;
-  background: var(--surface, #f6f3eb);
-  border: 1px solid #d8d3c4;
-  border: 1px solid var(--border, #d8d3c4);
+  background: var(--wg4-surface);
+  background: var(--surface, var(--wg4-surface));
+  border: 1px solid var(--wg4-border);
+  border: 1px solid var(--border, var(--wg4-border));
   border-radius: 6px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06);
   padding: 4px 0;
   z-index: 10000;
   font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
   font-family: var(--font-sans, 'Geist', ui-sans-serif, system-ui, sans-serif);
-  color: #1a1a1a;
-  color: var(--ink, #1a1a1a);
+  color: var(--wg4-ink);
+  color: var(--ink, var(--wg4-ink));
   font-size: 13px;
 }
 .wg4 .ch-ctxmenu-item,
