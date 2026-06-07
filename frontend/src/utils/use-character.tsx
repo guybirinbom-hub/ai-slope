@@ -367,6 +367,16 @@ export default function useCharacter(
         // logic that checks both.
         queryClient.setQueryData(['find-character', characterId], c);
         queryClient.setQueryData(['find-character', String(characterId)], c);
+        // Keep the roster's LIST cache (['find-character'], no id) in sync too,
+        // so the Characters page reflects edits made on the sheet — hero
+        // points, HP, level, name, etc. — without needing a manual refresh.
+        // Without this, the list query keeps its pre-edit snapshot and shows
+        // stale values (e.g. hero-point pips that don't match the sheet).
+        queryClient.setQueryData<Character[] | undefined>(['find-character'], (list) =>
+          Array.isArray(list)
+            ? list.map((ch) => (`${ch.id}` === `${characterId}` ? { ...ch, ...c } : ch))
+            : list
+        );
       }
     },
     onError: () => {

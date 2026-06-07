@@ -63,7 +63,12 @@ export function getInvBulk(inv: Inventory | undefined) {
     }
     return sum;
   };
-  return sumBulk(inv?.items ?? []);
+  const itemBulk = sumBulk(inv?.items ?? []);
+  // Coins: 1,000 coins of any combination of denominations = 1 Bulk (PF2e).
+  // Amounts below the next full thousand are negligible, so we floor.
+  const c = inv?.coins;
+  const coinCount = (c?.cp ?? 0) + (c?.sp ?? 0) + (c?.gp ?? 0) + (c?.pp ?? 0);
+  return itemBulk + Math.floor(coinCount / 1000);
 }
 
 /**

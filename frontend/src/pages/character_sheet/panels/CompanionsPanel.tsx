@@ -49,12 +49,12 @@ import { selectContent } from '@common/select/SelectContent';
 import { getEntityLevel } from '@utils/entity-utils';
 import { IMPRINT_BG_COLOR, IMPRINT_BORDER_COLOR } from '@constants/data';
 import { convertToSetEntity } from '@utils/type-fixing';
-import { getFinalAcValue, getFinalHealthValue, getFinalProfValue } from '@variables/variable-helpers';
+import { getFinalAcValue, getFinalHealthValue, getFinalProfValue, getSpeedValue } from '@variables/variable-helpers';
 import { addVariableBonus, getAllSkillVariables, getAllSpeedVariables, getVariable } from '@variables/variable-manager';
 import { compileProficiencyType, labelToVariable, variableToLabel } from '@variables/variable-utils';
 import { getCachedContent, getContentFast } from '@content/content-store';
 import { drawerState } from '@atoms/navAtoms';
-import type { VariableAttr, VariableListStr } from '@schemas/variables';
+import type { VariableAttr, VariableListStr, VariableNum } from '@schemas/variables';
 import { sign } from '@utils/numbers';
 
 import { ConditionPills } from '../sections/ConditionSection';
@@ -552,9 +552,18 @@ function CompanionSheet(props: {
 
   // Speeds + senses for the Senses & Speed section.
   const speedVars = getAllSpeedVariables(STORE_ID);
+  // Filter by the RAW speed value (so a creature without a Fly/Swim/etc.
+  // speed — base 0 — stays hidden), but DISPLAY the computed total so armor
+  // speed penalties, modes, and other bonuses are reflected (matching the
+  // Speed popup and the main sheet). getSpeedValue floors at 5, so it can't
+  // be used for the has-this-speed check.
   const speeds = speedVars
-    .map((v) => ({ name: v.name, value: (v.value as number) ?? 0 }))
-    .filter((s) => s.value > 0);
+    .map((v) => ({
+      name: v.name,
+      raw: (v.value as number) ?? 0,
+      value: getSpeedValue(STORE_ID, v as VariableNum, creature).total,
+    }))
+    .filter((s) => s.raw > 0);
 
   const formatSense = (s: string) =>
     s

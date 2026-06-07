@@ -1,4 +1,4 @@
-/* wg4-character-sheet.css — design CSS extracted from D:/Inst/Character Sheet.html
+/* wg4-character-sheet.css ג€” design CSS extracted from D:/Inst/Character Sheet.html
  * Wrapped in @scope (.codex-root.wg4) so it only applies to the character sheet.
  * The :root variables become :scope (scoped to the .wg4 codex-root element).
  * The html, body rule is converted to :scope so the wg4 surface gets background/font defaults.
@@ -6,26 +6,26 @@
 
 @scope (.codex-root.wg4) {
   :scope {
-    /* Surfaces — darker warm-paper page, slightly off-white cards. */
+    /* Surfaces ג€” darker warm-paper page, slightly off-white cards. */
     --page: var(--wg4-page);
     --surface: var(--wg4-surface);
     --surface-2: var(--wg4-surface-2);
     --surface-hover: var(--wg4-surface-hover);
     --surface-active: var(--wg4-ink);
 
-    /* Borders — hairline. */
+    /* Borders ג€” hairline. */
     --border: var(--wg4-border);
     --border-strong: var(--wg4-border-strong);
     --border-soft: var(--wg4-border-soft);
 
-    /* Ink — text is the structure. */
+    /* Ink ג€” text is the structure. */
     --ink: var(--wg4-ink);
     --ink-2: var(--wg4-ink-2);
     --ink-3: var(--wg4-ink-3);
     --ink-4: var(--wg4-ink-4);
     --ink-5: var(--wg4-ink-5);
 
-    /* Single accent — rust. Sparingly. */
+    /* Single accent ג€” rust. Sparingly. */
     --accent: var(--wg4-accent);
     --accent-soft: var(--wg4-accent-soft);
     --accent-ink: var(--wg4-accent-ink);
@@ -429,7 +429,7 @@
 
   .lang-list { display: flex; flex-wrap: wrap; gap: 4px; }
   .lang { font-size: 11.5px; color: var(--ink-2); }
-  .lang + .lang::before { content: "·"; color: var(--ink-5); margin: 0 8px 0 4px; }
+  .lang + .lang::before { content: "ֲ·"; color: var(--ink-5); margin: 0 8px 0 4px; }
 
   /* ============================== PROFICIENCY CHIP ============================== */
   .prof {
@@ -448,8 +448,8 @@
   .prof[data-r="L"] { color: var(--accent); background: var(--accent-soft); }
 
   /* ============================== ABILITIES + SKILLS COMBO ============================== */
-  /* One block that pairs the 6 ability tiles (2-col × 3-row) on the
-     left with a 3-col skill ladder filling the rest — same layout
+  /* One block that pairs the 6 ability tiles (2-col ֳ— 3-row) on the
+     left with a 3-col skill ladder filling the rest ג€” same layout
      ratio the reference uses. Skills inside its block split into 3
      columns of compact rows so we end up at "4 skill items visible
      in a horizontal scan" across the page (ability column + 3 cols). */
@@ -581,7 +581,7 @@
     margin-top: 1px;
   }
 
-  /* Section sub-header (e.g. "× STRIKES · ONE ACTION EACH") inside the
+  /* Section sub-header (e.g. "ֳ— STRIKES ֲ· ONE ACTION EACH") inside the
      Activities card. Quiet, all-caps, sits above its 4-up row. */
   .sub-head {
     display: flex; align-items: center; gap: 8px;
@@ -643,20 +643,20 @@
   ::selection { background: var(--accent-soft); color: var(--accent-ink); }
 
   /* ============================== SPELLS PAGE ============================== */
-  /* Source-of-truth layout from SpellsPanel.tsx — preserves the
+  /* Source-of-truth layout from SpellsPanel.tsx ג€” preserves the
      position of every header, control, and section:
        1. Tradition banner   (one strip per spellcasting source)
        2. Search + Manage    (toolbar row beneath the banner)
        3. COMPOSITIONS       (focus spells, with focus-point pips)
        4. CANTRIPS           ("ALWAYS AVAILABLE")
-       5. 1st…Nth RANK       (each with its own slot pips on the right)
+       5. 1stג€¦Nth RANK       (each with its own slot pips on the right)
        6. (Innate / Wand / Rituals as their own follow-on blocks)
      Each section renders its spells as a 4-up card grid. Empty ranks
      display "No spells." in italic serif and still show their slot
      pips so the ladder reads complete. */
   .spells-stack { display: flex; flex-direction: column; gap: 14px; }
 
-  /* Tradition banner — bold left rust stripe + uppercase tradition,
+  /* Tradition banner ג€” bold left rust stripe + uppercase tradition,
      italic-serif repertoire type, mono attribute / atk / DC chips. */
   .sp-tradition, .tradition-line {
     display: flex; align-items: baseline; gap: 14px;
@@ -687,7 +687,7 @@
   .sp-tradition .stat b, .tradition-line .stat b { color: var(--ink); font-weight: 600; }
   .sp-tradition .sep, .tradition-line .sep { color: var(--ink-5); }
 
-  /* Toolbar — full-width search + Manage button */
+  /* Toolbar ג€” full-width search + Manage button */
   .sp-toolbar, .spell-search {
     display: flex; align-items: stretch; gap: 8px;
   }
@@ -736,7 +736,7 @@
   .sp-section-head .meta .nums b { color: var(--ink); font-weight: 600; }
   .sp-section-head .pips { display: inline-flex; gap: 4px; }
 
-  /* Diamond pip — used for spell slots, focus points, etc. */
+  /* Diamond pip ג€” used for spell slots, focus points, etc. */
   .dia-pip {
     width: 11px; height: 11px;
     border: 1.4px solid var(--accent);
@@ -749,11 +749,11 @@
   .dia-pip.on { background: var(--accent); }
   .dia-pip:hover { border-color: var(--accent-ink); }
   .dia-pip.on:hover { background: var(--accent-ink); }
-  /* Muted variant — for ranks with no spells, the pips read quieter. */
+  /* Muted variant ג€” for ranks with no spells, the pips read quieter. */
   .dia-pip.muted { border-color: var(--ink-4); }
   .dia-pip.muted.on { background: var(--ink-4); }
 
-  /* Card grid — 4 per row */
+  /* Card grid ג€” 4 per row */
   .sp-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -777,13 +777,13 @@
     transition: background .1s, border-color .1s;
   }
   .sp-card:hover, .sp:hover { background: var(--surface-2); border-color: var(--border-strong); }
-  /* Signature spell — rust 3px stripe along the LEFT edge of the
+  /* Signature spell ג€” rust 3px stripe along the LEFT edge of the
    * card. Previous version had `.sp-card.fav, .sp.signature::before`
    * which mis-parses: ::before only applies to the LAST selector, so
    * the rule's `position:absolute; top:0; bottom:0; width:3px` was
    * applied to the WHOLE `.sp-card.fav` element, turning it into a
    * 3px tall vertical rust bar floating somewhere on the page.
-   * Click that bar → it's still a spell card under the hood, so a
+   * Click that bar ג†’ it's still a spell card under the hood, so a
    * spell opens. Fix the selector so ::before is on BOTH. */
   .sp-card.fav::before, .sp.signature::before {
     content: ""; position: absolute; left: 0; top: 0; bottom: 0;
@@ -837,7 +837,7 @@
   .sp-card.exhausted .sub, .sp.exhausted .sub { color: var(--ink-5); }
   .sp-card.exhausted .meta, .sp.exhausted .meta { color: var(--ink-5); }
 
-  /* Add placeholder card — dashed border, fills the row tail */
+  /* Add placeholder card ג€” dashed border, fills the row tail */
   .sp-card.add, .sp-add {
     border: 1px dashed var(--border-strong);
     background: transparent;
@@ -863,7 +863,7 @@
   /* ============================== INVENTORY PAGE ============================== */
   /* Mirror InventoryPanel.tsx: top currency strip + bulk indicator,
      toolbar with search + ALL/EQUIPPED + Add Item, then sectioned
-     groups (Equipped → Carried → each container). Item cards reuse
+     groups (Equipped ג†’ Carried ג†’ each container). Item cards reuse
      the .act-card layout from the Main tab. */
   .inv-stack, .inv-stack { display: flex; flex-direction: column; gap: 14px; }
 
@@ -969,7 +969,7 @@
     font-weight: 500;
   }
 
-  /* Toolbar — search + ALL/EQUIPPED pills + Add Item */
+  /* Toolbar ג€” search + ALL/EQUIPPED pills + Add Item */
   .inv-toolbar { display: flex; align-items: stretch; gap: 8px; }
   .inv-toolbar .search-strip { flex: 1; margin-bottom: 0; }
   .inv-filter-pills {
@@ -1056,21 +1056,21 @@
     width: 3px; background: var(--accent);
     border-radius: var(--r-2) 0 0 var(--r-2);
   }
-  .inv-card ., .inv-row .icon-cell {
+  .inv-card .icon-cell, .inv-row .icon-cell {
     width: 26px; height: 26px;
     display: grid; place-items: center;
     color: var(--ink-2);
     background: var(--surface-2);
     border-radius: var(--r-1);
   }
-  .inv-card ., .inv-row .info { min-width: 0; }
-  .inv-card ., .inv-row .name {
+  .inv-card .info, .inv-row .info { min-width: 0; }
+  .inv-card .name, .inv-row .name {
     font-size: 12.5px; font-weight: 500;
     color: var(--ink); letter-spacing: -0.005em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     display: flex; align-items: center; gap: 5px;
   }
-  .inv-card ., .inv-row .qty {
+  .inv-card .qty, .inv-row .qty {
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--ink-4);
@@ -1079,18 +1079,18 @@
     border-radius: 4px;
     font-weight: 500;
   }
-  .inv-card ., .inv-row .sub {
+  .inv-card .sub, .inv-row .sub {
     font-size: 10.5px; color: var(--ink-4);
     margin-top: 1px;
     font-family: var(--font-mono);
     letter-spacing: -0.005em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .inv-card ., .inv-row .meta {
+  .inv-card .meta, .inv-row .meta {
     display: flex; align-items: center; gap: 8px;
     flex-shrink: 0;
   }
-  .inv-card ., .inv-row .bulk {
+  .inv-card .bulk, .inv-row .bulk {
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--ink-3);
@@ -1099,14 +1099,14 @@
     text-align: right;
     line-height: 1.2;
   }
-  .inv-card ., .inv-row .bulk b { color: var(--ink); font-weight: 600; }
-  .inv-card ., .inv-row .bulk .lbl {
+  .inv-card .bulk b, .inv-row .bulk b { color: var(--ink); font-weight: 600; }
+  .inv-card .bulk .lbl, .inv-row .bulk .lbl {
     display: block;
     font-size: 9px;
     color: var(--ink-4);
     letter-spacing: 0.1em;
   }
-  .inv-card ., .inv-row .pill-btn {
+  .inv-card .pill-btn, .inv-row .pill-btn {
     appearance: none;
     border: 1px solid var(--border);
     background: var(--surface);
@@ -1118,13 +1118,13 @@
     cursor: pointer;
     letter-spacing: -0.005em;
   }
-  .inv-card ., .inv-row .pill-btn:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--ink); }
-  .inv-card ., .inv-row .pill-btn.on {
+  .inv-card .pill-btn:hover, .inv-row .pill-btn:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--ink); }
+  .inv-card .pill-btn.on, .inv-row .pill-btn.on {
     background: var(--ink);
     color: var(--surface);
     border-color: var(--ink);
   }
-  .inv-card ., .inv-row .pill-btn.on:hover { background: #2a2a2a; }
+  .inv-card .pill-btn.on:hover, .inv-row .pill-btn.on:hover { background: #2a2a2a; }
   .inv-card.unworn .icon-cell { color: var(--ink-4); }
 
   /* Empty container hint */
@@ -1314,7 +1314,7 @@
     box-shadow: 0 1px 3px rgba(20,20,20,.04), 0 4px 16px rgba(20,20,20,.03);
     min-height: 600px;
   }
-  /* Decorative corner brackets — match the original codex aesthetic
+  /* Decorative corner brackets ג€” match the original codex aesthetic
      but in the new rust tone and at a quieter weight. */
   .leaf::before,
   .leaf::after,
@@ -1416,7 +1416,7 @@
     border: 1px solid var(--accent-ink);
   }
 
-  /* Editor body — paper text */
+  /* Editor body ג€” paper text */
   .leaf-body {
     font-family: var(--font-serif);
     font-size: 14.5px;
@@ -1492,7 +1492,7 @@
      tag and a Lv stamp on the right. */
   .ff-stack { display: flex; flex-direction: column; gap: 14px; }
 
-  /* Banner — one-line tradition-style header with the count tally */
+  /* Banner ג€” one-line tradition-style header with the count tally */
   .ff-banner, .feat-summary {
     display: flex; align-items: baseline; gap: 14px;
     flex-wrap: wrap;
@@ -1503,24 +1503,24 @@
     padding: 14px 18px;
     box-shadow: var(--shadow-card);
   }
-  .ff-banner ., .feat-summary .name {
+  .ff-banner .name, .feat-summary .name {
     font-size: 12.5px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.14em;
     color: var(--ink);
   }
-  .ff-banner ., .feat-summary .sep { color: var(--ink-5); }
-  .ff-banner ., .feat-summary .stat {
+  .ff-banner .sep, .feat-summary .sep { color: var(--ink-5); }
+  .ff-banner .stat, .feat-summary .stat {
     font-family: var(--font-mono);
     font-size: 11.5px;
     color: var(--ink-3);
     letter-spacing: -0.005em;
   }
-  .ff-banner ., .feat-summary .stat b { color: var(--ink); font-weight: 600; margin-right: 2px; }
-  .ff-banner ., .feat-summary .stat em { font-style: italic; font-family: var(--font-serif); color: var(--ink-3); }
+  .ff-banner .stat b, .feat-summary .stat b { color: var(--ink); font-weight: 600; margin-right: 2px; }
+  .ff-banner .stat em, .feat-summary .stat em { font-style: italic; font-family: var(--font-serif); color: var(--ink-3); }
 
   /* Toolbar */
-  .ff-toolbar, .feat-search { display: flex; align-items: stretch; gap: 8px; }
-  .ff-toolbar ., .feat-search .search-strip { flex: 1; margin-bottom: 0; }
+  .ff-toolbar, .feat-search { display: flex; align-items: stretch; gap: 8px; background: transparent; border: 0; padding: 0; margin-bottom: 0; }
+  .ff-toolbar .search-strip, .feat-search .search-strip { flex: 1; margin-bottom: 0; }
   .ff-filter-pills {
     display: flex;
     border: 1px solid var(--border);
@@ -1598,26 +1598,26 @@
     transition: background .1s, border-color .1s;
   }
   .ff-card:hover, .feat:hover { background: var(--surface-2); border-color: var(--border-strong); }
-  .ff-card ., .feat .info { min-width: 0; }
-  .ff-card ., .feat .name {
+  .ff-card .info, .feat .info { min-width: 0; }
+  .ff-card .name, .feat .name {
     font-size: 13px; font-weight: 600;
     color: var(--ink); letter-spacing: -0.005em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .ff-card ., .feat .sub {
+  .ff-card .sub, .feat .sub {
     font-size: 10.5px; color: var(--ink-4);
     font-family: var(--font-serif); font-style: italic;
     margin-top: 2px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .ff-card ., .feat .tag {
+  .ff-card .tag, .feat .tag {
     display: flex; flex-direction: column; align-items: flex-end;
     gap: 1px;
     flex-shrink: 0;
     text-align: right;
     line-height: 1.2;
   }
-  .ff-card ., .feat .tag .lbl {
+  .ff-card .tag .lbl, .feat .tag .lbl {
     font-family: var(--font-mono);
     font-size: 9.5px;
     font-weight: 600;
@@ -1625,7 +1625,7 @@
     letter-spacing: 0.12em;
     color: var(--ink-3);
   }
-  .ff-card ., .feat .tag .lv {
+  .ff-card .tag .lv, .feat .tag .lv {
     font-family: var(--font-mono);
     font-size: 12px;
     font-weight: 500;
@@ -1634,10 +1634,10 @@
     text-transform: uppercase;
   }
   /* Color-code the kind tag */
-  .ff-card ., .feat .tag .lbl[data-k="FEATURE"] { color: var(--ink-2); }
-  .ff-card ., .feat .tag .lbl[data-k="FEAT"]    { color: var(--ink-2); }
-  .ff-card ., .feat .tag .lbl[data-k="SKILL"]   { color: var(--ink-3); }
-  .ff-card ., .feat .tag .lbl[data-k="GENERAL"] { color: var(--ink-3); }
+  .ff-card .tag .lbl[data-k="FEATURE"], .feat .tag .lbl[data-k="FEATURE"] { color: var(--ink-2); }
+  .ff-card .tag .lbl[data-k="FEAT"]   , .feat .tag .lbl[data-k="FEAT"]    { color: var(--ink-2); }
+  .ff-card .tag .lbl[data-k="SKILL"]  , .feat .tag .lbl[data-k="SKILL"]   { color: var(--ink-3); }
+  .ff-card .tag .lbl[data-k="GENERAL"], .feat .tag .lbl[data-k="GENERAL"] { color: var(--ink-3); }
 
   .ff-empty {
     padding: 8px 4px;
@@ -1646,7 +1646,7 @@
   }
 
   /* ============================== DETAILS ============================== */
-  /* Mirrors CodexDetailsPanel.tsx — dossier hero + vital stats +
+  /* Mirrors CodexDetailsPanel.tsx ג€” dossier hero + vital stats +
      prose blocks (Appearance / Personality / Beliefs) on the LEFT
      half of the .col main; Origins / Proficiencies / Traits & Size
      on the RIGHT half. The character's main vitals rail stays in
@@ -1700,7 +1700,7 @@
     display: inline-flex; align-items: center; gap: 8px;
   }
   .dh-eyebrow::before, .dh-eyebrow::after {
-    content: "✦";
+    content: "ג¦";
     color: var(--accent);
     font-size: 10px;
     opacity: 0.7;
@@ -1781,7 +1781,7 @@
   .dossier-text.long { min-height: 130px; }
   .dossier-text::placeholder { color: var(--ink-5); font-style: italic; }
 
-  /* Creed block — special "what they live by" field */
+  /* Creed block ג€” special "what they live by" field */
   .creed-block {
     display: grid; grid-template-columns: 90px 1fr;
     border: 1px solid var(--border);
@@ -1916,7 +1916,7 @@
     margin-top: 4px;
   }
 
-  /* sec-title sub label — for "edit any field" / "three threads" etc */
+  /* sec-title sub label ג€” for "edit any field" / "three threads" etc */
   .sec-title .sub-meta {
     font-family: var(--font-serif);
     font-style: italic;

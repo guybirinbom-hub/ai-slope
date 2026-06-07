@@ -6,7 +6,6 @@ import { CHARACTER_SLOT_CAP } from '@constants/data';
 import { resetContentStore } from '@content/content-store';
 import exportToJSON from '@export/export-to-json';
 import exportToPDF from '@export/export-to-pdf';
-import { importFromFTC } from '@import/ftc/import-from-ftc';
 import importFromGUIDECHAR from '@import/guidechar/import-from-guidechar';
 import importFromJSON from '@import/json/import-from-json';
 import PathbuilderInputModal from '@import/pathbuilder/PathbuilderInputModal';
@@ -46,8 +45,7 @@ import { useAtom, useAtomValue } from 'jotai';
  *   - React-Query `find-character` for the roster
  *   - createCharacter / setCharacterArchived / deleteCharacter /
  *     createCharacterCopy mutations
- *   - importFromFTC (random/quickstart), importFromJSON, importFromPathbuilder,
- *     importFromGUIDECHAR
+ *   - importFromJSON, importFromPathbuilder, importFromGUIDECHAR
  *   - Electron min/max/close via the wgElectron preload bridge
  *   - `/` keyboard hotkey focuses the search input
  *   - Patreon-aware CHARACTER_SLOT_CAP
@@ -74,7 +72,6 @@ export function Component() {
 
   const [loadingImportCharacter, setLoadingImportCharacter] = useState(false);
   const [loadingCreateCharacter, setLoadingCreateCharacter] = useState(false);
-  const [loadingCreateRandomCharacter, setLoadingCreateRandomCharacter] = useState(false);
 
   const jsonImportRef = useRef<HTMLButtonElement>(null);
   const guidecharImportRef = useRef<HTMLButtonElement>(null);
@@ -109,36 +106,6 @@ export function Component() {
     const character = await createCharacter();
     if (character) navigate(`/builder/${character.id}`);
     setLoadingCreateCharacter(false);
-  };
-
-  const handleRollRandomCharacter = async () => {
-    setLoadingCreateRandomCharacter(true);
-    showNotification({
-      id: 'create-random-character',
-      title: 'Rolling fate…',
-      message: 'Spinning up a random character. This may take a minute.',
-      autoClose: false,
-      withCloseButton: false,
-      loading: true,
-    });
-    const character = await importFromFTC({
-      version: '1.0',
-      data: {
-        name: 'RANDOM',
-        class: 'RANDOM',
-        background: 'RANDOM',
-        ancestry: 'RANDOM',
-        level: Math.floor(Math.random() * 20) + 1,
-        content_sources: 'ALL',
-        selections: 'RANDOM',
-        items: [],
-        spells: [],
-        conditions: [],
-      },
-    });
-    hideNotification('create-random-character');
-    if (character) navigate(`/sheet/${character.id}`);
-    setLoadingCreateRandomCharacter(false);
   };
 
   const reachedCharacterLimit =
@@ -189,7 +156,7 @@ export function Component() {
   return (
     <div className='codex-root wg4'>
       <CodexLoadingOverlay
-        visible={loadingCreateCharacter || loadingCreateRandomCharacter || loadingImportCharacter}
+        visible={loadingCreateCharacter || loadingImportCharacter}
         tailMs={0}
       />
 
@@ -363,7 +330,6 @@ export function Component() {
           {!isLoading && !reachedCharacterLimit && (
             <AddCard
               loadingCreate={loadingCreateCharacter}
-              onQuickStart={handleRollRandomCharacter}
               onBuilder={handleCreateCharacter}
               onImport={() => jsonImportRef.current?.click()}
               onPathbuilder={() => setOpenedPathbuilderModal(true)}
@@ -790,8 +756,7 @@ function CharacterCard(props: {
 }
 
 /**
- * "Forge a New Hero" tile — last cell of the grid. Three mini buttons:
- *  - Quick Start (random / FTC)
+ * "Forge a New Hero" tile — last cell of the grid. Two mini buttons:
  *  - Builder (creates a blank character and navigates to /builder)
  *  - Import (file picker for .json)
  *
@@ -800,13 +765,12 @@ function CharacterCard(props: {
  */
 function AddCard(props: {
   loadingCreate: boolean;
-  onQuickStart: () => void;
   onBuilder: () => void;
   onImport: () => void;
   onPathbuilder: () => void;
   onGuidechar: () => void;
 }) {
-  const { loadingCreate, onQuickStart, onBuilder, onImport } = props;
+  const { loadingCreate, onBuilder, onImport } = props;
   return (
     <div
       className='ch-card add'
@@ -824,16 +788,6 @@ function AddCard(props: {
       <div className='t'>{loadingCreate ? 'Inscribing…' : 'Forge a New Hero'}</div>
       <div className='s'>Begin from a blank page, or let the dice decide your fate.</div>
       <div className='actions'>
-        <button
-          type='button'
-          className='mini-btn'
-          onClick={(e) => {
-            e.stopPropagation();
-            onQuickStart();
-          }}
-        >
-          Quick Start
-        </button>
         <button
           type='button'
           className='mini-btn'

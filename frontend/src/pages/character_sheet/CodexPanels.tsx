@@ -17,7 +17,7 @@ import { useAtom } from 'jotai';
 import { drawerState } from '@atoms/navAtoms';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { collectEntitySpellcasting, collectEntityAbilityBlocks } from '@content/collect-content';
+import { collectEntitySpellcasting, collectEntityAbilityBlocks, getFocusPoints } from '@content/collect-content';
 import { getVariable } from '@variables/variable-manager';
 import { VariableListStr, VariableNum } from '@schemas/variables';
 import { labelToVariable } from '@variables/variable-utils';
@@ -349,14 +349,41 @@ function SpSectionHead(props: {
 // Two flavors of the diamond-pip cluster on the right of section
 // headings.  Slot pips fill left-to-right with used slots; focus pips
 // fill with the player's current focus points.
-function SpSlotIndicator(props: { total: number; used: number; muted?: boolean }) {
+function SpSlotIndicator(props: {
+  total: number;
+  used: number;
+  muted?: boolean;
+  onSetAvailable?: (n: number) => void;
+}) {
   if (props.total <= 0) return null;
+  // A filled pip = an AVAILABLE (unspent) slot — matching the focus
+  // indicator below, so after a Rest (used=0) every slot reads as full.
+  // (Previously filled meant "used", which made a freshly-rested caster's
+  // full slots look empty.) Pips are clickable to spend/restore slots.
+  const available = Math.max(0, props.total - props.used);
   return (
     <>
       <span className='nums'>SLOTS</span>
       <span className='pips'>
         {Array.from({ length: props.total }, (_, i) => (
-          <span key={i} className={`dia-pip${props.muted ? ' muted' : ''}${i < props.used ? ' on' : ''}`} />
+          <span
+            key={i}
+            className={`dia-pip${props.muted ? ' muted' : ''}${i < available ? ' on' : ''}`}
+            style={props.onSetAvailable ? { cursor: 'pointer' } : undefined}
+            title={
+              props.onSetAvailable ? (i < available ? 'Spend this slot' : 'Restore this slot') : undefined
+            }
+            onClick={
+              props.onSetAvailable
+                ? (e) => {
+                    e.stopPropagation();
+                    // Click pip i → make (i+1) slots available; click the
+                    // last filled one again to drop to i (toggle off).
+                    props.onSetAvailable!(i + 1 === available ? i : i + 1);
+                  }
+                : undefined
+            }
+          />
         ))}
       </span>
     </>
@@ -645,13 +672,19 @@ export function CodexSpellsPanel(props: {
   };
 
   // Focus pool (focus spells / compositions) — current vs max.
-  const focusCurrent = character?.spells?.focus_point_current ?? 0;
-  const focusMax = charData?.focus?.length
-    ? Math.min(3, charData.focus.length)
-    : 0;
+  // Use the REAL accessible focus pool — the same calc Rest uses
+  // (getFocusPoints): focus cantrips don't count, FOCUS_POINT_BONUS feats add
+  // extra, capped at 3. This shows the pool the character actually has (1/2/3)
+  // instead of a raw focus-spell count, and keeps the tracker consistent with
+  // what a Rest refills to.
+  const focusMax =
+    character && charData ? getFocusPoints('CHARACTER', character, charData.focus).max : 0;
+  // Clamp the saved current to the real max so an older save that stored a
+  // higher value (e.g. 3 when the pool is really 2) never shows "3 / 2".
+  const focusCurrent = Math.min(focusMax, character?.spells?.focus_point_current ?? 0);
 
   const setFocusPoints = (next: number) => {
-    const clamped = Math.max(0, Math.min(focusMax || 3, next));
+    const clamped = Math.max(0, Math.min(focusMax, next));
     props.setCharacter((c) =>
       c
         ? {
@@ -1211,7 +1244,7 @@ export function CodexSpellsPanel(props: {
                   right={
                     <SpFocusIndicator
                       current={focusCurrent}
-                      max={focusMax || 3}
+                      max={focusMax}
                       onAdjust={setFocusPoints}
                     />
                   }
@@ -1400,7 +1433,36 @@ export function CodexSpellsPanel(props: {
                   <SpSectionHead
                     icon={<SpDiaIcon />}
                     label={`${rankNumber(rank)} Rank`}
-                    right={<SpSlotIndicator total={totalSlots} used={usedSlots} muted={isEmpty} />}
+                    right={
+                      <SpSlotIndicator
+                        total={totalSlots}
+                        used={usedSlots}
+                        muted={isEmpty}
+                        onSetAvailable={(n) => {
+                          props.setCharacter((c) => {
+                            if (!c) return c;
+                            // Set the first `n` of this rank's slots available
+                            // (exhausted=false) and the rest spent — so the
+                            // pips behave like the focus dots. Recompute slots
+                            // the same way the prepare/cast handlers do.
+                            let avail = n;
+                            const slots = collectEntitySpellcasting('CHARACTER', c as LivingEntity).slots.map((s) => {
+                              if (s.source !== source.name || s.rank !== rank) return s;
+                              const makeAvail = avail > 0;
+                              if (makeAvail) avail--;
+                              return { ...s, exhausted: !makeAvail };
+                            });
+                            return {
+                              ...c,
+                              spells: {
+                                ...(c.spells ?? { slots: [], list: [], focus_point_current: 0, innate_casts: [] }),
+                                slots,
+                              },
+                            };
+                          });
+                        }}
+                      />
+                    }
                     onToggle={() => toggleCollapsed(rankId)}
                   />
                   {isEmpty ? (
@@ -1841,6 +1903,28 @@ export function CodexInventoryPanel(props: {
     });
   };
 
+  // Inline coin editing — click a denomination's number and type the new
+  // amount. No drawer; updates the live store directly. Works for both the
+  // player and a companion (entity/setEntity resolve to whichever store drives
+  // this panel).
+  const setCoin = (denom: 'cp' | 'sp' | 'gp' | 'pp', raw: string) => {
+    const n = Math.max(0, parseInt(raw.replace(/[^0-9]/g, ''), 10) || 0);
+    setEntity((prev) =>
+      prev
+        ? {
+            ...prev,
+            inventory: {
+              ...(prev.inventory ?? { coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, items: [] }),
+              coins: {
+                ...(prev.inventory?.coins ?? { cp: 0, sp: 0, gp: 0, pp: 0 }),
+                [denom]: n,
+              },
+            },
+          }
+        : prev
+    );
+  };
+
   return (
     <div className='codex-tab-body inv-stack'>
       {/* ─── 1. Top strip ──────────────────────────────────────────
@@ -1851,27 +1935,40 @@ export function CodexInventoryPanel(props: {
             ├─ .coins-row > 4× .coin > .pic.disk + .v + .k
             └─ .bulk-indicator > .eyebrow + .line + .rule + .caption */}
       <div className='wealth-strip inv-top'>
-        <div className='coins-row'>
-          <div className='coin pp' title='Platinum pieces'>
-            <span className='pic disk'>P</span>
-            <span className='v'>{coins.pp ?? 0}</span>
-            <span className='k'>Platinum</span>
-          </div>
-          <div className='coin gp' title='Gold pieces'>
-            <span className='pic disk'>G</span>
-            <span className='v'>{coins.gp ?? 0}</span>
-            <span className='k'>Gold</span>
-          </div>
-          <div className='coin sp' title='Silver pieces'>
-            <span className='pic disk'>S</span>
-            <span className='v'>{coins.sp ?? 0}</span>
-            <span className='k'>Silver</span>
-          </div>
-          <div className='coin cp' title='Copper pieces'>
-            <span className='pic disk'>C</span>
-            <span className='v'>{coins.cp ?? 0}</span>
-            <span className='k'>Copper</span>
-          </div>
+        <div className='coins-row' title='Click a number to edit your coins'>
+          {(
+            [
+              ['pp', 'P', 'Platinum'],
+              ['gp', 'G', 'Gold'],
+              ['sp', 'S', 'Silver'],
+              ['cp', 'C', 'Copper'],
+            ] as const
+          ).map(([denom, glyph, label]) => {
+            const val = coins[denom] ?? 0;
+            return (
+              <div className={`coin ${denom}`} key={denom} title={`${label} pieces`}>
+                <span className='pic disk'>{glyph}</span>
+                <input
+                  className='v'
+                  type='text'
+                  inputMode='numeric'
+                  aria-label={`${label} pieces`}
+                  size={Math.max(2, String(val).length)}
+                  value={val}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => setCoin(denom, e.target.value)}
+                  style={{
+                    border: 0,
+                    background: 'transparent',
+                    outline: 'none',
+                    padding: 0,
+                    textAlign: 'center',
+                  }}
+                />
+                <span className='k'>{label}</span>
+              </div>
+            );
+          })}
         </div>
         <div
           className={`bulk-indicator${isEncumbered ? ' over' : ''}`}
@@ -2577,7 +2674,10 @@ export function CodexFeatsPanel(props: {
 
       {/* Toolbar */}
       <div className='feat-search'>
-        <div className='field'>
+        <div className='search-strip'>
+          <span className='icon'>
+            <SpSearchIcon />
+          </span>
           <input
             type='text'
             value={searchQuery}

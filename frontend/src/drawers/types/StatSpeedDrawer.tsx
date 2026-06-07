@@ -81,9 +81,12 @@ export function StatSpeedDrawerContent(props: { data: { id: StoreID; entity: Liv
           <Wg4.Lbl>Temporary speed</Wg4.Lbl>
           <Group gap={8} mt={5} wrap='nowrap' align='center'>
             <NumberInput
-              value={tempSpeed ?? ''}
+              // Pre-fill with the current computed speed so the player can just
+              // bump it (step 5) — e.g. a +5 status bonus is one press of the up
+              // arrow. tempActive still keys off the STORED temp_speed, so this
+              // pre-fill doesn't mark a temporary override until they change it.
+              value={tempSpeed ?? primary.data.total}
               onChange={(v) => setTempSpeed(v === '' || v === null || v === undefined ? null : Number(v))}
-              placeholder={`${primary.data.total}`}
               min={0}
               step={5}
               suffix=' ft'

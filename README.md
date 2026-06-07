@@ -5,14 +5,20 @@ machine — no Docker, no Supabase cloud, no internet required after install.
 
 ## Download
 
-**[➡ Download the latest portable Windows build](https://github.com/guybirinbom-hub/wg/releases/latest/download/Wanderers-Guide-Portable.exe)**
+**[➡ Download the latest Windows installer](https://github.com/guybirinbom-hub/ai-slope/releases/latest/download/Wanderers-Guide-Setup.exe)**
 
-One file. Double-click to run — no installer, no admin rights, no setup
-wizard. Postgres + content (~47 MB) initialize on first launch (takes
-~30-60 seconds); after that, startup is fast.
+Run the installer — it adds **Wanderer's Guide** to your Start menu and
+desktop so you can reopen it any time. On first launch, Postgres and the
+bundled content initialize (takes ~30–60 seconds, with a progress screen);
+after that, startup is fast.
 
-To uninstall: open Settings → Uninstall inside the app. That wipes both
-the user data folder and the app itself in one click.
+> Prefer not to install? There's also a
+> **[portable build](https://github.com/guybirinbom-hub/ai-slope/releases/latest/download/Wanderers-Guide-Portable.exe)**
+> — one file, no install — but it unpacks itself on every launch and creates
+> no shortcut, so most people should use the installer above.
+
+To uninstall: open Settings → Uninstall inside the app, or use Windows'
+"Add or remove programs". That wipes both the user-data folder and the app.
 
 Forked from the open-source [wanderers-guide/wanderers-guide][upstream]
 (GPL-3.0). The upstream targets cloud-hosted Supabase. This fork replaces

@@ -1,6 +1,6 @@
 import { getConditionByName } from '@conditions/condition-handler';
 import { collectEntitySpellcasting, getFocusPoints } from '@content/collect-content';
-import { filterByTraitType, getMaxUses } from '@items/inv-utils';
+import { filterByTraitType, getMaxUses, getCurrentUses } from '@items/inv-utils';
 import { LivingEntity } from '@schemas/content';
 import { StoreID, VariableAttr, VariableNum, VariableProf } from '@schemas/variables';
 import { getFinalHealthValue } from '@variables/variable-helpers';
@@ -256,18 +256,21 @@ export function handleRest(id: StoreID, entity: LivingEntity, setEntity?: Setter
     };
   }
 
-  // Reset charges on every remaining charged item — magic items with
-  // "Frequency once/twice/N per day", scrolls (one-shot but the user
-  // might have picked one by mistake), and anything explicitly
-  // storing `meta_data.charges`. The wand/stave loops above already
-  // covered those; this loop sweeps everything else. We only touch
-  // items that have either an explicit `charges` record OR a parsed
-  // `getMaxUses` > 0 — items without either are left alone, since
-  // setting `current: 0` on an item with no use cap would be noise.
+  // Reset every remaining use-tracked item to FULL — magic items with
+  // "Frequency once/twice/N per day", talismans, and anything storing
+  // `meta_data.charges` or with a parsed `getMaxUses` > 0.
   //
-  // Setting `current: 0` follows the rest of this file's convention
-  // for "fresh, unspent" charges. The drawer displays "current/max"
-  // remaining = `max - current`, so current=0 means full charges.
+  // The staff/wand loops above already handled those items, and they use
+  // the OPPOSITE charge convention (`current` = charges SPENT, so
+  // current=0 means full — see WandSpellsList/StaffSpellsList). So we skip
+  // them here by id to avoid clobbering them.
+  //
+  // For these inventory-drawer items the use tracker (getCurrentUses /
+  // InvItemDrawer) reads `meta_data.charges.current` as uses REMAINING:
+  // current=max is full, current=0 is empty. A rest must therefore set
+  // current=max. (The previous code set current=0, which actually EMPTIED
+  // every item on rest instead of refreshing it.)
+  const restHandledIds = new Set([...staves, ...wands].map((it) => it.id));
   newEntity.inventory = {
     ...(newEntity.inventory ?? {
       coins: { cp: 0, sp: 0, gp: 0, pp: 0 },
@@ -275,12 +278,12 @@ export function handleRest(id: StoreID, entity: LivingEntity, setEntity?: Setter
     }),
     items:
       newEntity.inventory?.items.map((i) => {
+        if (restHandledIds.has(i.id)) return i; // staff/wand handled above (spent model)
         const max = i.item.meta_data?.charges?.max ?? getMaxUses(i.item);
         if (max <= 0) return i;
-        // Skip if already at fresh charges to avoid an unnecessary
-        // clone (handleRest is called on every Refresh and a no-op
-        // shouldn't churn state).
-        if ((i.item.meta_data?.charges?.current ?? 0) === 0 && i.item.meta_data?.charges?.max === max) {
+        // Skip if already full to avoid an unnecessary clone (handleRest
+        // runs on every Rest and a no-op shouldn't churn state).
+        if (getCurrentUses(i.item) === max && (i.item.meta_data?.charges?.max ?? max) === max) {
           return i;
         }
         return {
@@ -291,7 +294,7 @@ export function handleRest(id: StoreID, entity: LivingEntity, setEntity?: Setter
               ...i.item.meta_data!,
               charges: {
                 ...i.item.meta_data?.charges,
-                current: 0,
+                current: max, // full = all uses remaining
                 max,
               },
             },

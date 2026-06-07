@@ -10,7 +10,7 @@
  */
 
 import { LivingEntity, Character, ContentPackage, InventoryItem, AbilityBlock } from '@schemas/content';
-import { isItemShield } from '@items/inv-utils';
+import { isItemShield, isItemBroken } from '@items/inv-utils';
 import { handleUpdateItem, handleDeleteItem, handleMoveItem } from '@items/inv-handlers';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import { useState, useEffect, Fragment } from 'react';
@@ -26,9 +26,11 @@ import {
   getFinalHealthValue,
   getFinalProfValue,
   getProfValueParts,
+  getSpeedValue,
   getVariableBreakdown,
 } from '@variables/variable-helpers';
 import { getAcParts } from '@items/armor-handler';
+import { getBestArmor } from '@items/inv-utils';
 import { compileProficiencyType, labelToVariable } from '@variables/variable-utils';
 import {
   CustomMode,
@@ -164,11 +166,20 @@ export default function CodexSheet(props: {
   const tempHp = character?.hp_temp ?? 0;
   const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
 
-  const ac = getFinalAcValue('CHARACTER');
+  // AC must be computed against the EQUIPPED armor (its item AC bonus, dex
+  // cap, and the matching armor proficiency) — exactly what the AC popup does
+  // via getBestArmor. Calling getFinalAcValue with no item returns the
+  // UNARMORED value, which is why the cube read low and never changed when the
+  // character's armor was swapped.
+  const ac = getFinalAcValue('CHARACTER', getBestArmor('CHARACTER', character?.inventory)?.item);
   const classDcStr = getFinalProfValue('CHARACTER', 'CLASS_DC', true);
   const spellDcStr = getFinalProfValue('CHARACTER', 'SPELL_DC', true);
   const dcMerged = classDcStr === spellDcStr;
-  const speed = getVariable<VariableNum>('CHARACTER', 'SPEED')?.value ?? 25;
+  // Speed must include bonuses and penalties (armor speed penalty, modes,
+  // conditions, Unburdened Iron, etc.). The raw SPEED variable value omits
+  // them; getSpeedValue applies the same adjustments the Speed popup shows.
+  const speedVar = getVariable<VariableNum>('CHARACTER', 'SPEED');
+  const speed = speedVar ? getSpeedValue('CHARACTER', speedVar, character).total : 25;
   // Temporary speed override (typed in the Speed popup). When set it
   // replaces the displayed Speed and is shown in the accent color.
   const tempSpeed = (character?.meta_data as { temp_speed?: number } | undefined)?.temp_speed;
@@ -178,9 +189,9 @@ export default function CodexSheet(props: {
     !!getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value &&
     compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value) !== 'U';
 
-  // Equipped shields — used only if we want to show a shield breakdown
-  // chip somewhere. Not surfaced in the new vitals card (would clutter
-  // the two-cell pair), but kept available via the resists drawer.
+  // Equipped shields — surfaced as a "Shield" cube next to AC in the vitals
+  // (below) so the shield's bonus AC (when raised) is visible at a glance.
+  // Clicking the cube opens the shield's item drawer (raise / damage / repair).
   const equippedShields = (character?.inventory?.items ?? []).filter(
     (i) => i.is_equipped && isItemShield(i.item)
   ) as InventoryItem[];
@@ -656,6 +667,51 @@ export default function CodexSheet(props: {
                         <div className='k'>Armor Class</div>
                         <div className='num v'>{ac}</div>
                       </div>
+                      {equippedShields.length > 0 &&
+                        (() => {
+                          const shield = equippedShields[0];
+                          const hp = shield.item.meta_data?.hp;
+                          const hpTracked = hp !== undefined && hp !== null;
+                          // Destroyed: HP tracked and at/below 0. Broken: HP at
+                          // or below the Broken Threshold (but not destroyed).
+                          const destroyed = hpTracked && Number(hp) <= 0;
+                          const broken = !destroyed && isItemBroken(shield.item);
+                          return (
+                            <div
+                              className='tile pcell'
+                              style={{ cursor: 'pointer' }}
+                              title='Shield bonus to AC (when raised) — click to manage the shield'
+                              onClick={() => openShieldDrawer(cloneDeep(shield))}
+                            >
+                              <div className='k'>
+                                Shield
+                                {(destroyed || broken) && (
+                                  <span
+                                    style={{
+                                      marginLeft: 6,
+                                      fontSize: 8,
+                                      fontWeight: 700,
+                                      letterSpacing: '0.08em',
+                                      padding: '1px 4px',
+                                      borderRadius: 3,
+                                      textTransform: 'uppercase',
+                                      background: destroyed ? 'rgba(214,69,59,0.18)' : 'rgba(207,106,63,0.18)',
+                                      color: destroyed ? '#e0584c' : '#cf6a3f',
+                                    }}
+                                  >
+                                    {destroyed ? 'Destroyed' : 'Broken'}
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                className='num v'
+                                style={destroyed ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}
+                              >
+                                {sign(shield.item.meta_data?.ac_bonus ?? 0)}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       {hasSpellcasting && !dcMerged && (
                         <div
                           className='tile pcell'
