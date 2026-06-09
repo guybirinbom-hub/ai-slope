@@ -42,6 +42,7 @@ export const OperationTypeSchema = z.enum([
   'giveTrait',
   'giveSpellSlot',
   'injectSelectOption',
+  'injectOption',
   'injectText',
   'sendNotification',
   'defineCastingSource',
@@ -250,6 +251,23 @@ export const OperationInjectSelectOptionSchema = z.object({
 });
 export type OperationInjectSelectOption = z.infer<typeof OperationInjectSelectOptionSchema>;
 
+// Inject Option — adds a specific piece of existing content (a feat/spell/item/
+// etc., by id) as an extra choosable option inside one of the CHARACTER's own
+// select menus. Unlike injectSelectOption (which injects hand-written CUSTOM
+// options), this targets one of the character's live selects (by its operation
+// id, `selectId`) and injects a content reference (`type` + `id`), which the
+// select-resolution engine fetches and appends to that select's option list.
+export const OperationInjectOptionSchema = z.object({
+  id: z.string(),
+  type: z.literal('injectOption'),
+  data: z.object({
+    selectId: z.string(),
+    type: z.union([ContentTypeSchema, AbilityBlockTypeSchema]),
+    id: z.number(),
+  }),
+});
+export type OperationInjectOption = z.infer<typeof OperationInjectOptionSchema>;
+
 // ─── Select Filter schemas (non-recursive — inferred) ─────────────────────────
 
 export const OperationSelectFiltersAbilityBlockSchema = z.object({
@@ -398,6 +416,7 @@ export type Operation =
   | OperationGiveItem
   | OperationGiveTrait
   | OperationInjectSelectOption
+  | OperationInjectOption
   | OperationInjectText
   | OperationSendNotification
   | OperationDefineCastingSource;
@@ -472,6 +491,7 @@ export const OperationSchema: z.ZodType<Operation> = z.lazy(() =>
     OperationGiveItemSchema,
     OperationGiveTraitSchema,
     OperationInjectSelectOptionSchema,
+    OperationInjectOptionSchema,
     OperationInjectTextSchema,
     OperationSendNotificationSchema,
     OperationDefineCastingSourceSchema,

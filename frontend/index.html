@@ -27,20 +27,22 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat&family=Ubuntu+Mono&display=swap" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic-regular.min.css" rel="stylesheet" />
-    <!-- Codex theme fonts (Cinzel + Cormorant Garamond + IM Fell English SC).
-         Loaded here so the parchment/codex aesthetic is available globally
-         from first paint, not just after the React bundle parses. -->
+    <!-- Fonts load NON-render-blocking (media=print, swapped to all on load) so
+         a slow or offline font fetch can never blank the page during startup.
+         Until they load the UI falls back to system fonts (no blank screen). -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat&family=Ubuntu+Mono&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <link href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic-regular.min.css" rel="stylesheet" media="print" onload="this.media='all'" />
     <link
       href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=IM+Fell+English+SC&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
-    <!-- wg4 redesign fonts — parchment palette uses Geist (sans),
-         Newsreader italic (serif headings/prose), Geist Mono (numbers). -->
     <link
       href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,14..32,400;1,14..32,500&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
     <!-- wg4 theme — apply the stored dark-mode class before first paint so
          there's no flash of the light theme on load. Mirrors utils/theme.ts. -->
@@ -51,8 +53,70 @@
         }
       } catch (e) {}
     </script>
+    <!-- Boot bridge. index.html paints instantly, but the React bundle takes a
+         beat to parse — without this the page would flash blank (white / the
+         window's backdrop) between the Electron splash and React's own loader.
+         This matches codex-loading.html's palette so the hand-off is seamless;
+         main.tsx removes #wg-boot once React has mounted. -->
+    <style>
+      html { background: #e8e4d8; }
+      html.theme-dark { background: #14161a; }
+      /* Override Mantine's default body colour (codex-bridge sets it to the old
+         brown #15110b) so the body backdrop matches the wg4 palette — no
+         old-design flash behind the loader. */
+      body { margin: 0; background: #e8e4d8 !important; }
+      html.theme-dark body { background: #14161a !important; }
+      #wg-boot {
+        position: fixed; inset: 0; z-index: 99999;
+        display: grid; place-items: center;
+        background: #e8e4d8;
+      }
+      html.theme-dark #wg-boot { background: #14161a; }
+      #wg-boot i {
+        width: 42px; height: 42px; border-radius: 50%;
+        border: 3px solid rgba(176, 84, 47, 0.22);
+        border-top-color: #b0542f;
+        animation: wg-boot-spin 0.8s linear infinite;
+      }
+      html.theme-dark #wg-boot i {
+        border-color: rgba(207, 106, 63, 0.22);
+        border-top-color: #cf6a3f;
+      }
+      /* The app's real d20 loader (the same /codex-loading.html used everywhere
+         else) covers the spinner the instant it paints, so the very first thing
+         shown at startup IS the app's loading screen — not a plain spinner. The
+         spinner shows only for the brief moment before the iframe's first paint. */
+      #wg-boot iframe {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        border: 0; display: block;
+      }
+      @keyframes wg-boot-spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
+    <div id="wg-boot"><i></i><iframe id="wg-boot-frame" title="Loading"></iframe></div>
+    <script>
+      /* Tint the boot loader to the saved GLOBAL accent from the very first
+         paint. Without this the boot iframe would load with the default rust
+         for ~1s (until React's loader, which reads the same accent, takes
+         over) — a visible flash for anyone who changed their accent. We read
+         the same cached user (localStorage 'user-data') that getCachedPublicUser
+         uses, and fall back to codex-loading.html's default when unset. */
+      (function () {
+        var accent;
+        try {
+          var u = JSON.parse(localStorage.getItem('user-data') || '{}');
+          var c = u && u.site_theme && u.site_theme.color;
+          if (c && /^#[0-9a-fA-F]{3,8}$/.test(c)) accent = c;
+        } catch (e) {}
+        var frame = document.getElementById('wg-boot-frame');
+        if (frame) frame.src = '/codex-loading.html' + (accent ? '?accent=' + encodeURIComponent(accent) : '');
+        if (accent) {
+          var sp = document.querySelector('#wg-boot i');
+          if (sp) sp.style.borderTopColor = accent;
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

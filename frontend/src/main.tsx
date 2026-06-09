@@ -146,21 +146,6 @@ const router = createBrowserRouter([
             lazy: async () => import('@pages/admin_panel/AdminPage.tsx'),
           },
           {
-            path: 'auth/patreon/redirect',
-            lazy: async () => import('@pages/PatreonRedirectPage.tsx'),
-          },
-          {
-            path: 'gm-share/:gmUserId',
-            lazy: () => import('@pages/GmSharePage.tsx'),
-            loader: async ({ params }: { params: any }) => {
-              return { gmUserId: params.gmUserId };
-            },
-          },
-          {
-            path: 'oauth/access',
-            lazy: async () => import('@pages/OAuthAccessPage.tsx'),
-          },
-          {
             path: 'builder/:characterId',
             lazy: () => import('@pages/character_builder/CharacterBuilderPage.tsx'),
             loader: async ({ params }: { params: any }) => {
@@ -179,10 +164,6 @@ const router = createBrowserRouter([
         loader: async ({ params }: { params: any }) => {
           return { characterId: params.characterId };
         },
-      },
-      {
-        path: 'sheet-unauthorized',
-        lazy: () => import('@pages/character_sheet/UnauthorizedSheetPage.tsx'),
       },
       {
         // Local-only build: there's no marketing landing page, the
@@ -212,11 +193,6 @@ const router = createBrowserRouter([
       {
         path: 'content-cleaning-source',
         lazy: () => import('@pages/ContentCleaningSourcePage.tsx'),
-      },
-      {
-        // Legacy Character Redirect
-        path: 'profile/characters/:id',
-        lazy: () => import('@pages/LegacyRedirectPage.tsx'),
       },
       {
         // Local-only build: dropped /login + /update-password.
@@ -254,4 +230,17 @@ root.render(
       </QueryClientProvider>
     </MantineProvider>
   </StrictMode>
+);
+
+// Remove the boot bridge (#wg-boot in index.html) once React has painted its
+// first frame, fading out so the hand-off to the app's own loading UI is
+// seamless — no blank/white flash between the Electron splash and React.
+requestAnimationFrame(() =>
+  requestAnimationFrame(() => {
+    const boot = document.getElementById('wg-boot');
+    if (!boot) return;
+    boot.style.transition = 'opacity 0.25s ease';
+    boot.style.opacity = '0';
+    setTimeout(() => boot.remove(), 260);
+  })
 );

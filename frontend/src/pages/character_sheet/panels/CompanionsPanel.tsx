@@ -29,7 +29,6 @@ import { convertKeyToBasePrefix } from '@operations/operation-utils';
 import { DisplayOperationResult } from '@pages/character_builder/CharBuilderCreation';
 import { collectEntityAbilityBlocks, collectEntitySpellcasting } from '@content/collect-content';
 import RichText from '@common/RichText';
-import { Wg4 } from '@common/wg4/primitives';
 import { addExtraItems, checkBulkLimit } from '@items/inv-handlers';
 import {
   applyEquipmentPenalties,
@@ -65,7 +64,7 @@ import { getAllCustomModes, getModeToggleKey, type CustomMode } from '@modes/cus
 // block; Edit swaps in these full editors so the player can actually
 // configure the companion (attacks/inventory, spells, abilities,
 // details, notes).
-import { CodexInventoryPanel } from '@pages/character_sheet/CodexPanels';
+import { CodexInventoryPanel, ActionGlyph, actionCostToGlyph } from '@pages/character_sheet/CodexPanels';
 
 /* ───────────────────────────────────────────────────────────────────
  *  CompanionsPanel
@@ -725,7 +724,7 @@ function CompanionSheet(props: {
 
   const renderStrike = (s: (typeof strikeItems)[number], i: number) => (
     <div className='cmp-strike' key={`${s.name}-${i}`}>
-      <span className='lab'>{'◆'} {s.name}</span> <span className='acc'>{sign(s.toHit)}</span>{' '}
+      <span className='lab'><ActionGlyph cost={1} /> {s.name}</span> <span className='acc'>{sign(s.toHit)}</span>{' '}
       {s.traits.length > 0 && <span className='traits'>({s.traits.join(', ')})</span>}
       {s.traits.length > 0 ? ', ' : ' '}
       <b>Damage</b>{' '}
@@ -1004,23 +1003,15 @@ function CompanionSheet(props: {
           {abilityBlocks.length > 0 && (
             <>
               <div className='cmp-sub'>Abilities</div>
-              {abilityBlocks.map((ability, i) => (
-                <div
-                  className='cmp-ability'
-                  key={`${ability.id}-${i}`}
-                  onClick={() =>
-                    openDrawer({
-                      type: 'action',
-                      data: { action: ability },
-                      extra: { addToHistory: true },
-                    })
-                  }
-                >
+              {abilityBlocks.map((ability, i) => {
+                const actGlyph = actionCostToGlyph(ability.actions);
+                return (
+                <div className='cmp-ability' key={`${ability.id}-${i}`}>
                   <div className='nm'>
                     <span>{ability.name}</span>
-                    {ability.actions && (
+                    {actGlyph !== null && (
                       <span className='act'>
-                        <Wg4.ActionGlyph cost={ability.actions} size={16} />
+                        <ActionGlyph cost={actGlyph} />
                       </span>
                     )}
                     {/* Limited-use ability → frequency tag + use tracker. */}
@@ -1043,7 +1034,8 @@ function CompanionSheet(props: {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </>
           )}
 

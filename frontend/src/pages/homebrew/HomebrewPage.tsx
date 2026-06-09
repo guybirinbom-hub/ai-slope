@@ -27,7 +27,7 @@ import { ContentSource } from '@schemas/content';
 import { setPageTitle } from '@utils/document-change';
 import { phoneQuery } from '@utils/mobile-responsive';
 import { pluralize, toLabel } from '@utils/strings';
-import { CodexWinBar } from '@common/CodexWinBar';
+import { CodexTopBars } from '@common/CodexTopBars';
 import { useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 
@@ -40,7 +40,7 @@ export function Component() {
       className='wg4 wg4-screen wg4-page-root'
       style={{ minHeight: '100dvh', background: 'var(--wg4-page)' }}
     >
-      <CodexWinBar subtitle='Homebrew' nav />
+      <CodexTopBars subtitle='Homebrew' tagline='Your homebrew, bound and shelved' />
       <div style={{ padding: 16 }}>
         <div style={{ maxWidth: 875, margin: '0 auto', width: '100%' }}>
           <MyBundlesSection

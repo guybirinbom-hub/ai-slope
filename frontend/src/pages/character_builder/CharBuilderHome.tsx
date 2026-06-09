@@ -1,6 +1,6 @@
 import { generateNames } from '@ai/fantasygen-dev/name-controller';
 import { GUIDE_BLUE } from '@constants/data';
-import { Stack, Group, Box, Title, Text, ActionIcon, HoverCard, List, Anchor } from '@mantine/core';
+import { Stack, Group, Box, Title, Text, ActionIcon, HoverCard, List, Anchor, ColorInput } from '@mantine/core';
 import { modals, openContextModal } from '@mantine/modals';
 import { showNotification } from '@mantine/notifications';
 import {
@@ -1005,6 +1005,20 @@ export default function CharBuilderHome(props: {
                         }
                       : prev
                   );
+                  // Reliable commit, mirroring applyColor below: seed the sheet's
+                  // character cache AND persist straight to the DB, so a toggle
+                  // like "Dice Roller" takes effect on the sheet immediately
+                  // instead of riding on the debounced autosave (whose onSuccess
+                  // cache-sync was the dead `c === null` path). Without this the
+                  // sheet kept reading stale cached options and the toggle
+                  // appeared to do nothing.
+                  if (character) {
+                    const newOptions = { ...character.options, [key]: enabled };
+                    const updated = { ...character, options: newOptions };
+                    queryClient.setQueryData(['find-character', character.id], updated);
+                    queryClient.setQueryData(['find-character', `${character.id}`], updated);
+                    makeRequest('update-character', { id: character.id, options: newOptions }).catch(() => {});
+                  }
                 };
                 const optionDefs: Array<{
                   key: string;
@@ -1044,13 +1058,6 @@ export default function CharBuilderHome(props: {
                     info: `Disables the negative effects of carrying too much bulk, such as adding the encumbered condition.`,
                   },
                   {
-                    key: 'is_public',
-                    name: 'Public Character',
-                    glyph: '◐',
-                    sub: "Anyone with the link can view this character's sheet (read-only).",
-                    info: `Makes your character public and viewable by anyone with your sheet link:\n\n_https://wanderersguide.app/sheet/${character?.id}_`,
-                  },
-                  {
                     key: 'voluntary_flaws',
                     name: 'Voluntary Flaw',
                     glyph: '❉',
@@ -1065,23 +1072,20 @@ export default function CharBuilderHome(props: {
                     info: `Enables an area to add custom operations to your character. These are executed before most other operations.`,
                   },
                 ];
-                const swatches: Array<{ key: string; gradient: string; hex: string }> = [
-                  { key: 'gold', gradient: 'linear-gradient(135deg, #c9a13b, #8a6f25)', hex: '#c9a13b' },
-                  { key: 'crimson', gradient: 'linear-gradient(135deg, #a83a25, #6f1f10)', hex: '#a83a25' },
-                  { key: 'sage', gradient: 'linear-gradient(135deg, #5b7148, #344128)', hex: '#5b7148' },
-                  { key: 'tide', gradient: 'linear-gradient(135deg, #4a6987, #2c4259)', hex: '#4a6987' },
-                  { key: 'amethyst', gradient: 'linear-gradient(135deg, #7a4a87, #4a2c59)', hex: '#7a4a87' },
-                  { key: 'obsidian', gradient: 'linear-gradient(135deg, #2b2620, #15110b)', hex: '#2b2620' },
-                  { key: 'copper', gradient: 'linear-gradient(135deg, #c98c5a, #7a4d2b)', hex: '#c98c5a' },
-                  { key: 'sun', gradient: 'linear-gradient(135deg, #e8c557, #b09438)', hex: '#e8c557' },
-                  { key: 'ember', gradient: 'linear-gradient(135deg, #c4452a, #863519)', hex: '#c4452a' },
-                ];
-                const currentColor = character?.details?.sheet_theme?.color || GUIDE_BLUE;
+                // dice_roller is ON by default (the sheet shows the roller
+                // unless it's explicitly turned off); every other option is OFF
+                // by default. Keeps the toggle + active-count in sync with the
+                // sheet's diceRollerEnabled check.
+                const isOptionOn = (key: string) =>
+                  key === 'dice_roller'
+                    ? (character?.options as any)?.dice_roller !== false
+                    : !!(character?.options as any)?.[key];
+                // The sheet's default accent (the rust "orange"). The picker
+                // edits character.details.sheet_theme.color, which the sheet
+                // applies as --wg4-accent (luminance-clamped for visibility).
+                const ACCENT_DEFAULT = '#cf6a3f';
+                const currentColor = character?.details?.sheet_theme?.color || ACCENT_DEFAULT;
                 const setSheetColor = (hex: string) => {
-                  if (!hasPatreonAccess(getCachedPublicUser(), 1)) {
-                    displayPatronOnly();
-                    return;
-                  }
                   setCharacter((prev) =>
                     prev
                       ? {
@@ -1094,19 +1098,40 @@ export default function CharBuilderHome(props: {
                       : prev
                   );
                 };
-                const allBgs = getAllBackgroundImages();
-                const featuredBgs = allBgs.slice(0, 4);
-                const currentBg = character?.details?.background_image_url;
+                // Apply = the reliable commit. The debounced autosave was the
+                // flaky part, so Apply writes the colour straight to the DB AND
+                // seeds the query cache (so the sheet / any refetch never reads a
+                // stale colour), on top of updating the live atom.
+                const applyColor = async () => {
+                  if (!character) return;
+                  const newDetails = {
+                    ...character.details,
+                    sheet_theme: { ...character.details?.sheet_theme, color: currentColor },
+                  };
+                  setSheetColor(currentColor);
+                  const updated = { ...character, details: newDetails };
+                  queryClient.setQueryData(['find-character', character.id], updated);
+                  queryClient.setQueryData(['find-character', `${character.id}`], updated);
+                  try {
+                    await makeRequest('update-character', { id: character.id, details: newDetails });
+                    showNotification({
+                      message: 'Sheet colour applied and saved.',
+                      color: 'green',
+                      autoClose: 1500,
+                    });
+                  } catch {
+                    showNotification({
+                      title: 'Could not save',
+                      message: 'The colour change failed to save — please try again.',
+                      color: 'red',
+                    });
+                  }
+                };
                 return (
                   <>
                     <div className='panel-subhead'>
                       <div className='lhs'>
-                        <b>
-                          {
-                            optionDefs.filter((o) => !!(character?.options as any)?.[o.key])
-                              .length
-                          }
-                        </b>{' '}
+                        <b>{optionDefs.filter((o) => isOptionOn(o.key)).length}</b>{' '}
                         / {optionDefs.length} options active
                         <em>· per-character toggles for visuals + behaviour</em>
                       </div>
@@ -1119,8 +1144,8 @@ export default function CharBuilderHome(props: {
                           name={o.name}
                           sub={o.sub}
                           tag={o.tag}
-                          on={!!(character?.options as any)?.[o.key]}
-                          onToggle={() => setOption(o.key, !(character?.options as any)?.[o.key])}
+                          on={isOptionOn(o.key)}
+                          onToggle={() => setOption(o.key, !isOptionOn(o.key))}
                           onInfo={() =>
                             openDrawer({
                               type: 'generic',
@@ -1165,77 +1190,38 @@ export default function CharBuilderHome(props: {
                       <h3>Sheet Customisation</h3>
 
                       <div className='theme-row'>
-                        <div className='lab'>Colour theme</div>
-                        <div className='swatch-row'>
-                          {swatches.map((s) => (
-                            <div
-                              key={s.key}
-                              className={`sw${currentColor === s.hex ? ' on' : ''}`}
-                              style={{ background: s.gradient }}
-                              onClick={() => setSheetColor(s.hex)}
-                              title={s.key}
-                              role='button'
-                              tabIndex={0}
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className='theme-row'>
-                        <div className='lab'>Background</div>
-                        <div className='bg-picker'>
-                          {featuredBgs.map((bg: ImageOption) => (
-                            <div
-                              key={bg.url}
-                              className={`bg-tile${currentBg === bg.url ? ' on' : ''}`}
-                              style={{ backgroundImage: `url(${bg.url})` }}
-                              onClick={() => {
-                                setCharacter((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        details: {
-                                          ...prev.details,
-                                          background_image_url: bg.url,
-                                        },
-                                      }
-                                    : prev
-                                );
-                              }}
-                              role='button'
-                              tabIndex={0}
-                            />
-                          ))}
-                          <div
-                            className='bg-tile'
-                            onClick={() => {
-                              openContextModal({
-                                modal: 'selectImage',
-                                title: <Title order={3}>Select Background</Title>,
-                                classNames: { content: 'codex-select-image-modal' },
-                                innerProps: {
-                                  options: allBgs,
-                                  onSelect: (option: ImageOption) => {
-                                    setCharacter((prev) =>
-                                      prev
-                                        ? {
-                                            ...prev,
-                                            details: {
-                                              ...prev.details,
-                                              background_image_url: option.url,
-                                            },
-                                          }
-                                        : prev
-                                    );
-                                  },
-                                  category: 'backgrounds',
-                                },
-                              });
-                            }}
-                            role='button'
-                            tabIndex={0}
+                        <div className='lab'>Accent colour</div>
+                        <Group gap={8} wrap='nowrap' align='center'>
+                          <ColorInput
+                            value={currentColor}
+                            onChange={setSheetColor}
+                            onChangeEnd={setSheetColor}
+                            format='hex'
+                            size='sm'
+                            w={200}
+                            swatchesPerRow={9}
+                            swatches={[
+                              '#cf6a3f',
+                              '#c9a13b',
+                              '#a83a25',
+                              '#5b7148',
+                              '#4a6987',
+                              '#7a4a87',
+                              '#2b6cb0',
+                              '#2f855a',
+                              '#b03a8a',
+                            ]}
+                            aria-label='Sheet accent colour'
                           />
-                        </div>
+                          <button
+                            type='button'
+                            className='ops-btn'
+                            style={{ margin: 0 }}
+                            onClick={applyColor}
+                          >
+                            Apply
+                          </button>
+                        </Group>
                       </div>
 
                       {apiClients && apiClients.length > 0 && (

@@ -52,7 +52,7 @@
   --mantine-primary-color-light-color: var(--wg4-accent);
   --mantine-primary-color-contrast: #fff;
   --mantine-color-anchor: var(--wg4-accent);
-  --mantine-color-error: #a83a25;
+  --mantine-color-error: var(--crimson);
   /* Mantine radii — wg4 prefers small parchment-card radii (4-6px)
    * instead of codex's 0px sharp corners. */
   --mantine-radius-xs: 4px;
@@ -108,9 +108,8 @@
   --ink-dim: var(--wg4-ink-2);
   --ink-muted: var(--wg4-ink-3);
   --ink-deep: var(--wg4-ink-4);
-  --gold: var(--wg4-accent);
-  --gold-bright: var(--wg4-accent-ink);
-  --gold-deep: var(--wg4-accent-ink);
+  /* --gold* are aliased once, globally, on :root in codex.css (→ --wg4-accent),
+     resolved per element — no per-scope re-map needed here. */
   --crimson: #a83a25;
   --crimson-deep: #6f1f10;
   --sage: #5b7148;
@@ -124,10 +123,10 @@
   --paper: var(--wg4-surface);
   --paper-2: var(--wg4-surface-2);
   --paper-3: var(--wg4-surface-hover);
-  --imprint-bg-color: rgba(176, 84, 47, 0.04);
-  --imprint-bg-color-2: rgba(176, 84, 47, 0.08);
-  --imprint-bg-color-hover: rgba(176, 84, 47, 0.06);
-  --imprint-bg-color-hover-2: rgba(176, 84, 47, 0.1);
+  --imprint-bg-color: color-mix(in srgb, var(--wg4-accent) 4%, transparent);
+  --imprint-bg-color-2: color-mix(in srgb, var(--wg4-accent) 8%, transparent);
+  --imprint-bg-color-hover: color-mix(in srgb, var(--wg4-accent) 6%, transparent);
+  --imprint-bg-color-hover-2: color-mix(in srgb, var(--wg4-accent) 10%, transparent);
   --imprint-border-color: var(--wg4-border);
   --glass-bg-color: var(--wg4-surface);
   --glass-border-color: var(--wg4-border);
@@ -352,7 +351,7 @@
 }
 .wg4 .wg4-drawer-body {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   padding: 14px 22px;
   font-family: var(--wg4-font-sans);
   color: var(--wg4-ink);

@@ -1,6 +1,5 @@
-import { ColorSwatch, Popover, ColorPicker, Loader, Slider } from '@mantine/core';
+import { ColorInput, Group, Loader } from '@mantine/core';
 import { setPageTitle } from '@utils/document-change';
-import { CodexWinBar } from '@common/CodexWinBar';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getPublicUser } from '@auth/user-manager';
 import { GUIDE_BLUE } from '@constants/data';
@@ -11,19 +10,19 @@ import {
   targetLabelForVariable,
 } from '@modes/custom-modes';
 import { ModeEditor } from '@pages/character_sheet/ConditionsModesModal';
-import { useDebouncedValue, useDidUpdate } from '@mantine/hooks';
 import { makeRequest } from '@requests/request-manager';
 import { modals } from '@mantine/modals';
 import { showNotification } from '@mantine/notifications';
 import { useAtom } from 'jotai';
 import { userState } from '@atoms/userAtoms';
 import { useState } from 'react';
+import { CodexTopBars } from '@common/CodexTopBars';
 import { applyTheme, getStoredTheme } from '@utils/theme';
 
 export function Component() {
   setPageTitle(`Settings`);
 
-  const [user, setUser] = useAtom(userState);
+  const [, setUser] = useAtom(userState);
 
   const { data } = useQuery({
     queryKey: [`find-account-self`],
@@ -36,7 +35,10 @@ export function Component() {
 
   if (!data)
     return (
-      <div className='wg4 wg4-screen wg4-page-root' style={{ position: 'relative', minHeight: '100dvh', background: 'var(--wg4-page)' }}>
+      <div
+        className='wg4 wg4-screen wg4-page-root'
+        style={{ position: 'relative', minHeight: '100dvh', background: 'var(--wg4-page)' }}
+      >
         <Loader
           size='lg'
           type='bars'
@@ -53,37 +55,33 @@ export function Component() {
   return <ProfileSection />;
 }
 
-/** A single parchment accordion section (header + collapsible body). */
-function AccItem({
-  icon,
-  iconColor,
+/** A codex section card: Cinzel header + accent rule + body. */
+function Section({
+  glyph,
   title,
-  open,
-  onToggle,
+  sub,
+  danger,
   children,
 }: {
-  icon: React.ReactNode;
-  iconColor?: string;
+  glyph: string;
   title: string;
-  open: boolean;
-  onToggle: () => void;
-  children?: React.ReactNode;
+  sub?: string;
+  danger?: boolean;
+  children: React.ReactNode;
 }) {
   return (
-    <div className={`acc-item${open ? ' open' : ''}`}>
-      <div className='acc-head' onClick={onToggle}>
-        <span className='ic' style={iconColor ? { color: iconColor } : undefined}>
-          {icon}
-        </span>
-        {title}
-        <span className='chev'>▸</span>
+    <div className={`section${danger ? ' danger' : ''}`}>
+      <div className='sec-head'>
+        <span className='glyph'>{glyph}</span>
+        <span className='ttl'>{title}</span>
+        {sub && <span className='sub'>{sub}</span>}
       </div>
-      {open && <div className='acc-body'>{children}</div>}
+      <div className='sec-body'>{children}</div>
     </div>
   );
 }
 
-/** Parchment setting row: label + description on the left, control on the right. */
+/** Setting row: label + description on the left, control on the right. */
 function SettingRow({
   label,
   description,
@@ -113,276 +111,177 @@ function ProfileSection() {
     throw new Error('User is not defined');
   }
 
-  // Which accordion section is open. Mirrors the mockup where one section
-  // is expanded at a time; `''` means all collapsed.
-  const [openSection, setOpenSection] = useState<string>('appearance');
-  const toggle = (key: string) => setOpenSection((cur) => (cur === key ? '' : key));
-
   // wg4 light/dark theme toggle — utils/theme.ts flips `theme-dark` on <html>
   // and persists the choice; css/wg4-dark.css does the actual recolor.
   const [darkMode, setDarkMode] = useState(getStoredTheme() === 'dark');
 
-  // Local-only build: every query/handler that fed the deleted UI is
-  // gone — character / campaign / bundle counts, GM-tier benefitingUsers,
-  // approvedContentUpdates → contentTier badge, patronTier badge. The
-  // only thing left is the debounced "save site_theme + accessibility"
-  // path, since Appearance + Developer are the surviving accordions.
+  // Theme colour is a draft until Save — mirrors the character builder's
+  // accent picker (ColorInput + an explicit Apply), so the global accent
+  // only changes when the user commits, not on every drag of the picker.
+  const [draftColor, setDraftColor] = useState(user.site_theme?.color || GUIDE_BLUE);
 
   const { mutate: mutateUser } = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const response = await makeRequest('update-user', {
-        ...data,
-      });
+      const response = await makeRequest('update-user', { ...data });
       return response;
     },
   });
 
-  // Update user in db when site_theme changes (debounced).
-  const [debouncedUser] = useDebouncedValue(user, 500);
-  useDidUpdate(() => {
-    if (!debouncedUser) return;
-    mutateUser({
-      site_theme: debouncedUser.site_theme,
-    });
-  }, [debouncedUser]);
+  // Explicit persistence (the old debounced autosave was dropped): the
+  // colour commits on Save, View Operations persists on toggle. Both write
+  // the merged site_theme straight to the DB and update the live atom.
+  const persistSiteTheme = (patch: Record<string, any>) => {
+    const next = { ...user.site_theme, ...patch };
+    setUser((prev) => (prev ? { ...prev, site_theme: next } : prev));
+    mutateUser({ site_theme: next });
+  };
+
+  const saveColor = () => {
+    persistSiteTheme({ color: draftColor });
+    showNotification({ message: 'Theme colour saved.', color: 'green', autoClose: 1500 });
+  };
 
   return (
     <div
       className='wg4 wg4-screen wg4-page-root'
       style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', background: 'var(--wg4-page)' }}
     >
-      <CodexWinBar subtitle='Settings' nav />
-      <div style={{ width: '100%', maxWidth: 460, margin: '0 auto', padding: 16 }}>
-        {/* Local-only build: stripped the profile/avatar/name/summary/stats/
-            badges/Patreon-connect/GM-tier-share blocks. None of those apply
-            to a single local user, so the page is just the settings
-            accordion (Appearance + Developer + Modes + Uninstall) below. */}
-        <div className='acc'>
-          {/* Appearance */}
-          <AccItem
-            icon='◈'
-            title='Appearance'
-            open={openSection === 'appearance'}
-            onToggle={() => toggle('appearance')}
-          >
-            <SettingRow label='Dark Mode' description='Switch the entire app to a dark color theme'>
-              <button
-                type='button'
-                className={`sw${darkMode ? ' on' : ''}`}
-                aria-pressed={darkMode}
-                aria-label='Toggle dark mode'
-                onClick={() => {
-                  const next = darkMode ? 'light' : 'dark';
-                  applyTheme(next);
-                  setDarkMode(next === 'dark');
-                }}
-              />
-            </SettingRow>
+      {/* Shared two-bar window header — the page title shows in bar 2. */}
+      <CodexTopBars subtitle='Settings' tagline='Tune the codex to your hand.' />
 
-            <SettingRow label='Theme Color' description='Primary accent color for the site'>
-              <Popover position='bottom-end' withArrow shadow='md'>
-                <Popover.Target>
-                  <ColorSwatch
-                    className='swatch'
-                    style={{ cursor: 'pointer' }}
-                    color={user.site_theme?.color || GUIDE_BLUE}
-                    size={22}
-                  />
-                </Popover.Target>
-                <Popover.Dropdown p={5}>
-                  <ColorPicker
-                    format='hex'
-                    value={user.site_theme?.color || GUIDE_BLUE}
-                    onChange={(value) => {
-                      // Local-only build: dropped the Patreon gate
-                      // — every preference is free on the local app.
-                      setUser((prev) => {
-                        if (!prev) return prev;
-                        return { ...prev, site_theme: { ...prev.site_theme, color: value } };
-                      });
-                    }}
-                    swatches={[
-                      '#25262b',
-                      '#868e96',
-                      '#fa5252',
-                      '#e64980',
-                      '#be4bdb',
-                      '#8d69f5',
-                      '#577deb',
-                      GUIDE_BLUE,
-                      '#15aabf',
-                      '#12b886',
-                      '#40c057',
-                      '#82c91e',
-                      '#fab005',
-                      '#fd7e14',
-                    ]}
-                    swatchesPerRow={7}
-                  />
-                </Popover.Dropdown>
-              </Popover>
-            </SettingRow>
-
-            <SettingRow label='Dyslexia Font' description='Use OpenDyslexic for improved readability'>
-              <button
-                type='button'
-                className={`sw${user.site_theme?.dyslexia_font ? ' on' : ''}`}
-                aria-pressed={user.site_theme?.dyslexia_font ?? false}
-                aria-label='Toggle dyslexia font'
-                onClick={() => {
-                  setUser((prev) => {
-                    if (!prev) return prev;
-                    return {
-                      ...prev,
-                      site_theme: { ...prev.site_theme, dyslexia_font: !prev.site_theme?.dyslexia_font },
-                    };
-                  });
-                }}
-              />
-            </SettingRow>
-
-            <div className='row' style={{ display: 'block', borderBottom: 0 }}>
-              <div className='nm' style={{ marginBottom: 6 }}>
-                UI Size
-              </div>
-              <Slider
-                min={0.75}
-                max={1.5}
-                step={0.01}
-                value={user.site_theme?.zoom ?? 1}
-                marks={[
-                  { value: 0.75, label: 'Small' },
-                  { value: 1, label: 'Default' },
-                  { value: 1.5, label: 'Large' },
-                ]}
-                mb='xl'
-                color='var(--wg4-accent)'
-                onChange={(value) => {
-                  setUser((prev) => {
-                    if (!prev) return prev;
-                    return { ...prev, site_theme: { ...prev.site_theme, zoom: value } };
-                  });
-                }}
-              />
-            </div>
-          </AccItem>
-
-          {/* Developer */}
-          <AccItem
-            icon='⟨⟩'
-            title='Developer'
-            open={openSection === 'developer'}
-            onToggle={() => toggle('developer')}
-          >
-            <SettingRow label='View Operations' description='Show operation data on content entries'>
-              <button
-                type='button'
-                className={`sw${user.site_theme?.view_operations ? ' on' : ''}`}
-                aria-pressed={user.site_theme?.view_operations ?? false}
-                aria-label='Toggle view operations'
-                onClick={() => {
-                  setUser((prev) => {
-                    if (!prev) return prev;
-                    return {
-                      ...prev,
-                      site_theme: { ...prev.site_theme, view_operations: !prev.site_theme?.view_operations },
-                    };
-                  });
-                }}
-              />
-            </SettingRow>
-
-            {/* Local-only build: dropped the "API Clients" block.
-                The upstream Developer accordion let you mint API keys
-                for third-party tooling against the public WG API — no
-                such API exists on the local backend. */}
-          </AccItem>
-
-          {/* Modes — manage user-created modes. This page only
-              surfaces *global* modes (the ones that show up on
-              every character); character-specific modes still live
-              on the character sheet's Conditions+Modes modal.
-              Storage is localStorage; no network round-trip. */}
-          <AccItem icon='◐' title='Modes' open={openSection === 'modes'} onToggle={() => toggle('modes')}>
-            <ModesSettings />
-          </AccItem>
-
-          {/* Danger Zone: full uninstall (wipes pg data + the app
-              binary itself). No remote state to worry about — every
-              byte the app ever wrote lives in either userData or
-              the install directory, and the IPC handler wipes both. */}
-          <AccItem
-            icon='⚠'
-            iconColor='var(--danger)'
-            title='Uninstall'
-            open={openSection === 'danger'}
-            onToggle={() => toggle('danger')}
-          >
-            <p className='muted' style={{ fontSize: 12.5, margin: '2px 0 12px' }}>
-              Permanently delete <b>everything</b> — every character, homebrew bundle, custom pack, and the app
-              itself. The window will close once the wipe starts; there is no undo.
-            </p>
+      <div style={{ width: '100%', maxWidth: 620, margin: '0 auto', padding: '0 20px 56px' }}>
+        {/* Appearance */}
+        <Section glyph='◈' title='Appearance' sub='look & feel'>
+          <SettingRow label='Dark Mode' description='Switch the entire app to a dark color theme'>
             <button
               type='button'
-              className='btn danger'
+              className={`sw${darkMode ? ' on' : ''}`}
+              aria-pressed={darkMode}
+              aria-label='Toggle dark mode'
               onClick={() => {
-                modals.openConfirmModal({
-                  id: 'uninstall-app',
-                  title: <span style={{ fontWeight: 600 }}>Uninstall Wanderer's Guide?</span>,
-                  children: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <span style={{ fontSize: 14 }}>This will delete:</span>
-                      <ul style={{ paddingLeft: 20, margin: 0, fontSize: 14 }}>
-                        <li>Every character on this machine</li>
-                        <li>Every homebrew bundle and custom pack you've imported</li>
-                        <li>The local database and uploaded images</li>
-                        <li>The Wanderer's Guide app itself</li>
-                      </ul>
-                      <span style={{ fontSize: 14, color: 'var(--danger)', fontWeight: 500 }}>
-                        This cannot be undone.
-                      </span>
-                    </div>
-                  ),
-                  labels: { confirm: 'Delete Everything', cancel: 'Cancel' },
-                  confirmProps: { color: 'red' },
-                  onConfirm: async () => {
-                    if (!window.wgElectron) {
-                      // Dev-server / browser fallback — no Electron
-                      // bridge available, so nothing to nuke.
-                      showNotification({
-                        title: 'Uninstall unavailable',
-                        message: 'The uninstall hook is only wired up in the packaged Electron app.',
-                        color: 'yellow',
-                      });
-                      return;
-                    }
-                    showNotification({
-                      id: 'uninstall-progress',
-                      title: 'Uninstalling…',
-                      message: 'Wiping local data. The window will close in a moment.',
-                      color: 'red',
-                      loading: true,
-                      autoClose: false,
-                      withCloseButton: false,
-                    });
-                    try {
-                      await window.wgElectron.uninstall();
-                    } catch (err) {
-                      console.error('Uninstall IPC failed:', err);
-                      showNotification({
-                        title: 'Uninstall failed',
-                        message: String((err as Error)?.message ?? err),
-                        color: 'red',
-                      });
-                    }
-                  },
-                });
+                const next = darkMode ? 'light' : 'dark';
+                applyTheme(next);
+                setDarkMode(next === 'dark');
               }}
-            >
-              🗑 Uninstall the app
-            </button>
-          </AccItem>
-        </div>
+            />
+          </SettingRow>
+
+          <SettingRow
+            label='Theme Color'
+            description='Primary accent — applied across the app and the default colour for new characters'
+          >
+            <Group gap={8} wrap='nowrap' align='center'>
+              <ColorInput
+                value={draftColor}
+                onChange={setDraftColor}
+                format='hex'
+                size='sm'
+                w={170}
+                swatchesPerRow={9}
+                swatches={[
+                  '#b0542f',
+                  '#cf6a3f',
+                  '#c9a13b',
+                  '#a83a25',
+                  '#5b7148',
+                  '#4a6987',
+                  '#7a4a87',
+                  '#2f855a',
+                  '#b03a8a',
+                ]}
+                aria-label='Theme color'
+              />
+              <button type='button' className='btn sm' onClick={saveColor}>
+                Save
+              </button>
+            </Group>
+          </SettingRow>
+        </Section>
+
+        {/* Developer */}
+        <Section glyph='⟨⟩' title='Developer' sub='under the hood'>
+          <SettingRow label='View Operations' description='Show operation data on content entries'>
+            <button
+              type='button'
+              className={`sw${user.site_theme?.view_operations ? ' on' : ''}`}
+              aria-pressed={user.site_theme?.view_operations ?? false}
+              aria-label='Toggle view operations'
+              onClick={() => persistSiteTheme({ view_operations: !user.site_theme?.view_operations })}
+            />
+          </SettingRow>
+        </Section>
+
+        {/* Modes — global user modes (the ones that show on every character).
+            Character-specific modes still live on the sheet's Conditions+Modes
+            modal. Storage is localStorage; no network round-trip. */}
+        <Section glyph='◐' title='Modes' sub='global effects'>
+          <ModesSettings />
+        </Section>
+
+        {/* Danger Zone: full uninstall (wipes pg data + the app binary). */}
+        <Section glyph='⚠' title='Uninstall' sub='point of no return' danger>
+          <p className='danger-text'>
+            Permanently delete <b>everything</b> — every character, homebrew bundle, custom pack, and the app
+            itself. The window will close once the wipe starts; there is no undo.
+          </p>
+          <button
+            type='button'
+            className='btn danger'
+            onClick={() => {
+              modals.openConfirmModal({
+                id: 'uninstall-app',
+                title: <span style={{ fontWeight: 600 }}>Uninstall Wanderer's Guide?</span>,
+                children: (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <span style={{ fontSize: 14 }}>This will delete:</span>
+                    <ul style={{ paddingLeft: 20, margin: 0, fontSize: 14 }}>
+                      <li>Every character on this machine</li>
+                      <li>Every homebrew bundle and custom pack you've imported</li>
+                      <li>The local database and uploaded images</li>
+                      <li>The Wanderer's Guide app itself</li>
+                    </ul>
+                    <span style={{ fontSize: 14, color: 'var(--danger)', fontWeight: 500 }}>
+                      This cannot be undone.
+                    </span>
+                  </div>
+                ),
+                labels: { confirm: 'Delete Everything', cancel: 'Cancel' },
+                confirmProps: { color: 'red' },
+                onConfirm: async () => {
+                  if (!window.wgElectron) {
+                    showNotification({
+                      title: 'Uninstall unavailable',
+                      message: 'The uninstall hook is only wired up in the packaged Electron app.',
+                      color: 'yellow',
+                    });
+                    return;
+                  }
+                  showNotification({
+                    id: 'uninstall-progress',
+                    title: 'Uninstalling…',
+                    message: 'Wiping local data. The window will close in a moment.',
+                    color: 'red',
+                    loading: true,
+                    autoClose: false,
+                    withCloseButton: false,
+                  });
+                  try {
+                    await window.wgElectron.uninstall();
+                  } catch (err) {
+                    console.error('Uninstall IPC failed:', err);
+                    showNotification({
+                      title: 'Uninstall failed',
+                      message: String((err as Error)?.message ?? err),
+                      color: 'red',
+                    });
+                  }
+                },
+              });
+            }}
+          >
+            🗑 Uninstall the app
+          </button>
+        </Section>
       </div>
     </div>
   );
@@ -390,17 +289,16 @@ function ProfileSection() {
 
 /**
  * Settings → Modes panel. CRUD for *global* user modes (the ones that
- * show on every character). For character-specific modes the user
- * uses the per-character editor inside the character sheet's
- * Conditions+Modes modal — both reuse the same ModeEditor component
- * so the form behavior stays in one place.
+ * show on every character). For character-specific modes the user uses
+ * the per-character editor inside the character sheet's Conditions+Modes
+ * modal — both reuse the same ModeEditor component so the form behavior
+ * stays in one place.
  */
 function ModesSettings() {
   // Track the saved list in state so renders refresh after edits.
   // localStorage isn't reactive, so we bump a counter when we write.
   const [, setTick] = useState(0);
   const modes = getGlobalCustomModes();
-  // Either 'list' (default) or a CustomMode being edited / created.
   // `null` means "show list"; an object means the editor is open.
   const [editing, setEditing] = useState<CustomMode | null>(null);
 
@@ -431,10 +329,9 @@ function ModesSettings() {
 
   return (
     <div>
-      <p className='muted' style={{ fontSize: 12, margin: '2px 0 12px' }}>
-        Modes saved here apply to every character. For modes tied to one specific character (a class-specific
-        stance with that character's damage numbers), use the Modes tab inside the character sheet's condition
-        picker.
+      <p className='flavor'>
+        Modes saved here apply to every character. For modes tied to one character (a class-specific stance
+        with that character's damage numbers), use the Modes tab inside that character's condition picker.
       </p>
       <button
         type='button'
@@ -452,49 +349,35 @@ function ModesSettings() {
         + Create Mode
       </button>
       {modes.length === 0 ? (
-        <p className='muted' style={{ fontSize: 13, fontStyle: 'italic', marginTop: 12 }}>
+        <p className='flavor' style={{ marginTop: 12, marginBottom: 0 }}>
           No global modes yet. Click "Create Mode" to make one.
         </p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           {modes.map((m) => (
-            <div
-              key={m.id}
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--r2)',
-                padding: 10,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>{m.name || '(unnamed)'}</div>
-                  {m.description && (
-                    <div className='muted' style={{ fontSize: 11.5, lineHeight: 1.4 }}>
-                      {m.description}
-                    </div>
-                  )}
-                  {m.effects.length > 0 && (
-                    <div className='muted' style={{ fontSize: 11.5, marginTop: 4 }}>
-                      {m.effects
-                        .map(
-                          (e) =>
-                            `${e.value >= 0 ? '+' : ''}${e.value} ${targetLabelForVariable(e.variable)}${
-                              e.type && e.type !== 'untyped' ? ` (${e.type})` : ''
-                            }`
-                        )
-                        .join(', ')}
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button type='button' className='btn ghost sm' onClick={() => setEditing(m)}>
-                    Edit
-                  </button>
-                  <button type='button' className='btn danger sm' onClick={() => remove(m)}>
-                    Delete
-                  </button>
-                </div>
+            <div key={m.id} className='mode'>
+              <div style={{ flex: 1 }}>
+                <div className='mname'>{m.name || '(unnamed)'}</div>
+                {m.description && <div className='mdesc'>{m.description}</div>}
+                {m.effects.length > 0 && (
+                  <div className='eff'>
+                    {m.effects.map((e, i) => (
+                      <span className='chip' key={i}>
+                        {`${e.value >= 0 ? '+' : ''}${e.value} ${targetLabelForVariable(e.variable)}${
+                          e.type && e.type !== 'untyped' ? ` (${e.type})` : ''
+                        }`}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className='acts'>
+                <button type='button' className='btn ghost sm' onClick={() => setEditing(m)}>
+                  Edit
+                </button>
+                <button type='button' className='btn danger sm' onClick={() => remove(m)}>
+                  Delete
+                </button>
               </div>
             </div>
           ))}

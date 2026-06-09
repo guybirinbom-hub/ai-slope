@@ -14,6 +14,7 @@ import { isItemShield, isItemBroken } from '@items/inv-utils';
 import { handleUpdateItem, handleDeleteItem, handleMoveItem } from '@items/inv-handlers';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import { useState, useEffect, Fragment } from 'react';
+import { useSheetAccent } from '@utils/use-sheet-accent';
 import { getVariable, setVariable } from '@variables/variable-manager';
 import {
   VariableAttr,
@@ -144,6 +145,10 @@ export default function CodexSheet(props: {
     staleTime: 60 * 60 * 1000,
   });
 
+  // Apply this character's chosen accent colour across the sheet and its
+  // popups/drawers. Shared with the builder so the two stay consistent.
+  useSheetAccent(character?.details?.sheet_theme?.color);
+
   // ---- Derived data ----
   const initial = character?.name?.trim()?.[0]?.toUpperCase() || '?';
   const level = character?.level ?? 1;
@@ -188,6 +193,14 @@ export default function CodexSheet(props: {
   const hasSpellcasting =
     !!getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value &&
     compileProficiencyType(getVariable<VariableProf>('CHARACTER', 'SPELL_DC')?.value) !== 'U';
+
+  // Situational-bonus flags — a stat with any conditional bonus (one carrying
+  // an "applies when…" note, e.g. from a custom mode) gets a dotted underline.
+  const acHasCond = (getVariableBreakdown('CHARACTER', 'AC_BONUS')?.conditionals?.length ?? 0) > 0;
+  const speedHasCond = (getVariableBreakdown('CHARACTER', 'SPEED')?.conditionals?.length ?? 0) > 0;
+  const classDcHasCond = !!getProfValueParts('CHARACTER', 'CLASS_DC')?.hasConditionals;
+  const spellDcHasCond = !!getProfValueParts('CHARACTER', 'SPELL_DC')?.hasConditionals;
+  const spellAtkHasCond = !!getProfValueParts('CHARACTER', 'SPELL_ATTACK')?.hasConditionals;
 
   // Equipped shields — surfaced as a "Shield" cube next to AC in the vitals
   // (below) so the shield's bonus AC (when raised) is visible at a glance.
@@ -293,8 +306,30 @@ export default function CodexSheet(props: {
   };
 
   const setHeroPoints = (next: number) => {
+    if (!character) return;
     const clamped = Math.max(0, Math.min(3, next));
-    setCharacter((c) => (c ? { ...c, hero_points: clamped } : c));
+    const updatedCharacter = { ...character, hero_points: clamped };
+    setCharacter(updatedCharacter);
+    // Persist immediately + sync the caches. The debounced autosave can be
+    // cancelled when the user navigates away before it fires, which left the
+    // Characters-page roster card showing a stale hero-point count. Writing
+    // straight through (like the colour / mode commits) keeps the card, the
+    // sheet, and the DB in lockstep — including the roster LIST cache the card
+    // reads from.
+    queryClient.setQueryData(['find-character', character.id], updatedCharacter);
+    queryClient.setQueryData(['find-character', String(character.id)], updatedCharacter);
+    queryClient.setQueryData(['find-character'], (list) =>
+      Array.isArray(list)
+        ? list.map((ch) => (ch.id === character.id ? { ...ch, hero_points: clamped } : ch))
+        : list
+    );
+    makeRequest('update-character', { id: character.id, hero_points: clamped }).catch((err) => {
+      showNotification({
+        title: 'Could not save hero points',
+        message: String((err as Error)?.message ?? err),
+        color: 'red',
+      });
+    });
   };
 
   const addXp = (amount: number) => {
@@ -652,7 +687,7 @@ export default function CodexSheet(props: {
                         <div className='k'>
                           {dcMerged && hasSpellcasting ? 'Class/Spell DC' : 'Class DC'}
                         </div>
-                        <div className='num v'>{classDcStr}</div>
+                        <div className={`num v${classDcHasCond || (dcMerged && spellDcHasCond) ? ' wg4-situational' : ''}`}>{classDcStr}</div>
                       </div>
                       <div
                         className='tile pcell'
@@ -665,7 +700,7 @@ export default function CodexSheet(props: {
                         }
                       >
                         <div className='k'>Armor Class</div>
-                        <div className='num v'>{ac}</div>
+                        <div className={`num v${acHasCond ? ' wg4-situational' : ''}`}>{ac}</div>
                       </div>
                       {equippedShields.length > 0 &&
                         (() => {
@@ -695,8 +730,10 @@ export default function CodexSheet(props: {
                                       padding: '1px 4px',
                                       borderRadius: 3,
                                       textTransform: 'uppercase',
-                                      background: destroyed ? 'rgba(214,69,59,0.18)' : 'rgba(207,106,63,0.18)',
-                                      color: destroyed ? '#e0584c' : '#cf6a3f',
+                                      background: destroyed
+                                        ? 'rgba(214,69,59,0.18)'
+                                        : 'color-mix(in srgb, var(--wg4-accent) 18%, transparent)',
+                                      color: destroyed ? '#e0584c' : 'var(--wg4-accent)',
                                     }}
                                   >
                                     {destroyed ? 'Destroyed' : 'Broken'}
@@ -724,7 +761,7 @@ export default function CodexSheet(props: {
                           }
                         >
                           <div className='k'>Spell DC</div>
-                          <div className='num v'>{spellDcStr}</div>
+                          <div className={`num v${spellDcHasCond ? ' wg4-situational' : ''}`}>{spellDcStr}</div>
                         </div>
                       )}
                       {hasSpellcasting && (
@@ -739,7 +776,7 @@ export default function CodexSheet(props: {
                           }
                         >
                           <div className='k'>Spell Atk</div>
-                          <div className='num v'>{getFinalProfValue('CHARACTER', 'SPELL_ATTACK')}</div>
+                          <div className={`num v${spellAtkHasCond ? ' wg4-situational' : ''}`}>{getFinalProfValue('CHARACTER', 'SPELL_ATTACK')}</div>
                         </div>
                       )}
                     </div>
@@ -769,7 +806,7 @@ export default function CodexSheet(props: {
                       >
                         <div className='k'>Speed</div>
                         <div
-                          className={`num v v-num${tempSpeedActive ? ' speed-temp' : ''}`}
+                          className={`num v v-num${tempSpeedActive ? ' speed-temp' : ''}${speedHasCond ? ' wg4-situational' : ''}`}
                           title={tempSpeedActive ? 'Temporary speed active — reset it in the Speed popup' : undefined}
                         >
                           {displaySpeed}
@@ -858,12 +895,14 @@ export default function CodexSheet(props: {
                               })
                             }
                           >
-                            <div className='name'>
-                              {s.label}
-                              {hasConditionals && <span className='sub-note'>· conditional</span>}
-                            </div>
+                            <div className='name'>{s.label}</div>
                             <div className='prof' data-r={profLetter}>{profLetter}</div>
-                            <div className='mod num'>{value}</div>
+                            <div
+                              className={`mod num${hasConditionals ? ' wg4-situational' : ''}`}
+                              title={hasConditionals ? 'Has a situational bonus or penalty — open for details' : undefined}
+                            >
+                              {value}
+                            </div>
                           </div>
                         );
                       })}
@@ -1104,7 +1143,11 @@ export default function CodexSheet(props: {
                                     <span className='sub-note'>· {s.lore}</span>
                                   )}
                                 </div>
-                                <div className={`mod num${isUntrained ? ' u' : ''}`}>
+                                <div
+                                  className={`mod num${isUntrained ? ' u' : ''}${
+                                    getProfValueParts('CHARACTER', s.var)?.hasConditionals ? ' wg4-situational' : ''
+                                  }`}
+                                >
                                   {value}
                                 </div>
                               </div>
@@ -1166,11 +1209,31 @@ export default function CodexSheet(props: {
                 content={content}
               />
             )}
-            {activeTab === 'companions' && (
-              <CompanionsPanel
-                panelHeight={props.panelHeight}
-                panelWidth={props.panelWidth}
-              />
+            {/* Companions: when the character HAS companions, keep the panel
+                mounted (just hidden) while off-tab so it fetches its content
+                package + runs the per-companion stat engine in the background
+                on sheet open — entering the tab is then instant instead of
+                kicking off that work on click. (executeOperations runs in a
+                worker, so this preload doesn't block the sheet's own load.)
+                A character with no companion falls back to mount-on-open —
+                nothing to preload, and the empty-state picker is cheap. */}
+            {(character?.companions?.list?.length ?? 0) > 0 ? (
+              <div
+                className='codex-companions-keepalive'
+                style={{ display: activeTab === 'companions' ? 'contents' : 'none' }}
+              >
+                <CompanionsPanel
+                  panelHeight={props.panelHeight}
+                  panelWidth={props.panelWidth}
+                />
+              </div>
+            ) : (
+              activeTab === 'companions' && (
+                <CompanionsPanel
+                  panelHeight={props.panelHeight}
+                  panelWidth={props.panelWidth}
+                />
+              )
             )}
             {/* (Notes panel moved above — rendered directly under .body
                 so its 2-col layout becomes a sibling of the page-list

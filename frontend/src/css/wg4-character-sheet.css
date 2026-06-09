@@ -407,6 +407,17 @@
   .row-list .row .name .sub-note { color: var(--ink-4); font-weight: 400; font-size: 10.5px; margin-left: 4px; font-style: italic; font-family: var(--font-serif); }
   .row-list .row .mod { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--ink); min-width: 30px; text-align: right; letter-spacing: -0.01em; }
 
+  /* Situational-bonus marker — restores the dotted underline for any stat/check
+     value that carries a conditional ("applies when…") bonus or penalty (e.g.
+     from a custom mode). Applied via the .wg4-situational class on the value. */
+  .wg4-situational {
+    text-decoration-line: underline !important;
+    text-decoration-style: dotted !important;
+    text-decoration-color: var(--wg4-accent) !important;
+    text-decoration-thickness: 1.5px !important;
+    text-underline-offset: 3px !important;
+  }
+
   .cond-list { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; }
   .cond-empty { font-size: 11px; color: var(--ink-5); font-style: italic; }
   .cond {
@@ -1193,7 +1204,7 @@
 
   .notes-list {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: auto; overflow-x: hidden;
     padding: 4px 0;
   }
   .notes-list .empty {
@@ -1336,7 +1347,7 @@
     position: absolute;
     left: 64px; top: 24px; bottom: 24px;
     width: 1px;
-    background: rgba(176, 84, 47, 0.22);
+    background: color-mix(in srgb, var(--wg4-accent) 22%, transparent);
     pointer-events: none;
   }
 

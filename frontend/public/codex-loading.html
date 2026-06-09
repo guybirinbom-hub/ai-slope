@@ -5,9 +5,12 @@
 <title>Wanderer's Codex — Loading</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,14..32,400;1,14..32,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,14..32,400;1,14..32,500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <!-- wg4 theme — match the app's stored light/dark choice before paint. -->
 <script>try{if(localStorage.getItem('wg4-theme')==='dark')document.documentElement.classList.add('theme-dark')}catch(e){}</script>
+<!-- Per-character accent: the sheet passes ?accent=#rrggbb so the loader's d20
+     and progress bar match the character's chosen colour. Overrides --gold. -->
+<script>try{var _a=new URLSearchParams(location.search).get('accent');if(_a&&/^#[0-9a-fA-F]{3,8}$/.test(_a)){var _s=document.documentElement.style;_s.setProperty('--gold',_a);_s.setProperty('--gold-bright',_a);_s.setProperty('--gold-deep',_a);}}catch(e){}</script>
 <style>
   :root {
     /* wg4 redesign palette — parchment + rust */
@@ -161,7 +164,7 @@
     width: 3px; height: 3px;
     background: var(--gold-bright);
     border-radius: 50%;
-    box-shadow: 0 0 6px rgba(232,197,87,.7), 0 0 14px rgba(201,161,59,.35);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--gold) 70%, transparent), 0 0 14px color-mix(in srgb, var(--gold) 35%, transparent);
     opacity: 0;
     animation: rise linear infinite;
   }
@@ -205,10 +208,19 @@
   .seal-core .crest-d20 {
     width: 140px; height: 140px;
     color: var(--gold);
+    /* Static glow only. The rolling animation used to PULSE this filter
+       every frame, which can't run on the compositor (drop-shadow is a
+       paint-time blur) — so the spin stuttered whenever the main thread
+       was busy loading a sheet. The glow is now a constant value baked
+       into the layer once; d20-roll animates ONLY transform, which the
+       compositor runs smoothly no matter how busy the main thread is. */
     filter:
-      drop-shadow(0 0 8px rgba(176,84,47,.28))
-      drop-shadow(0 1px 0 rgba(0,0,0,.18));
+      drop-shadow(0 0 16px color-mix(in srgb, var(--gold) 45%, transparent))
+      drop-shadow(0 1px 0 rgba(0,0,0,.22));
     transition: transform .12s ease;
+    /* Promote to its own compositor layer so the transform spin is
+       handed to the GPU and never competes with main-thread work. */
+    will-change: transform;
   }
   .seal-core .crest-d20.rolling { animation: d20-roll 1.4s linear infinite; }
   /* Number is hidden ONLY while .rolling is on. The moment .rolling
@@ -224,7 +236,7 @@
   .seal-core .crest-d20.land { animation: d20-land .42s cubic-bezier(.22,1.4,.36,1) 1; }
   .seal-core .crest-d20 svg { width: 100%; height: 100%; display: block; }
   .seal-core .crest-d20 .face-fill { fill: #1a1208; }
-  .seal-core .crest-d20 .face-front { fill: rgba(201,161,59,.10); }
+  .seal-core .crest-d20 .face-front { fill: color-mix(in srgb, var(--gold) 10%, transparent); }
   .seal-core .crest-d20 .edge {
     stroke: currentColor; fill: none;
     stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round;
@@ -251,20 +263,22 @@
   .seal-core .crest-d20.crit   .edge.inner { stroke: var(--gold-bright); }
   .seal-core .crest-d20.fumble .edge,
   .seal-core .crest-d20.fumble .edge.inner { stroke: var(--crimson); }
+  /* Transform-only so the compositor owns the spin (smooth even while the
+     main thread is busy parsing/rendering a sheet). The glow is a static
+     filter on .crest-d20 — see the note there. */
   @keyframes d20-roll {
-    0%   { transform: rotate(0deg);   filter: drop-shadow(0 0 20px rgba(232,197,87,.55)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
-    50%  {                            filter: drop-shadow(0 0 30px rgba(232,197,87,.80)) drop-shadow(0 0 60px rgba(201,161,59,.30)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
-    100% { transform: rotate(360deg); filter: drop-shadow(0 0 20px rgba(232,197,87,.55)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
   @keyframes d20-land {
     0%   { transform: rotate(0deg)  scale(1); }
-    35%  { transform: rotate(0deg)  scale(1.22); filter: drop-shadow(0 0 38px rgba(232,197,87,.95)) drop-shadow(0 0 70px rgba(201,161,59,.5)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
+    35%  { transform: rotate(0deg)  scale(1.22); filter: drop-shadow(0 0 38px color-mix(in srgb, var(--gold) 95%, transparent)) drop-shadow(0 0 70px color-mix(in srgb, var(--gold) 50%, transparent)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
     65%  { transform: rotate(0deg)  scale(.96); }
-    100% { transform: rotate(0deg)  scale(1);    filter: drop-shadow(0 0 22px rgba(232,197,87,.65)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
+    100% { transform: rotate(0deg)  scale(1);    filter: drop-shadow(0 0 22px color-mix(in srgb, var(--gold) 65%, transparent)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
   }
   @keyframes d20-settle {
-    0%, 100% { transform: rotate(-2deg); filter: drop-shadow(0 0 18px rgba(232,197,87,.50)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
-    50%      { transform: rotate(2deg);  filter: drop-shadow(0 0 28px rgba(232,197,87,.80)) drop-shadow(0 0 50px rgba(201,161,59,.35)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
+    0%, 100% { transform: rotate(-2deg); filter: drop-shadow(0 0 18px color-mix(in srgb, var(--gold) 50%, transparent)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
+    50%      { transform: rotate(2deg);  filter: drop-shadow(0 0 28px color-mix(in srgb, var(--gold) 80%, transparent)) drop-shadow(0 0 50px color-mix(in srgb, var(--gold) 35%, transparent)) drop-shadow(0 2px 0 rgba(0,0,0,.6)); }
   }
 
   .sweep {
@@ -278,7 +292,7 @@
     stroke: var(--gold-bright);
     stroke-width: 2;
     stroke-linecap: round;
-    filter: drop-shadow(0 0 6px rgba(232,197,87,.7));
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--gold) 70%, transparent));
     stroke-dasharray: 1256.6;
     stroke-dashoffset: 1256.6;
     transition: stroke-dashoffset .35s ease;

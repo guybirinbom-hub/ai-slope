@@ -648,7 +648,10 @@ export function ModeEditor(props: {
       id: props.mode.id,
       name: name.trim(),
       description: description.trim(),
-      effects: effects.filter((e) => e.variable && Number.isFinite(e.value)),
+      effects: effects
+        .filter((e) => e.variable && Number.isFinite(e.value))
+        // Normalize the condition: blank/whitespace means unconditional.
+        .map((e) => ({ ...e, text: e.text?.trim() ? e.text.trim() : undefined })),
       scope,
     });
   };
@@ -707,49 +710,74 @@ export function ModeEditor(props: {
           </div>
         )}
         {effects.map((eff, i) => (
-          <div key={i} className='cm-effect-row'>
-            <select
-              value={eff.variable}
-              onChange={(e) => updateEffect(i, { variable: e.target.value })}
-            >
-              {MODE_TARGET_GROUPS.map((g) => (
-                <optgroup key={g.label} label={g.label}>
-                  {g.targets.map((t) => (
-                    <option key={t.variable} value={t.variable}>
-                      {t.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <input
-              type='number'
-              value={eff.value}
-              onChange={(e) =>
-                updateEffect(i, { value: parseInt(e.target.value || '0', 10) })
-              }
-              step={1}
-              className='cm-effect-val'
-            />
-            <select
-              value={eff.type ?? 'status'}
-              onChange={(e) =>
-                updateEffect(i, { type: e.target.value as CustomModeEffect['type'] })
-              }
-            >
-              <option value='status'>status</option>
-              <option value='circumstance'>circumstance</option>
-              <option value='item'>item</option>
-              <option value='untyped'>untyped</option>
-            </select>
-            <button
-              type='button'
-              className='cm-mini-btn danger'
-              onClick={() => removeEffect(i)}
-              aria-label='Remove effect'
-            >
-              ✕
-            </button>
+          <div key={i} className='cm-effect'>
+            <div className='cm-effect-row'>
+              <select
+                value={eff.variable}
+                onChange={(e) => updateEffect(i, { variable: e.target.value })}
+              >
+                {MODE_TARGET_GROUPS.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.targets.map((t) => (
+                      <option key={t.variable} value={t.variable}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <input
+                type='number'
+                value={eff.value}
+                onChange={(e) =>
+                  updateEffect(i, { value: parseInt(e.target.value || '0', 10) })
+                }
+                step={1}
+                className='cm-effect-val'
+              />
+              <select
+                value={eff.type ?? 'status'}
+                onChange={(e) =>
+                  updateEffect(i, { type: e.target.value as CustomModeEffect['type'] })
+                }
+              >
+                <option value='status'>status</option>
+                <option value='circumstance'>circumstance</option>
+                <option value='item'>item</option>
+                <option value='untyped'>untyped</option>
+              </select>
+              {/* `*` — describe WHEN this effect applies. Pressing it reveals a
+                  condition field; a non-empty condition makes this a situational
+                  bonus, which shows in the stat's breakdown and marks the stat
+                  with a dotted underline on the sheet. */}
+              <button
+                type='button'
+                className={`cm-mini-btn cm-cond-toggle${eff.text !== undefined ? ' on' : ''}`}
+                onClick={() => updateEffect(i, { text: eff.text === undefined ? '' : undefined })}
+                title='Add a condition — when does this effect apply? (e.g. only against fear)'
+                aria-label='Add a condition for when this effect applies'
+              >
+                *
+              </button>
+              <button
+                type='button'
+                className='cm-mini-btn danger'
+                onClick={() => removeEffect(i)}
+                aria-label='Remove effect'
+              >
+                ✕
+              </button>
+            </div>
+            {eff.text !== undefined && (
+              <input
+                type='text'
+                className='cm-effect-cond-input'
+                value={eff.text}
+                onChange={(e) => updateEffect(i, { text: e.target.value })}
+                placeholder='Applies only when… (e.g. against fear effects)'
+                autoFocus
+              />
+            )}
           </div>
         ))}
       </div>

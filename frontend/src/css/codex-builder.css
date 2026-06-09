@@ -32,9 +32,9 @@
   background:
     radial-gradient(circle at 35% 35%, #3a2d18 0%, #1a1208 70%),
     #0a0703;
-  box-shadow: 0 0 0 1px var(--gold-deep), 0 0 0 2px var(--bg), 0 0 0 3px var(--rule-soft);
+  box-shadow: 0 0 0 1px var(--wg4-accent-ink), 0 0 0 2px var(--bg), 0 0 0 3px var(--rule-soft);
   display: grid; place-items: center;
-  color: var(--gold-bright);
+  color: var(--wg4-accent);
   font-family: 'Cinzel', serif; font-size: 20px; font-weight: 700;
   line-height: 1; flex: 0 0 44px;
 }
@@ -49,7 +49,7 @@
   font-size: 11px; letter-spacing: .26em;
   color: var(--ink-dim); text-transform: uppercase;
 }
-.codex-builder-page .who .label .sub i { color: var(--gold); font-style: normal; padding: 0 4px; }
+.codex-builder-page .who .label .sub i { color: var(--wg4-accent); font-style: normal; padding: 0 4px; }
 
 .codex-builder-page .mode-row {
   display: flex; align-items: stretch; flex: 1;
@@ -74,12 +74,12 @@
 .codex-builder-page .mode-row .m-btn:last-child { border-right: 0; }
 .codex-builder-page .mode-row .m-btn:hover { color: var(--ink); }
 .codex-builder-page .mode-row .m-btn.on {
-  color: var(--gold);
+  color: var(--wg4-accent);
   background: linear-gradient(180deg, rgba(201,161,59,.08), transparent 80%);
 }
 .codex-builder-page .mode-row .m-btn.on::after {
   content: ''; position: absolute; left: 14%; right: 14%; bottom: 0; height: 2px;
-  background: var(--gold);
+  background: var(--wg4-accent);
 }
 .codex-builder-page .mode-row .m-btn svg { width: 14px; height: 14px; fill: currentColor; opacity: .8; }
 
@@ -92,14 +92,14 @@
   width: 44px; height: 44px;
   border: 1px solid var(--rule-soft);
   background: var(--bg-card);
-  color: var(--gold);
+  color: var(--wg4-accent);
   display: grid; place-items: center;
   cursor: pointer;
   transition: border-color .12s, background .12s;
 }
-.codex-builder-page .topbar-right .menu:hover { border-color: var(--gold); }
+.codex-builder-page .topbar-right .menu:hover { border-color: var(--wg4-accent); }
 .codex-builder-page .topbar-right .menu .lines { display: flex; flex-direction: column; gap: 5px; }
-.codex-builder-page .topbar-right .menu .lines span { display: block; width: 22px; height: 1.6px; background: var(--gold); }
+.codex-builder-page .topbar-right .menu .lines span { display: block; width: 22px; height: 1.6px; background: var(--wg4-accent); }
 
 /* ── Level chip strip ─────────────────────────────────────────── */
 .codex-builder-page .levels {
@@ -114,7 +114,7 @@
   text-transform: uppercase;
   margin-right: 6px; flex-shrink: 0;
 }
-.codex-builder-page .levels .lab b { color: var(--gold); font-weight: 700; font-size: 11px; }
+.codex-builder-page .levels .lab b { color: var(--wg4-accent); font-weight: 700; font-size: 11px; }
 .codex-builder-page .lv-track {
   flex: 1;
   display: flex;
@@ -135,15 +135,15 @@
   position: relative;
   transition: border-color .12s, transform .12s;
 }
-.codex-builder-page .lv:hover { border-color: var(--gold-deep); transform: scale(1.06); }
+.codex-builder-page .lv:hover { border-color: var(--wg4-accent-ink); transform: scale(1.06); }
 .codex-builder-page .lv.done {
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
-  color: var(--bg); border-color: var(--gold-deep);
+  background: linear-gradient(180deg, var(--wg4-accent), var(--wg4-accent-ink));
+  color: var(--bg); border-color: var(--wg4-accent-ink);
 }
 .codex-builder-page .lv.on {
   background: rgba(201,161,59,.16);
-  color: var(--gold-bright);
-  border-color: var(--gold);
+  color: var(--wg4-accent);
+  border-color: var(--wg4-accent);
   border-width: 2px;
 }
 .codex-builder-page .lv.warn::after {
@@ -157,12 +157,12 @@
   width: 32px; height: 32px;
   background: transparent;
   border: 1px solid var(--rule-soft);
-  color: var(--gold);
+  color: var(--wg4-accent);
   display: grid; place-items: center;
   cursor: pointer;
   font-family: 'Cinzel', serif; font-size: 14px;
 }
-.codex-builder-page .levels .nav-arrow:hover { background: rgba(201,161,59,.08); border-color: var(--gold-deep); }
+.codex-builder-page .levels .nav-arrow:hover { background: rgba(201,161,59,.08); border-color: var(--wg4-accent-ink); }
 
 /* ── 3-col body ──────────────────────────────────────────────── */
 .codex-builder-page .body {
@@ -174,15 +174,15 @@
 .codex-builder-page .col {
   padding: 14px 18px 16px;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   overflow-x: hidden;
   display: flex; flex-direction: column;
   gap: 12px;
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-accent-ink) transparent;
 }
 .codex-builder-page .col::-webkit-scrollbar { width: 4px; }
-.codex-builder-page .col::-webkit-scrollbar-thumb { background: var(--gold-deep); }
+.codex-builder-page .col::-webkit-scrollbar-thumb { background: var(--wg4-accent-ink); }
 .codex-builder-page .col.left { border-right: 1px solid var(--rule-soft); padding-right: 14px; }
 .codex-builder-page .col.right { border-left: 1px solid var(--rule-soft); padding-left: 14px; }
 .codex-builder-page .col.main { padding: 16px 22px 16px; gap: 14px; }
@@ -191,7 +191,7 @@
   font-family: 'Cinzel', serif;
   font-weight: 600; font-size: 11px;
   letter-spacing: .28em;
-  color: var(--gold);
+  color: var(--wg4-accent);
   text-transform: uppercase;
   padding-bottom: 5px;
   margin: 0 0 8px;
@@ -199,7 +199,7 @@
   display: flex; align-items: center; gap: 8px;
 }
 .codex-builder-page .sec-title.compact { font-size: 10px; letter-spacing: .22em; }
-.codex-builder-page .sec-title .lozenge { color: var(--gold-bright); font-size: 12px; }
+.codex-builder-page .sec-title .lozenge { color: var(--wg4-accent); font-size: 12px; }
 .codex-builder-page .sec-title .sub {
   margin-left: auto;
   font-family: 'Cinzel', serif; font-size: 9px;
@@ -228,21 +228,21 @@
   line-height: 1.05; margin-top: 1px;
 }
 .codex-builder-page .ab .score { font-size: 10px; color: var(--ink-muted); letter-spacing: .08em; }
-.codex-builder-page .ab.key { border-color: var(--gold-deep); }
-.codex-builder-page .ab.key .mod { color: var(--gold); }
+.codex-builder-page .ab.key { border-color: var(--wg4-accent-ink); }
+.codex-builder-page .ab.key .mod { color: var(--wg4-accent); }
 .codex-builder-page .ab.key::after {
   content: '✦';
   position: absolute; top: 2px; right: 4px;
-  color: var(--gold); font-size: 8px;
+  color: var(--wg4-accent); font-size: 8px;
 }
 .codex-builder-page .ab.boosted {
   background: linear-gradient(180deg, rgba(201,161,59,.10), var(--bg-card));
-  border-color: var(--gold);
+  border-color: var(--wg4-accent);
 }
 .codex-builder-page .ab.boosted::before {
   content: '+1';
   position: absolute; top: 1px; left: 4px;
-  font-size: 8px; color: var(--gold-bright);
+  font-size: 8px; color: var(--wg4-accent);
   font-family: 'Cinzel', serif; font-weight: 700;
 }
 
@@ -256,7 +256,7 @@
 }
 .codex-builder-page .hp-card::before, .codex-builder-page .hp-card::after {
   content: ''; position: absolute; width: 5px; height: 5px;
-  border: 1px solid var(--gold);
+  border: 1px solid var(--wg4-accent);
 }
 .codex-builder-page .hp-card::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
 .codex-builder-page .hp-card::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
@@ -265,7 +265,7 @@
   font-family: 'Cinzel', serif; font-weight: 700; font-size: 24px;
   color: var(--ink); line-height: 1; margin-top: 3px;
 }
-.codex-builder-page .hp-card .v small { font-size: 11px; color: var(--gold); }
+.codex-builder-page .hp-card .v small { font-size: 11px; color: var(--wg4-accent); }
 
 /* ── Origin chip rows ────────────────────────────────────────── */
 .codex-builder-page .origin {
@@ -276,12 +276,12 @@
   cursor: pointer;
   transition: border-color .12s;
 }
-.codex-builder-page .origin:hover { border-color: var(--gold-deep); }
+.codex-builder-page .origin:hover { border-color: var(--wg4-accent-ink); }
 .codex-builder-page .origin .ic {
   width: 26px; height: 26px;
   background: var(--bg-2);
   border: 1px solid var(--rule-soft);
-  color: var(--gold);
+  color: var(--wg4-accent);
   display: grid; place-items: center;
   font-family: 'Cinzel', serif; font-weight: 700;
   font-size: 12px;
@@ -321,7 +321,7 @@
 }
 .codex-builder-page .sk .pf.T { background: var(--ink-deep); color: #f0e8d0; }
 .codex-builder-page .sk .pf.E { background: var(--sage); color: #e8f0d8; }
-.codex-builder-page .sk .pf.M { background: var(--gold); color: #1a1206; }
+.codex-builder-page .sk .pf.M { background: var(--wg4-accent); color: #1a1206; }
 .codex-builder-page .sk .pf.L { background: var(--crimson); color: #fff; }
 .codex-builder-page .sk .pf.U { background: transparent; border: 1px solid var(--ink-deep); color: var(--ink-deep); line-height: 12px; }
 .codex-builder-page .sk .nm { font-family: 'Cormorant Garamond', serif; font-weight: 500; color: var(--ink); }
@@ -336,9 +336,9 @@
   border-left: 2px solid var(--crimson);
   padding-left: 4px; margin: 0 -4px;
 }
-.codex-builder-page .sk.boosted .nm { color: var(--gold-bright); }
+.codex-builder-page .sk.boosted .nm { color: var(--wg4-accent); }
 .codex-builder-page .sk.boosted .nm::before {
-  content: '↑'; color: var(--gold); margin-right: 3px; font-weight: 700;
+  content: '↑'; color: var(--wg4-accent); margin-right: 3px; font-weight: 700;
 }
 
 /* ── Level head + choice cards ───────────────────────────────── */
@@ -363,25 +363,25 @@
 .codex-builder-page .level-emblem::before {
   content: ''; position: absolute; inset: 0;
   background: radial-gradient(circle at 50% 50%, rgba(201,161,59,.18), transparent 70%);
-  border: 1px solid var(--gold-deep);
+  border: 1px solid var(--wg4-accent-ink);
   transform: rotate(45deg);
 }
 .codex-builder-page .level-emblem::after {
   content: ''; position: absolute; inset: 7px;
-  border: 1px solid var(--gold);
+  border: 1px solid var(--wg4-accent);
   transform: rotate(45deg);
 }
 .codex-builder-page .level-emblem .num {
   position: relative; z-index: 1;
   font-family: 'Cinzel', serif; font-weight: 700;
-  font-size: 26px; color: var(--gold-bright);
+  font-size: 26px; color: var(--wg4-accent);
   line-height: 1;
 }
 .codex-builder-page .level-head .meta { padding-bottom: 4px; }
 .codex-builder-page .level-head .meta .eyebrow {
   font-family: 'Cinzel', serif;
   font-size: 9px; letter-spacing: .28em;
-  color: var(--gold); text-transform: uppercase;
+  color: var(--wg4-accent); text-transform: uppercase;
 }
 .codex-builder-page .level-head .meta .lede {
   font-family: 'Cormorant Garamond', serif;
@@ -399,7 +399,7 @@
 .codex-builder-page .level-head .progress b {
   display: block;
   margin-top: 4px;
-  font-size: 16px; color: var(--gold);
+  font-size: 16px; color: var(--wg4-accent);
   letter-spacing: .04em;
 }
 .codex-builder-page .level-head .progress .small {
@@ -422,13 +422,13 @@
   border-left: 3px solid var(--crimson);
 }
 .codex-builder-page .choice-card.done {
-  border-color: var(--gold-deep);
-  border-left: 3px solid var(--gold);
+  border-color: var(--wg4-accent-ink);
+  border-left: 3px solid var(--wg4-accent);
 }
-.codex-builder-page .choice-card.granted { border-color: var(--gold-deep); }
+.codex-builder-page .choice-card.granted { border-color: var(--wg4-accent-ink); }
 .codex-builder-page .choice-card.granted::before, .codex-builder-page .choice-card.granted::after {
   content: ''; position: absolute; width: 6px; height: 6px;
-  border: 1px solid var(--gold);
+  border: 1px solid var(--wg4-accent);
 }
 .codex-builder-page .choice-card.granted::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
 .codex-builder-page .choice-card.granted::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
@@ -440,7 +440,7 @@
 .codex-builder-page .cc-head .nm {
   font-family: 'Cinzel', serif; font-weight: 700;
   font-size: 12px; letter-spacing: .22em;
-  color: var(--gold); text-transform: uppercase;
+  color: var(--wg4-accent); text-transform: uppercase;
 }
 .codex-builder-page .choice-card.pending .cc-head .nm { color: #e08560; }
 .codex-builder-page .cc-head .desc {
@@ -479,11 +479,11 @@
   color: var(--ink-dim);
   cursor: pointer;
 }
-.codex-builder-page .level-foot .nav-btn:hover { color: var(--gold); border-color: var(--gold-deep); }
+.codex-builder-page .level-foot .nav-btn:hover { color: var(--wg4-accent); border-color: var(--wg4-accent-ink); }
 .codex-builder-page .level-foot .nav-btn.primary {
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+  background: linear-gradient(180deg, var(--wg4-accent), var(--wg4-accent-ink));
   color: var(--bg);
-  border-color: var(--gold-deep);
+  border-color: var(--wg4-accent-ink);
   font-weight: 700;
 }
 .codex-builder-page .level-foot .center {
@@ -492,7 +492,7 @@
   color: var(--ink-muted);
 }
 .codex-builder-page .level-foot .center b {
-  color: var(--gold); font-style: normal;
+  color: var(--wg4-accent); font-style: normal;
   font-family: 'Cinzel', serif; font-weight: 700;
   letter-spacing: .14em; font-size: 11px;
   text-transform: uppercase;
@@ -579,10 +579,10 @@
 }
 .codex-builder-page .choice-head .ico {
   width: 26px; height: 26px;
-  border: 1px solid var(--gold-deep);
+  border: 1px solid var(--wg4-accent-ink);
   display: grid; place-items: center;
   background: var(--bg-2);
-  color: var(--gold);
+  color: var(--wg4-accent);
   font-family: 'Cinzel', serif;
   font-size: 11px;
   transform: rotate(45deg);
@@ -618,8 +618,8 @@
   white-space: nowrap;
 }
 .codex-builder-page .ch-state.required {
-  color: var(--gold);
-  border-color: var(--gold-deep);
+  color: var(--wg4-accent);
+  border-color: var(--wg4-accent-ink);
   background: linear-gradient(180deg, rgba(201,161,59,.10), var(--bg-2));
 }
 .codex-builder-page .ch-state.done {
@@ -642,7 +642,7 @@
 }
 .codex-builder-page .choice.open .choice-head .chev {
   transform: rotate(-135deg);
-  border-color: var(--gold);
+  border-color: var(--wg4-accent);
   margin-top: 4px;
 }
 
@@ -664,9 +664,9 @@
   display: inline-grid;
   place-items: center;
   width: 18px; height: 18px;
-  border: 1px solid var(--gold);
+  border: 1px solid var(--wg4-accent);
   background:
-    radial-gradient(circle at 50% 50%, var(--gold-bright) 0%, var(--gold) 60%, var(--gold-deep) 100%);
+    radial-gradient(circle at 50% 50%, var(--wg4-accent) 0%, var(--wg4-accent) 60%, var(--wg4-accent-ink) 100%);
   color: var(--bg);
   font-family: 'Cinzel', serif;
   font-size: 10px;

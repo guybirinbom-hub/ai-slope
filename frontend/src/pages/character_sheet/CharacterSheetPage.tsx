@@ -35,6 +35,9 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAtomValue } from 'jotai';
+import { characterState } from '@atoms/characterAtoms';
+import { accentVars } from '@utils/accent-color';
 import { Character, ContentPackage, LivingEntity } from '@schemas/content';
 import { VariableListStr } from '@schemas/variables';
 import { setPageTitle } from '@utils/document-change';
@@ -54,7 +57,6 @@ import SkillsActionsPanel from './panels/SkillsActionsPanel';
 import SpellsPanel from './panels/SpellsPanel';
 import ArmorSection from './sections/ArmorSection';
 import AttributeSection from './sections/AttributeSection';
-import EntityInfoSection from './sections/EntityInfoSection';
 import ConditionSection from './sections/ConditionSection';
 import HealthSection from './sections/HealthSection';
 import SpeedSection from './sections/SpeedSection';
@@ -88,6 +90,35 @@ export function Component(props: {}) {
   const { characterId } = useLoaderData() as {
     characterId: string;
   };
+
+  // Per-character loading-screen accent. On a warm hand-off (e.g. Builder →
+  // Sheet) the characterState atom already holds this character, so we tint the
+  // loader's d20/progress to match the chosen colour by passing it into the
+  // iframe. Captured once at mount so the iframe src stays stable (no reload).
+  const loaderQueryClient = useQueryClient();
+  const loaderCharacter = useAtomValue(characterState);
+  const [loaderAccent] = useState<string | null>(() => {
+    // Resolve the clicked character's colour as early as possible so the loading
+    // screen matches it. On a warm Builder→Sheet hand-off the characterState
+    // atom already holds this character; on a COLD entry from the Characters
+    // page it isn't loaded yet, so read the colour from the React Query cache
+    // (the single-character entry or the roster list) instead of falling back to
+    // the default accent.
+    const colorOf = (ch: Character | null | undefined) =>
+      (ch?.details as { sheet_theme?: { color?: string } } | undefined)?.sheet_theme?.color;
+    const fromAtom =
+      loaderCharacter && loaderCharacter.id === parseInt(characterId) ? colorOf(loaderCharacter) : undefined;
+    const fromCache = colorOf(
+      loaderQueryClient.getQueryData<Character>(['find-character', characterId]) ??
+        loaderQueryClient.getQueryData<Character>(['find-character', parseInt(characterId)])
+    );
+    const list = loaderQueryClient.getQueryData<Character[]>(['find-character']);
+    const fromList = Array.isArray(list)
+      ? colorOf(list.find((ch) => `${ch.id}` === `${characterId}`))
+      : undefined;
+    const c = fromAtom ?? fromCache ?? fromList;
+    return c ? accentVars(c)?.['--wg4-accent'] ?? null : null;
+  });
 
   const theme = useMantineTheme();
   const [doneLoading, setDoneLoading] = useState(false);
@@ -258,12 +289,14 @@ export function Component(props: {}) {
         width: '100vw',
         height: '100vh',
         zIndex: 9999,
-        background: '#e8e4d8', // wg4 parchment to match the new loading-screen palette
+        // Match the loading-screen palette, theme-aware (so dark mode doesn't
+        // flash a light parchment panel behind the loader iframe).
+        background: document.documentElement.classList.contains('theme-dark') ? '#14161a' : '#e8e4d8',
       }}
     >
       <iframe
         ref={loaderIframeRef}
-        src='/codex-loading.html'
+        src={loaderAccent ? `/codex-loading.html?accent=${encodeURIComponent(loaderAccent)}` : '/codex-loading.html'}
         title='Loading character sheet'
         style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
       />
@@ -351,6 +384,10 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
   // mounted after the first open (so it doesn't remount on subsequent opens).
   const [openedDiceRoller, setOpenedDiceRoller] = useState(false);
   const [loadedDiceRoller, setLoadedDiceRoller] = useState(false);
+  // The dice roller is on by default; the builder's "Dice Roller" option hides
+  // it from the sheet when explicitly turned off (options.dice_roller === false).
+  const diceRollerEnabled =
+    (character?.options as { dice_roller?: boolean } | undefined)?.dice_roller !== false;
 
   const [openedCampaign, setOpenedCampaign] = useState(false);
   // The mode list itself is now derived inside ConditionsModesModal
@@ -373,6 +410,11 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
         panelWidth={panelWidth}
         panelHeight={panelHeight}
         sidebarActions={
+          // An empty fragment is still truthy, so the bordered `.sidebar-actions`
+          // dock renders as an empty corner-bracketed box when the dice roller is
+          // off AND there's no campaign. Pass undefined when there are genuinely
+          // no actions so the dock doesn't render at all.
+          character?.campaign_id || diceRollerEnabled ? (
           <>
             {/* Modes used to live here as a standalone icon. They're
                 now a tab inside the Conditions/Modes modal opened from
@@ -391,19 +433,22 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
                 <IconFlag size='1rem' stroke={1.5} />
               </ActionIcon>
             )}
-            {/* Dice roller is always available in the local fork. */}
-            <ActionIcon
-              size={28}
-              variant='light'
-              aria-label='Dice Roller'
-              onClick={() => {
-                if (!loadedDiceRoller) setLoadedDiceRoller(true);
-                setOpenedDiceRoller(true);
-              }}
-            >
-              <GiRollingDices size='1rem' stroke={'1.5px'} />
-            </ActionIcon>
+            {/* Dice roller — hidden when disabled via the builder's Dice Roller option. */}
+            {diceRollerEnabled && (
+              <ActionIcon
+                size={28}
+                variant='light'
+                aria-label='Dice Roller'
+                onClick={() => {
+                  if (!loadedDiceRoller) setLoadedDiceRoller(true);
+                  setOpenedDiceRoller(true);
+                }}
+              >
+                <GiRollingDices size='1rem' stroke={'1.5px'} />
+              </ActionIcon>
+            )}
           </>
+          ) : undefined
         }
       />
       {/* Keep the legacy SectionPanels reachable via the bottom of
@@ -431,7 +476,7 @@ function CharacterSheetInner(props: { content: ContentPackage; characterId: numb
           at the bottom-left corner. */}
 
       {/* Keep DiceRoller mounted once loaded so it doesn't lose its state between opens */}
-      {loadedDiceRoller && (
+      {loadedDiceRoller && diceRollerEnabled && (
         <Suspense fallback={<></>}>
           <DiceRoller
             opened={openedDiceRoller}

@@ -1,7 +1,7 @@
 import { creatureDrawerState, drawerState } from '@atoms/navAtoms';
 import { sessionState } from '@atoms/supabaseAtoms';
 import { DrawerStateSet } from '@common/rich_text_input/ContentLinkExtension';
-import { DISCORD_URL, LEGACY_URL, PATREON_URL } from '@constants/urls';
+import { DISCORD_URL, PATREON_URL } from '@constants/urls';
 import { fetchContentSources, getDefaultSources } from '@content/content-store';
 import { getIconFromContentType } from '@content/content-utils';
 import { determineItemMetaType } from '@items/inv-utils';
@@ -126,39 +126,6 @@ export default function SearchSpotlight() {
         description: 'Go to the home page',
         onClick: () => navigate(`/`),
         leftSection: <IconHome style={{ width: rem(24), height: rem(24) }} stroke={1.5} />,
-        highlightColor: theme.colors[theme.primaryColor][2],
-        keywords: ['page'],
-      },
-      {
-        id: 'page-community',
-        label: 'Community',
-        description: 'View the community forums and discussions',
-        onClick: () => {
-          window.open(DISCORD_URL, '_blank');
-        },
-        leftSection: <IconBrandDiscord style={{ width: rem(24), height: rem(24) }} stroke={1.5} />,
-        highlightColor: theme.colors[theme.primaryColor][2],
-        keywords: ['page'],
-      },
-      {
-        id: 'page-support',
-        label: 'Support',
-        description: 'Support the site on Patreon and get access to additional features',
-        onClick: () => {
-          window.open(PATREON_URL, '_blank');
-        },
-        leftSection: <IconBrandPatreon style={{ width: rem(24), height: rem(24) }} stroke={1.5} />,
-        highlightColor: theme.colors[theme.primaryColor][2],
-        keywords: ['page'],
-      },
-      {
-        id: 'page-legacy-site',
-        label: 'Legacy Site',
-        description: `Go to the legacy site for original Pathfinder 2e`,
-        onClick: () => {
-          window.open(LEGACY_URL, '_blank');
-        },
-        leftSection: <IconArchive style={{ width: rem(24), height: rem(24) }} stroke={1.5} />,
         highlightColor: theme.colors[theme.primaryColor][2],
         keywords: ['page'],
       },

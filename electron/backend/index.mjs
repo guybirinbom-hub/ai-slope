@@ -1455,7 +1455,7 @@ export async function start() {
 // SYNCHRONOUS: we run via execFileSync so we KNOW the kills landed before
 // returning. Previous fire-and-forget spawn() variant could race against
 // process.exit() and miss the kill entirely.
-function hardKillBackendChildren() {
+export function hardKillBackendChildren() {
   if (process.platform !== 'win32') return;
   for (const image of ['postgres.exe', 'postgrest.exe']) {
     try {

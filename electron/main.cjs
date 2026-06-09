@@ -43,6 +43,10 @@ configureBackendPaths();
 
 let mainWindow = null;
 let backend = null;
+// Reference to the backend's synchronous force-kill, kept separately so the
+// process-'exit' safety net below can always call it — even after shutdown()
+// nulls `backend`. Set once the backend module is imported.
+let backendForceKill = null;
 
 // Single-instance lock. Without this, if the user closes the window
 // and re-launches before the previous process has finished shutting
@@ -104,28 +108,6 @@ function setStatus(win, text, isError = false) {
     .catch(() => {});
 }
 
-// Push a real progress value (0–100) to the codex loader. Safe to call
-// before the page is parsed — failed executeJavaScripts are swallowed.
-function setLoaderProgress(win, pct) {
-  if (!win || win.isDestroyed()) return;
-  const n = Math.max(0, Math.min(100, Number(pct) || 0));
-  win.webContents
-    .executeJavaScript(
-      'window.codexProgress && window.codexProgress(' + n + ');'
-    )
-    .catch(() => {});
-}
-
-// Trigger the d20 land + final 100% jump. Called RIGHT before we swap
-// the splash for APP_URL so the dice lock is the last thing the user
-// sees before the real frontend mounts.
-function completeLoader(win) {
-  if (!win || win.isDestroyed()) return;
-  win.webContents
-    .executeJavaScript('window.codexComplete && window.codexComplete();')
-    .catch(() => {});
-}
-
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -137,7 +119,7 @@ function createMainWindow() {
     // window backdrop on the same colour so the loadURL navigation
     // from splash → React doesn't flash a different tone in the gap
     // between documents unloading.
-    backgroundColor: '#15110b',
+    backgroundColor: '#14161a',
     autoHideMenuBar: true,
     show: false,
     // Frameless window. Codex design renders its own gold-styled
@@ -156,9 +138,14 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
-  // Start with the codex loading file so the user sees the window
-  // immediately even before the backend is up.
-  mainWindow.loadFile(LOADING_FILE);
+  // The window is created hidden (show:false) and intentionally loads
+  // NOTHING here. startBackend() navigates it to APP_URL once the gateway
+  // is up, and the window only reveals on 'ready-to-show' — i.e. once
+  // index.html has painted its #wg-boot spinner. By never loading a
+  // file:// splash and never showing the raw window, we avoid the blank
+  // window, the wrong-theme backdrop, and the file://→http:// cross-process
+  // navigation flash the previous splash-then-loadURL flow produced.
+  // (LOADING_FILE is still used as an error surface in whenReady()'s catch.)
   // Open fullscreen. Per request — the user wants the app to fill the
   // entire display (no taskbar visible) on launch, not just maximize
   // inside the available work area. setFullScreen(true) hides the OS
@@ -175,6 +162,15 @@ function createMainWindow() {
     mainWindow.setFullScreen(true);
     mainWindow.show();
   });
+  // Safety net: if 'ready-to-show' never fires (e.g. the backend errors
+  // before APP_URL can load), reveal the window anyway after a few seconds
+  // so it can't get stuck permanently invisible.
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.setFullScreen(true);
+      mainWindow.show();
+    }
+  }, 6000);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://localhost') || url.startsWith('app://')) {
@@ -203,29 +199,23 @@ function createMainWindow() {
 async function startBackend() {
   const t0 = Date.now();
 
-  // Stage 1 — backend module imported (filesystem + JS parse).
-  // The codex loader currently sits at 0; nudge it to 15% so the bar
-  // moves immediately after Electron paints the first frame.
-  setLoaderProgress(mainWindow, 15);
+  // Stage 1 — import the backend module (filesystem read + JS parse).
   backend = await import('./backend/index.mjs');
+  backendForceKill = backend.hardKillBackendChildren || null;
   console.log('[main] backend module loaded after', Date.now() - t0, 'ms');
-  setLoaderProgress(mainWindow, 35);
 
-  // Stage 2 — gateway listening. This is the point at which the
-  // renderer COULD load /auth/v1 and /wg/ready, but we want the
-  // splash to finish its landing animation first.
+  // Stage 2 — gateway listening. Once this resolves the gateway can
+  // serve APP_URL (index.html + the static bundle) and the /auth/v1
+  // shim, so it's safe to navigate the window to it.
   const t1 = Date.now();
   await backend.startGateway();
   console.log('[main] backend.startGateway() took', Date.now() - t1, 'ms');
-  setLoaderProgress(mainWindow, 60);
 
   // Stage 3 — kick off pg + postgrest warm-up in the background. We
-  // intentionally don't await it before the loadURL below; the
-  // frontend bundle parses while pg starts. BackendReadyGate inside
-  // the React app shows its own copy of the loader (iframed) while
-  // pg finishes warming, and that one gets its 100% from
-  // markReady(). The progress reported here covers the Electron
-  // side only: module → gateway → "about to navigate".
+  // intentionally don't await it before the loadURL below; the frontend
+  // bundle downloads + parses while pg starts. BackendReadyGate inside
+  // the React app holds the user at a theme-aware spinner until
+  // markReady() flips /wg/ready, then swaps to the real page.
   const t2 = Date.now();
   const startPromise = backend.start();
   startPromise.then(() => {
@@ -237,29 +227,16 @@ async function startBackend() {
     backend.markReady({ error: String(err && err.message || err) });
   });
 
-  // Trigger the d20 land + 100% jump on the splash, then swap to
-  // APP_URL. Give the lock animation just enough time to be visibly
-  // registered (200ms — about half the .42s land keyframe; the rest
-  // of the animation gets cut off by the navigation, but by then the
-  // user has clearly seen the rolled number snap onto a stable face).
-  //
-  // Was 700ms — the user complained the loader "stays at 100" too
-  // long after the roll. Combined with the React-level
-  // BackendReadyGate that ALSO shows a fresh dice for another
-  // 900+500ms on the warm path, the original 700ms here ballooned
-  // the total post-first-roll wait to ~2.1s. BackendReadyGate now
-  // skips its iframe on the warm path (renders a plain black screen
-  // for up to 500ms, only mounts the second dice if the backend is
-  // genuinely slow), so the perceived loader closes within ~1s of
-  // the splash dice locking.
-  completeLoader(mainWindow);
-  setTimeout(() => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.loadURL(APP_URL).catch((err) => {
-        console.error('[main] loadURL failed:', err);
-      });
-    }
-  }, 200);
+  // Navigate to the app now that the gateway is up. The window is still
+  // hidden (show:false) and only reveals on 'ready-to-show' — once
+  // index.html has painted its #wg-boot spinner. So there's no file→http
+  // cross-process flash, no raw-window backdrop, and no separate splash
+  // document to blank between: index.html's spinner hands straight off to
+  // React's BackendReadyGate spinner while pg finishes warming in the
+  // background.
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.loadURL(APP_URL).catch((err) => console.error('[main] loadURL failed:', err));
+  }
 }
 
 app.whenReady().then(async () => {
@@ -268,8 +245,20 @@ app.whenReady().then(async () => {
     await startBackend();
   } catch (err) {
     console.error('[main] backend failed to start:', err);
-    setStatus(mainWindow, 'The codex is sealed shut.');
-    setStatus(mainWindow, String(err && err.stack || err), true);
+    // This path only runs if the module import or gateway start failed —
+    // APP_URL can't load, so the window has no page yet. Fall back to the
+    // file splash purely so we can surface the error on its overlay.
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow
+        .loadFile(LOADING_FILE)
+        .then(() => {
+          mainWindow.setFullScreen(true);
+          mainWindow.show();
+          setStatus(mainWindow, 'The codex is sealed shut.');
+          setStatus(mainWindow, String((err && err.stack) || err), true);
+        })
+        .catch(() => {});
+    }
   }
 });
 
@@ -317,6 +306,23 @@ app.on('activate', () => {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// Last-resort safety net against orphaned Postgres. PG is spawned as a normal
+// child, and Windows does NOT kill child processes when the parent exits — so
+// if we ever reach process exit WITHOUT stop() having killed the pg/postgrest
+// tree (stop() hung past shutdown()'s 6s race, or an uncaught exception is
+// tearing us down), they'd be left running and hold the data-dir lock. The
+// 'exit' event allows only synchronous work, which is exactly what
+// hardKillBackendChildren() is (a synchronous taskkill). No-op when stop()
+// already cleaned up. A hard crash / Task-Manager kill can't fire this — that
+// case is covered by runPostgresDirect()'s pre-spawn cleanup on the next launch.
+process.on('exit', () => {
+  try {
+    if (backendForceKill) backendForceKill();
+  } catch {
+    // Mid-exit: nothing more we can do, just don't throw.
+  }
+});
 
 // IPC: nuke the app from orbit. Invoked by the Settings page's
 // Uninstall button (via preload.cjs → window.wgElectron.uninstall()).

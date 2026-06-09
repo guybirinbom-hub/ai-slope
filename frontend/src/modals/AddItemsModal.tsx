@@ -317,7 +317,9 @@ export default function AddItemsModal({
                       onClick={() =>
                         openDrawer({
                           type: 'item',
-                          data: { id: item.id },
+                          // Open the preview ABOVE this browse modal (z 1100) so the
+                          // description is readable while shopping (was z 1000, behind).
+                          data: { id: item.id, zIndex: 1600 },
                           extra: { addToHistory: true },
                         })
                       }

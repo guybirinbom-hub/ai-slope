@@ -13,6 +13,7 @@ import CharBuilderCreation from './CharBuilderCreation';
 import CharBuilderHome from './CharBuilderHome';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { characterState } from '@atoms/characterAtoms';
+import { useSheetAccent } from '@utils/use-sheet-accent';
 import { openContextModal } from '@mantine/modals';
 import { getAllPortraitImages } from '@utils/portrait-images';
 import { ImageOption } from '@schemas/index';
@@ -63,6 +64,9 @@ export function Component() {
 
   const globalCharacter = useAtomValue(characterState);
   const setCharacter = useSetAtom(characterState);
+  // Apply this character's chosen accent colour to the builder + its home too,
+  // so the colour previews live as the player edits it (matches the sheet).
+  useSheetAccent(globalCharacter?.details?.sheet_theme?.color);
   // If the user came from /sheet/<id>, the characterState atom is
   // already populated with this character — no need to refetch +
   // show a second loader. We compute "already have it" before the

@@ -1,5 +1,5 @@
 import { Wg4 } from '@common/wg4/primitives';
-import { Title, Text, Group, Box, Badge, HoverCard, List, Divider } from '@mantine/core';
+import { Title, Text, Group, Box, Badge, List, Divider } from '@mantine/core';
 import { StoreID, VariableProf } from '@schemas/variables';
 import { sign } from '@utils/numbers';
 import { toLabel } from '@utils/strings';
@@ -88,29 +88,25 @@ export function StatProfDrawerContent(props: { data: { id: StoreID; variableName
           <Wg4.Divider />
           <Wg4.Indent>
             <Wg4.Lbl>Conditional</Wg4.Lbl>{' '}
-            <HoverCard shadow='md' openDelay={250} width={260} position='bottom' zIndex={10000} withArrow>
-              <HoverCard.Target>
-                <Text c='var(--wg4-accent)' style={{ cursor: 'pointer', borderBottom: '1px dotted var(--wg4-accent)' }} span>
-                  {parts.breakdown.conditionals.length} situational bonus
-                  {parts.breakdown.conditionals.length === 1 ? '' : 'es'}
-                </Text>
-              </HoverCard.Target>
-              <HoverCard.Dropdown py={6} px={10}>
-                <Text size='xs'>These will only apply situationally:</Text>
-                <Divider my={5} />
-                <List size='xs'>
-                  {parts.breakdown.conditionals.map((item, i) => (
-                    <List.Item key={i}>
-                      {item.text}
-                      <br />
-                      <Text c='dimmed' fs='italic' span>
-                        — from {item.source}
-                      </Text>
-                    </List.Item>
-                  ))}
-                </List>
-              </HoverCard.Dropdown>
-            </HoverCard>
+            <Text c='var(--wg4-accent)' span>
+              {parts.breakdown.conditionals.length} situational bonus
+              {parts.breakdown.conditionals.length === 1 ? '' : 'es'}
+            </Text>
+            <Text size='xs' mt={6}>
+              These will only apply situationally:
+            </Text>
+            <Divider my={5} />
+            <List size='xs'>
+              {parts.breakdown.conditionals.map((item, i) => (
+                <List.Item key={i}>
+                  {item.text}
+                  <br />
+                  <Text c='dimmed' fs='italic' span>
+                    — from {item.source}
+                  </Text>
+                </List.Item>
+              ))}
+            </List>
           </Wg4.Indent>
         </Box>
       )}

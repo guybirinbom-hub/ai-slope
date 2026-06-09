@@ -16,6 +16,7 @@ import {
   OperationGiveSpell,
   OperationGiveSpellSlot,
   OperationGiveTrait,
+  OperationInjectOption,
   OperationInjectSelectOption,
   OperationInjectText,
   OperationOptions,
@@ -42,6 +43,7 @@ import {
   determineFilteredSelectionList,
   determinePredefinedSelectionList,
   extendOperations,
+  getInjectedOptionList,
 } from './operation-utils';
 import { SelectionTrack } from './selection-tree';
 import { isEqual } from 'lodash-es';
@@ -82,6 +84,11 @@ export async function runOperations(
       } else if (operation.type === 'injectSelectOption') {
         // Needs to be injected before the select operation
         return await runInjectSelectOption(varId, operation, sourceLabel);
+      } else if (operation.type === 'injectOption') {
+        // Same as injectSelectOption — store the injected content reference
+        // during value creation so the target select can include it when it
+        // builds its option list.
+        return await runInjectOption(varId, operation, sourceLabel);
       } else if (operation.type === 'giveAbilityBlock') {
         // Run the ability block but only to pass the create variables
         return await runGiveAbilityBlock(varId, selectionTrack, operation, options, sourceLabel);
@@ -201,6 +208,16 @@ async function runSelect(
       operation.data.optionType,
       operation.data.optionsPredefined
     );
+  }
+
+  // Append any content options injected into THIS select via the `injectOption`
+  // custom operation (DM override — surface a feat/spell/item the filters/rules
+  // wouldn't normally offer). getInjectedOptionList returns [] unless something
+  // targeted this select, so selects without injections are wholly unaffected.
+  const injectedOptions = await getInjectedOptionList('CHARACTER', operation.id);
+  if (injectedOptions.length > 0) {
+    const existingUuids = new Set(optionList.map((o) => o._select_uuid));
+    optionList = [...optionList, ...injectedOptions.filter((o) => !existingUuids.has(o._select_uuid))];
   }
 
   let selected: ObjectWithUUID | undefined = undefined;
@@ -740,6 +757,27 @@ async function runInjectSelectOption(
   sourceLabel?: string
 ): Promise<OperationResult> {
   adjVariable(varId, 'INJECT_SELECT_OPTIONS', operation.data.value, sourceLabel);
+  return null;
+}
+
+async function runInjectOption(
+  varId: StoreID,
+  operation: OperationInjectOption,
+  sourceLabel?: string
+): Promise<OperationResult> {
+  // Store the injected content reference (target select id + content type/id).
+  // runSelect -> getInjectedOptionList fetches it and appends it to that
+  // select's option list.
+  adjVariable(
+    varId,
+    'INJECT_OPTIONS',
+    JSON.stringify({
+      selectId: operation.data.selectId,
+      type: operation.data.type,
+      id: operation.data.id,
+    }),
+    sourceLabel
+  );
   return null;
 }
 

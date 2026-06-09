@@ -7,7 +7,7 @@
   padding: 7px 14px;
   background: var(--bg-card);
   border: 1px solid var(--rule-soft);
-  border-left: 3px solid var(--gold);
+  border-left: 3px solid var(--wg4-accent);
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
   font-size: 13px;
@@ -18,9 +18,9 @@
   font-family: 'Cinzel', serif;
   font-weight: 700; font-style: normal;
   font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
-  color: var(--gold);
+  color: var(--wg4-accent);
 }
-.tradition-line .t-sep { color: var(--gold-deep); }
+.tradition-line .t-sep { color: var(--wg4-accent-ink); }
 .tradition-line b {
   color: var(--ink); font-weight: 700; font-style: normal;
   font-family: 'Cinzel', serif; letter-spacing: .08em; font-size: 12px;
@@ -32,7 +32,7 @@
 .focus-pips { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
 .fp {
   width: 16px; height: 16px;
-  border: 1.5px solid var(--gold);
+  border: 1.5px solid var(--wg4-accent);
   transform: rotate(45deg);
   background: transparent;
   position: relative;
@@ -42,9 +42,9 @@
 }
 .fp:hover { transform: rotate(45deg) scale(1.12); }
 .fp.full {
-  background: radial-gradient(circle, var(--gold-bright), var(--gold) 60%, var(--gold-deep) 100%);
+  background: radial-gradient(circle, var(--wg4-accent), var(--wg4-accent) 60%, var(--wg4-accent-ink) 100%);
   box-shadow: inset 0 0 4px rgba(0,0,0,.35), 0 0 8px rgba(201,161,59,.5);
-  border-color: var(--gold-bright);
+  border-color: var(--wg4-accent);
 }
 .fp::after { content: ''; position: absolute; inset: 2px; border: 1px solid rgba(0,0,0,.3); }
 .fp.full::after { border-color: rgba(0,0,0,.4); }
@@ -89,10 +89,10 @@
   opacity: 0.6;
 }
 .sp:hover {
-  border-color: var(--gold-deep);
+  border-color: var(--wg4-accent-ink);
   background: linear-gradient(180deg, rgba(201,161,59,.06), var(--bg-card));
 }
-.sp.heightened { border-left: 2px solid var(--gold); }
+.sp.heightened { border-left: 2px solid var(--wg4-accent); }
 .sp.focus { border-left: 2px solid var(--crimson); }
 .sp .cost { display: flex; align-items: center; justify-self: center; line-height: 1; }
 .sp .nm {
@@ -104,7 +104,7 @@
   display: inline;
   font-family: 'Cormorant Garamond', serif;
   font-style: italic; font-weight: 500;
-  color: var(--gold); margin-left: 4px;
+  color: var(--wg4-accent); margin-left: 4px;
   letter-spacing: .04em; font-size: 10px;
 }
 .sp .nm small {
@@ -139,7 +139,7 @@
 }
 .sp .stat {
   font-family: 'Cinzel', serif; font-size: 11px;
-  color: var(--gold); font-weight: 700;
+  color: var(--wg4-accent); font-weight: 700;
   text-align: right; white-space: nowrap; line-height: 1.1;
 }
 .sp .stat small {
@@ -168,8 +168,8 @@
   transition: border-color 0.12s, color 0.12s, background 0.12s;
 }
 .sp .sp-act:hover {
-  border-color: var(--gold-deep);
-  color: var(--gold);
+  border-color: var(--wg4-accent-ink);
+  color: var(--wg4-accent);
 }
 .sp .sp-act.restore {
   color: var(--crimson, #c66060);
@@ -196,8 +196,8 @@
      full of gold accents — this reads as "another tile in the grid"
      instead of dominating the whole page. */
   background: var(--bg-card);
-  border: 1px dashed var(--gold-deep);
-  color: var(--gold);
+  border: 1px dashed var(--wg4-accent-ink);
+  color: var(--wg4-accent);
   font-family: 'Cinzel', serif;
   font-size: 10px;
   font-weight: 700;
@@ -210,7 +210,7 @@
 }
 .sp-add:hover {
   background: linear-gradient(180deg, rgba(201, 161, 59, 0.1), rgba(201, 161, 59, 0.02));
-  border-color: var(--gold);
+  border-color: var(--wg4-accent);
   border-style: solid;
 }
 .sp-add:active {
@@ -244,9 +244,9 @@
   vertical-align: middle;
   padding: 2px 8px;
   background: transparent;
-  border: 1px solid var(--gold-deep);
+  border: 1px solid var(--wg4-accent-ink);
   border-radius: 3px;
-  color: var(--gold);
+  color: var(--wg4-accent);
   font-family: 'Cinzel', serif;
   font-size: 9px;
   letter-spacing: 0.18em;
@@ -261,7 +261,7 @@
 }
 .rest-btn-compact:hover {
   background: rgba(201, 161, 59, 0.1);
-  border-color: var(--gold);
+  border-color: var(--wg4-accent);
 }
 .rest-btn-compact .rest-icon {
   font-size: 11px;
@@ -299,8 +299,8 @@
 .feat-search .field::before,
 .inv-toolbar .field::before {
   content: ''; width: 10px; height: 10px;
-  border: 1.4px solid var(--gold); border-radius: 50%;
-  box-shadow: 3px 3px 0 -2px var(--gold);
+  border: 1.4px solid var(--wg4-accent); border-radius: 50%;
+  box-shadow: 3px 3px 0 -2px var(--wg4-accent);
   flex-shrink: 0;
 }
 .spell-search .field input,
@@ -328,7 +328,7 @@
 .spell-search .filter.on,
 .feat-search .filter.on,
 .inv-toolbar .filter.on {
-  color: var(--gold); border-color: var(--gold-deep);
+  color: var(--wg4-accent); border-color: var(--wg4-accent-ink);
   background: rgba(201,161,59,.08);
 }
 .spell-search .add,
@@ -337,8 +337,8 @@
   font-family: 'Cinzel', serif; font-size: 10px;
   letter-spacing: .22em; text-transform: uppercase;
   color: var(--bg);
-  background: var(--gold);
-  border: 1px solid var(--gold);
+  background: var(--wg4-accent);
+  border: 1px solid var(--wg4-accent);
   cursor: pointer;
 }
 
@@ -346,7 +346,7 @@
 .dot-pip {
   display: inline-block;
   width: 9px; height: 9px;
-  border: 1.4px solid var(--gold);
+  border: 1.4px solid var(--wg4-accent);
   transform: rotate(45deg);
   background: transparent;
   position: relative;
@@ -355,7 +355,7 @@
 }
 .dot-pip:hover { transform: rotate(45deg) scale(1.15); }
 .dot-pip.filled {
-  background: radial-gradient(circle, var(--gold-bright), var(--gold) 60%, var(--gold-deep) 100%);
+  background: radial-gradient(circle, var(--wg4-accent), var(--wg4-accent) 60%, var(--wg4-accent-ink) 100%);
   box-shadow: 0 0 6px rgba(201,161,59,.5);
 }
 
@@ -368,13 +368,13 @@
   background:
     linear-gradient(180deg, rgba(201,161,59,.08), rgba(201,161,59,.02)),
     var(--bg-card);
-  border: 1px solid var(--gold-deep);
+  border: 1px solid var(--wg4-accent-ink);
   padding: 14px 18px;
   position: relative;
 }
 .wealth-strip::before, .wealth-strip::after {
   content: ''; position: absolute; width: 8px; height: 8px;
-  border: 1px solid var(--gold);
+  border: 1px solid var(--wg4-accent);
 }
 .wealth-strip::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
 .wealth-strip::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
@@ -395,7 +395,7 @@
   box-shadow: inset 0 -2px 4px rgba(0,0,0,.3), 0 0 8px rgba(0,0,0,.3);
 }
 .coin.pp .disk { background: linear-gradient(180deg, #e8eef5, #7d8b9a); color: #2a3340; }
-.coin.gp .disk { background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep)); color: var(--bg); }
+.coin.gp .disk { background: linear-gradient(180deg, var(--wg4-accent), var(--wg4-accent-ink)); color: var(--bg); }
 .coin.sp .disk { background: linear-gradient(180deg, #d8dde2, #888d92); color: #2a3038; }
 .coin.cp .disk { background: linear-gradient(180deg, #c08259, #6d4326); color: #1a0e07; }
 .coin .v { font-family: 'Cinzel', serif; font-weight: 700; font-size: 20px; color: var(--ink); line-height: 1; }
@@ -419,7 +419,7 @@
 }
 .bulk-bar .fill {
   position: absolute; inset: 0;
-  background: linear-gradient(90deg, var(--gold-deep), var(--gold-bright));
+  background: linear-gradient(90deg, var(--wg4-accent-ink), var(--wg4-accent));
   box-shadow: inset 0 0 4px rgba(0,0,0,.3);
 }
 /* Encumbered threshold marker — thin red tick on the bulk bar. */
@@ -459,10 +459,10 @@
   position: relative;
 }
 .it:hover {
-  border-color: var(--gold-deep);
+  border-color: var(--wg4-accent-ink);
   background: linear-gradient(180deg, rgba(201,161,59,.06), var(--bg-card));
 }
-.it.equipped { border-left: 2px solid var(--gold); }
+.it.equipped { border-left: 2px solid var(--wg4-accent); }
 .it.held { border-left: 2px solid var(--sage); }
 .it.worn { border-left: 2px solid var(--ink-deep); }
 /* Consumables (potions, scrolls, oils, talismans, ammunition, alchemical
@@ -486,7 +486,7 @@
     radial-gradient(ellipse 35% 100% at 0% 50%, rgba(91,113,72,.16), transparent 70%),
     var(--bg-card);
 }
-.it .icon { width: 28px; height: 28px; display: grid; place-items: center; color: var(--gold); }
+.it .icon { width: 28px; height: 28px; display: grid; place-items: center; color: var(--wg4-accent); }
 .it .icon svg { width: 20px; height: 20px; }
 .it .nm {
   font-family: 'Cinzel', serif; font-weight: 600; font-size: 12px;
@@ -501,7 +501,7 @@
 }
 .it .qty {
   font-family: 'Cinzel', serif; font-weight: 700;
-  font-size: 14px; color: var(--gold);
+  font-size: 14px; color: var(--wg4-accent);
   text-align: center; line-height: 1; min-width: 28px;
 }
 .it .qty small {
@@ -527,7 +527,7 @@
   padding: 7px 14px;
   background: var(--bg-card);
   border: 1px solid var(--rule-soft);
-  border-left: 3px solid var(--gold);
+  border-left: 3px solid var(--wg4-accent);
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
   font-size: 13px;
@@ -538,9 +538,9 @@
   font-family: 'Cinzel', serif;
   font-weight: 700; font-style: normal;
   font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
-  color: var(--gold);
+  color: var(--wg4-accent);
 }
-.feat-summary .t-sep { color: var(--gold-deep); }
+.feat-summary .t-sep { color: var(--wg4-accent-ink); }
 .feat-summary b {
   color: var(--ink); font-weight: 700; font-style: normal;
   font-family: 'Cinzel', serif; letter-spacing: .08em; font-size: 12px;
@@ -573,15 +573,15 @@
   position: relative;
 }
 .feat:hover {
-  border-color: var(--gold-deep);
+  border-color: var(--wg4-accent-ink);
   background: linear-gradient(180deg, rgba(201,161,59,.06), var(--bg-card));
 }
-.feat.class { border-left: 2px solid var(--gold); }
+.feat.class { border-left: 2px solid var(--wg4-accent); }
 .feat.ancestry { border-left: 2px solid var(--sage); }
 .feat.skill { border-left: 2px solid var(--ink-deep); }
 .feat.general { border-left: 2px solid var(--crimson); }
 .feat.feature {
-  border-left: 2px solid var(--gold-bright);
+  border-left: 2px solid var(--wg4-accent);
   background: linear-gradient(180deg, rgba(201,161,59,.04), var(--bg-card));
 }
 .feat .nm {
@@ -602,7 +602,7 @@
   text-transform: uppercase; text-align: right;
   line-height: 1.2; white-space: nowrap;
 }
-.feat .meta b { display: block; color: var(--gold); }
+.feat .meta b { display: block; color: var(--wg4-accent); }
 
 /* ============================ ACTIVITIES TOOLBAR (single row) ============================
    Matches the reference: search field on the left (grows), action-cost
@@ -627,8 +627,8 @@
 }
 .activities-bar .field::before {
   content: ''; width: 10px; height: 10px;
-  border: 1.4px solid var(--gold); border-radius: 50%;
-  box-shadow: 3px 3px 0 -2px var(--gold);
+  border: 1.4px solid var(--wg4-accent); border-radius: 50%;
+  box-shadow: 3px 3px 0 -2px var(--wg4-accent);
   flex-shrink: 0;
 }
 .activities-bar .field input {
@@ -655,7 +655,7 @@
   min-width: 40px;
   padding: 0 8px;
   cursor: pointer;
-  color: var(--gold);
+  color: var(--wg4-accent);
   border-right: 1px solid var(--rule-soft);
   transition: background .12s;
 }
@@ -663,8 +663,8 @@
 .activities-bar .cost-filter:hover { background: rgba(201,161,59,.06); }
 .activities-bar .cost-filter.on {
   background: rgba(201,161,59,.10);
-  color: var(--gold-bright);
-  box-shadow: inset 0 -2px 0 var(--gold);
+  color: var(--wg4-accent);
+  box-shadow: inset 0 -2px 0 var(--wg4-accent);
 }
 .activities-bar .mode-tabs {
   display: flex; align-items: stretch;
@@ -696,12 +696,12 @@
 }
 .activities-bar .mode-tab:hover { color: var(--ink); }
 .activities-bar .mode-tab.on {
-  color: var(--gold);
+  color: var(--wg4-accent);
   background: linear-gradient(180deg, rgba(201,161,59,.10), transparent 90%);
 }
 .activities-bar .mode-tab.on::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
-  background: var(--gold);
+  background: var(--wg4-accent);
   box-shadow: 0 0 8px rgba(201,161,59,.5);
 }
 .activities-bar .mode-tab.on small { color: var(--ink-dim); }
@@ -714,13 +714,13 @@
    sidebar should have been. */
 .codex-tab-body {
   padding: 14px 20px 24px;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-accent-ink) transparent;
   /* No border-left here — the inner cards (.wealth-strip, .sp, .it,
      .feat) already have their own gold-rule borders, so adding a
      column-level border created the "two vertical lines" the user
@@ -728,7 +728,7 @@
      provides enough visual separation on its own. */
 }
 .codex-tab-body::-webkit-scrollbar { width: 4px; }
-.codex-tab-body::-webkit-scrollbar-thumb { background: var(--gold-deep); }
+.codex-tab-body::-webkit-scrollbar-thumb { background: var(--wg4-accent-ink); }
 
 /* Codex sheet wrappers — sized in viewport units so the inner .body
    grid stays clipped to the visible window. Without this, the parent
@@ -782,7 +782,7 @@
   position: absolute;
   width: 6px;
   height: 6px;
-  border: 1px solid var(--gold-deep);
+  border: 1px solid var(--wg4-accent-ink);
 }
 .col.left .sidebar-actions::before {
   top: -1px;
@@ -799,7 +799,7 @@
 .col.left .sidebar-actions .mantine-ActionIcon-root {
   background: transparent !important;
   border: 1px solid var(--rule-soft);
-  color: var(--gold) !important;
+  color: var(--wg4-accent) !important;
   border-radius: 0 !important;
   /* Slimmer than the old 38px — the dock now reads as accent
      buttons rather than primary actions, since the main flow
@@ -817,7 +817,7 @@
   height: 16px;
 }
 .col.left .sidebar-actions .mantine-ActionIcon-root:hover {
-  border-color: var(--gold);
+  border-color: var(--wg4-accent);
   background: rgba(201, 161, 59, 0.08) !important;
 }
 
@@ -840,11 +840,11 @@
   background: var(--bg-card) !important;
 }
 .sec.drop-target {
-  outline: 1px dashed var(--gold);
+  outline: 1px dashed var(--wg4-accent);
   outline-offset: 3px;
   background: linear-gradient(180deg, rgba(201, 161, 59, 0.07), transparent 35%);
 }
-.sec.drop-target .sec-title .label { color: var(--gold); }
+.sec.drop-target .sec-title .label { color: var(--wg4-accent); }
 
 /* Action buttons inside an inventory row (Equip / Invest / Implant).
  * Sit at the right edge of the row in a compact stack. The buttons
@@ -869,12 +869,12 @@
   white-space: nowrap;
 }
 .it .row-act:hover:not(:disabled) {
-  border-color: var(--gold-deep);
-  color: var(--gold);
+  border-color: var(--wg4-accent-ink);
+  color: var(--wg4-accent);
 }
 .it .row-act.on {
-  border-color: var(--gold);
-  color: var(--gold);
+  border-color: var(--wg4-accent);
+  color: var(--wg4-accent);
   background: linear-gradient(180deg, rgba(201, 161, 59, 0.08), transparent 70%);
 }
 .it .row-act:disabled {
@@ -904,7 +904,7 @@
   width: min(620px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);
   background: var(--bg);
-  border: 1px solid var(--gold-deep);
+  border: 1px solid var(--wg4-accent-ink);
   display: grid;
   grid-template-rows: auto 1fr auto;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
@@ -919,7 +919,7 @@
   position: absolute;
   width: 12px;
   height: 12px;
-  border: 1px solid var(--gold);
+  border: 1px solid var(--wg4-accent);
 }
 .cm-modal::before {
   top: -1px;
@@ -959,7 +959,7 @@
   background: rgba(201, 161, 59, 0.04);
 }
 .cm-tab.on {
-  color: var(--gold);
+  color: var(--wg4-accent);
   background: linear-gradient(180deg, rgba(201, 161, 59, 0.07), transparent 80%);
 }
 .cm-tab.on::after {
@@ -969,7 +969,7 @@
   right: 12px;
   bottom: 0;
   height: 2px;
-  background: var(--gold);
+  background: var(--wg4-accent);
   box-shadow: 0 0 14px rgba(201, 161, 59, 0.55);
 }
 .cm-close {
@@ -982,20 +982,20 @@
   transition: color 0.12s;
 }
 .cm-close:hover {
-  color: var(--gold);
+  color: var(--wg4-accent);
 }
 .cm-body {
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   padding: 8px 0;
   /* Keep scroll inside the modal, not the page. */
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-accent-ink) transparent;
 }
 .cm-body::-webkit-scrollbar {
   width: 6px;
 }
 .cm-body::-webkit-scrollbar-thumb {
-  background: var(--gold-deep);
+  background: var(--wg4-accent-ink);
 }
 .cm-cond-list {
   display: flex;
@@ -1012,11 +1012,11 @@
 }
 .cm-cond-row.selected {
   background: linear-gradient(180deg, rgba(201, 161, 59, 0.1), rgba(201, 161, 59, 0.02));
-  border-left: 2px solid var(--gold);
+  border-left: 2px solid var(--wg4-accent);
   padding-left: 16px;
 }
 .cm-cond-row.already .cm-cond-name {
-  color: var(--gold);
+  color: var(--wg4-accent);
 }
 .cm-cond-head {
   display: flex;
@@ -1036,9 +1036,9 @@
   font-size: 9px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--wg4-accent);
   padding: 2px 6px;
-  border: 1px solid var(--gold-deep);
+  border: 1px solid var(--wg4-accent-ink);
 }
 .cm-cond-vals {
   margin-left: auto;
@@ -1058,12 +1058,12 @@
   transition: border-color 0.1s, color 0.1s, background 0.1s;
 }
 .cm-cond-val:hover {
-  border-color: var(--gold-deep);
-  color: var(--gold);
+  border-color: var(--wg4-accent-ink);
+  color: var(--wg4-accent);
 }
 .cm-cond-val.on {
-  background: var(--gold);
-  border-color: var(--gold);
+  background: var(--wg4-accent);
+  border-color: var(--wg4-accent);
   color: #1a140c;
 }
 .cm-cond-desc {
@@ -1087,12 +1087,12 @@
   transition: border-color 0.12s, color 0.12s, background 0.12s;
 }
 .cm-mode-toggle:hover {
-  border-color: var(--gold-deep);
-  color: var(--gold);
+  border-color: var(--wg4-accent-ink);
+  color: var(--wg4-accent);
 }
 .cm-mode-toggle.on {
-  border-color: var(--gold);
-  color: var(--gold);
+  border-color: var(--wg4-accent);
+  color: var(--wg4-accent);
   background: linear-gradient(180deg, rgba(201, 161, 59, 0.1), transparent 70%);
 }
 .cm-footer {
@@ -1116,8 +1116,8 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   padding: 8px 22px;
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
-  border: 1px solid var(--gold);
+  background: linear-gradient(180deg, var(--wg4-accent), var(--wg4-accent-ink));
+  border: 1px solid var(--wg4-accent);
   color: #1a140c;
   cursor: pointer;
   transition: filter 0.12s;
@@ -1161,12 +1161,12 @@
   transition: border-color 0.1s, color 0.1s, background 0.1s;
 }
 .cond .step:hover {
-  border-color: var(--gold-deep);
-  color: var(--gold);
+  border-color: var(--wg4-accent-ink);
+  color: var(--wg4-accent);
 }
 .cond .val {
   margin: 0 4px;
-  color: var(--gold);
+  color: var(--wg4-accent);
   font-weight: 700;
 }
 
@@ -1205,7 +1205,7 @@
   transition: border-color 0.12s;
 }
 .cm-search:focus {
-  border-color: var(--gold-deep);
+  border-color: var(--wg4-accent-ink);
 }
 .cm-create-btn {
   font-family: 'Cinzel', serif;
@@ -1214,8 +1214,8 @@
   text-transform: uppercase;
   padding: 4px 12px;
   background: transparent;
-  border: 1px solid var(--gold-deep);
-  color: var(--gold);
+  border: 1px solid var(--wg4-accent-ink);
+  color: var(--wg4-accent);
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.12s, color 0.12s;
@@ -1270,7 +1270,7 @@
   bottom: 0;
   width: min(420px, 100vw);
   background: var(--bg);
-  border-left: 1px solid var(--gold-deep);
+  border-left: 1px solid var(--wg4-accent-ink);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.55);
   display: grid;
   grid-template-rows: auto 1fr;
@@ -1293,34 +1293,34 @@
   font-size: 14px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--wg4-accent);
 }
 .cm-desc-body {
   padding: 16px 18px;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   font-family: 'Cormorant Garamond', serif;
   font-size: 14px;
   line-height: 1.55;
   color: var(--ink);
   white-space: pre-wrap;
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-accent-ink) transparent;
 }
 /* Inline condition cross-link inside a description. Subtle gold
  * underline that brightens on hover — same affordance the rest of
  * the app uses for content links, so the reader recognizes them
  * without us having to add icons or chips. */
 .cm-cond-link {
-  color: var(--gold);
+  color: var(--wg4-accent);
   text-decoration: underline;
-  text-decoration-color: var(--gold-deep);
+  text-decoration-color: var(--wg4-accent-ink);
   text-underline-offset: 2px;
   cursor: pointer;
   transition: color 0.12s, text-decoration-color 0.12s;
 }
 .cm-cond-link:hover {
-  color: var(--gold-bright, var(--gold));
-  text-decoration-color: var(--gold);
+  color: var(--wg4-accent);
+  text-decoration-color: var(--wg4-accent);
 }
 
 /* Edit buttons on custom mode rows. */
@@ -1338,8 +1338,8 @@
   transition: border-color 0.12s, color 0.12s, background 0.12s;
 }
 .cm-mode-edit:hover {
-  border-color: var(--gold-deep);
-  color: var(--gold);
+  border-color: var(--wg4-accent-ink);
+  color: var(--wg4-accent);
 }
 .cm-mode-edit.danger:hover {
   border-color: var(--crimson, #b34a4a);
@@ -1352,9 +1352,9 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-accent-ink) transparent;
 }
 .cm-editor-row {
   display: grid;
@@ -1384,7 +1384,7 @@
 }
 .cm-editor-row input[type='text']:focus,
 .cm-editor-row textarea:focus {
-  border-color: var(--gold-deep);
+  border-color: var(--wg4-accent-ink);
 }
 .cm-scope-toggle {
   display: flex;
@@ -1402,8 +1402,8 @@
   cursor: pointer;
 }
 .cm-scope-btn.on {
-  border-color: var(--gold);
-  color: var(--gold);
+  border-color: var(--wg4-accent);
+  color: var(--wg4-accent);
   background: linear-gradient(180deg, rgba(201, 161, 59, 0.1), transparent 70%);
 }
 .cm-editor-effects {
@@ -1425,7 +1425,7 @@
 }
 .cm-effect-row {
   display: grid;
-  grid-template-columns: 1fr 60px 110px 26px;
+  grid-template-columns: 1fr 60px 110px 26px 26px;
   gap: 6px;
   align-items: center;
 }
@@ -1441,10 +1441,38 @@
 }
 .cm-effect-row select:focus,
 .cm-effect-row input:focus {
-  border-color: var(--gold-deep);
+  border-color: var(--wg4-accent-ink);
 }
 .cm-effect-val {
   text-align: center;
+}
+.cm-effect {
+  margin-top: 6px;
+}
+.cm-effect:first-child {
+  margin-top: 0;
+}
+/* `*` toggle highlighted once a condition exists. */
+.cm-cond-toggle.on {
+  border-color: var(--wg4-accent-ink);
+  color: var(--wg4-accent);
+}
+/* The situational-condition input that the `*` reveals. */
+.cm-effect-cond-input {
+  width: 100%;
+  margin-top: 6px;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  padding: 4px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule-soft);
+  border-left: 2px solid var(--wg4-accent-ink);
+  color: var(--ink);
+  outline: none;
+}
+.cm-effect-cond-input:focus {
+  border-color: var(--wg4-accent-ink);
 }
 .cm-mini-btn {
   font-family: 'Cinzel', serif;
@@ -1459,8 +1487,8 @@
   transition: border-color 0.12s, color 0.12s;
 }
 .cm-mini-btn:hover {
-  border-color: var(--gold-deep);
-  color: var(--gold);
+  border-color: var(--wg4-accent-ink);
+  color: var(--wg4-accent);
 }
 .cm-mini-btn.danger:hover {
   border-color: var(--crimson, #b34a4a);

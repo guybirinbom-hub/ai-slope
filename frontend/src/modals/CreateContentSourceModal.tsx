@@ -210,7 +210,7 @@ export function ContentSourceEditor(props: {
 
   return (
     <form onSubmit={form.onSubmit(onSubmit)} className='cs-editor'>
-      <LoadingOverlay visible={isFetching} loaderProps={{ color: '#b0542f' }} />
+      <LoadingOverlay visible={isFetching} loaderProps={{ color: 'var(--wg4-accent)' }} />
       <Stack gap={14} maw={760}>
           <Group grow wrap='nowrap' align='flex-start'>
             <TextInput label='Name' required {...form.getInputProps('name')} />

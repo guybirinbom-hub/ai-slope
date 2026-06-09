@@ -118,6 +118,29 @@ export default function CodexLoadingOverlay(props: Props) {
 
   if (!mounted) return null;
 
+  // Theme-aware backdrop. The iframe (codex-loading.html) reads the same
+  // wg4-theme and paints parchment/dark accordingly; the outer div must
+  // match so the brief moment before the iframe paints isn't a contrasting
+  // box (a light flash in dark mode, a dark one in light mode).
+  const dark =
+    typeof document !== 'undefined' &&
+    document.documentElement.classList.contains('theme-dark');
+
+  // Match the loader's d20 + progress bar to the active per-character accent.
+  // useSheetAccent sets --wg4-accent on the .wg4 sheet/builder root, so any
+  // loader shown while a character is open (opening a sheet, loading the
+  // builder, navigating back out) tints to that character's colour. On
+  // non-character pages this reads the default accent, so it looks unchanged.
+  const accentHex = (() => {
+    if (typeof document === 'undefined') return null;
+    const el = (document.querySelector('.wg4') as HTMLElement | null) ?? document.documentElement;
+    const v = getComputedStyle(el).getPropertyValue('--wg4-accent').trim();
+    return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : null;
+  })();
+  const loaderSrc = accentHex
+    ? `/codex-loading.html?accent=${encodeURIComponent(accentHex)}`
+    : '/codex-loading.html';
+
   // Render via createPortal to document.body so the overlay escapes
   // any transformed ancestor (Mantine ScrollArea wraps every route in
   // Layout.tsx — Radix ScrollArea uses a CSS transform on its viewport
@@ -135,7 +158,7 @@ export default function CodexLoadingOverlay(props: Props) {
         bottom: 0,
         width: position === 'fixed' ? '100vw' : '100%',
         height: position === 'fixed' ? '100vh' : '100%',
-        background: '#e8e4d8', // wg4 parchment to match the iframe's interior
+        background: dark ? '#14161a' : '#e8e4d8', // match the iframe's themed interior
         zIndex,
         pointerEvents: 'auto',
         display: 'flex',
@@ -148,7 +171,7 @@ export default function CodexLoadingOverlay(props: Props) {
       {position === 'fixed' && <CodexWinBar />}
       <iframe
         ref={iframeRef}
-        src='/codex-loading.html'
+        src={loaderSrc}
         title='Loading'
         style={{
           width: '100%',

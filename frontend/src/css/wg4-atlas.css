@@ -853,7 +853,7 @@
   cursor: pointer;
 }
 .wg4 .nav-menu-item:hover {
-  background: rgba(176, 84, 47, 0.08);
+  background: color-mix(in srgb, var(--wg4-accent) 8%, transparent);
   color: var(--accent);
 }
 
@@ -892,17 +892,27 @@
 }
 .wg4 .ch-ctxmenu-item:hover,
 .ch-ctxmenu-item:hover {
-  background: rgba(176, 84, 47, 0.08);
+  background: color-mix(in srgb, var(--wg4-accent) 8%, transparent);
   color: var(--accent-ink);
 }
 .wg4 .ch-ctxmenu-item.danger,
 .ch-ctxmenu-item.danger {
-  color: #a83a25;
+  color: var(--crimson);
 }
 .wg4 .ch-ctxmenu-item.danger:hover,
 .ch-ctxmenu-item.danger:hover {
   background: rgba(168, 58, 37, 0.10);
-  color: #a83a25;
+  color: var(--crimson);
+}
+/* Card ⋯ (Mantine) Delete — red hover tint matching the right-click menu. The
+   red TEXT comes from an inline span on the label (immune to the global
+   `.mantine-Menu-item { color: ... !important }`, which targets the item button,
+   not the label child); this just adds the matching hover background. */
+.mantine-Menu-item.menu-item-danger:hover,
+.mantine-Menu-item.menu-item-danger[data-hovered],
+.wg4 .mantine-Menu-dropdown .mantine-Menu-item.menu-item-danger:hover,
+.wg4 .mantine-Menu-dropdown .mantine-Menu-item.menu-item-danger[data-hovered] {
+  background-color: rgba(168, 58, 37, 0.10) !important;
 }
 .wg4 .ch-ctxmenu-divider,
 .ch-ctxmenu-divider {

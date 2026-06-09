@@ -231,7 +231,7 @@ export function SelectContentButton<T extends Record<string, any> = Record<strin
     } else {
       openDrawer({
         type: drawerType,
-        data: { id: selected?.id },
+        data: { zIndex: 1600, id: selected?.id },
         extra: { addToHistory: true },
       });
     }
@@ -705,7 +705,7 @@ function SpellPickerShell(props: {
                       onClick={() =>
                         openDrawer({
                           type: 'spell',
-                          data: { id: spell.id },
+                          data: { zIndex: 1600, id: spell.id },
                           extra: { addToHistory: true },
                         })
                       }
@@ -1341,7 +1341,7 @@ function buildWg4Row(opts: {
   const openOnRowClick = (drawerType: DrawerType, extraData?: Record<string, any>) => () =>
     openDrawer({
       type: drawerType,
-      data: { id: option.id, ...extraData },
+      data: { zIndex: 1600, id: option.id, ...extraData },
       extra: { addToHistory: true },
     });
 
@@ -1503,7 +1503,7 @@ function buildWg4Row(opts: {
         onClick: () =>
           openDrawer({
             type: 'generic',
-            data: {
+            data: { zIndex: 1600,
               ...option._custom_select,
               onSelect: () => onSelect(option),
             },
@@ -1623,8 +1623,8 @@ function buildWg4Row(opts: {
       variantClass: 'csp-row-simple',
       onClick: () =>
         option.id === -999
-          ? openDrawer({ type: 'class', data: { id: option.class_id }, extra: { addToHistory: true } })
-          : openDrawer({ type: 'class-archetype', data: { id: option.id }, extra: { addToHistory: true } }),
+          ? openDrawer({ type: 'class', data: { zIndex: 1600, id: option.class_id }, extra: { addToHistory: true } })
+          : openDrawer({ type: 'class-archetype', data: { zIndex: 1600, id: option.id }, extra: { addToHistory: true } }),
       content: (
         <>
           <div className='csp-row-name'>{option.name}</div>
@@ -1665,7 +1665,7 @@ function buildWg4Row(opts: {
       onClick: () =>
         openDrawer({
           type: 'creature',
-          data: { id: option.id },
+          data: { zIndex: 1600, id: option.id },
           extra: { addToHistory: true },
         }),
       content: (
@@ -3466,7 +3466,7 @@ export function GenericSelectionOption(props: {
         onClick={() => {
           openDrawer({
             type: 'generic',
-            data: {
+            data: { zIndex: 1600,
               ...props.option._custom_select,
               onSelect:
                 props.showButton || props.showButton === undefined ? () => props.onClick(props.option) : undefined,
@@ -3857,7 +3857,7 @@ export function FeatSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'feat',
-          data: {
+          data: { zIndex: 1600,
             id: props.feat.id,
             onSelect: props.showButton || props.showButton === undefined ? () => props.onClick(props.feat) : undefined,
           },
@@ -3915,7 +3915,7 @@ export function ActionSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'action',
-          data: {
+          data: { zIndex: 1600,
             id: props.action.id,
             onSelect:
               props.showButton || props.showButton === undefined ? () => props.onClick(props.action) : undefined,
@@ -3989,7 +3989,7 @@ export function ClassFeatureSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'class-feature',
-          data: {
+          data: { zIndex: 1600,
             id: props.classFeature.id,
             onSelect:
               props.showButton || props.showButton === undefined ? () => props.onClick(props.classFeature) : undefined,
@@ -4048,7 +4048,7 @@ export function HeritageSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'heritage',
-          data: {
+          data: { zIndex: 1600,
             id: props.heritage.id,
             onSelect:
               props.showButton || props.showButton === undefined ? () => props.onClick(props.heritage) : undefined,
@@ -4107,7 +4107,7 @@ export function PhysicalFeatureSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'physical-feature',
-          data: {
+          data: { zIndex: 1600,
             id: props.physicalFeature.id,
             onSelect:
               props.showButton || props.showButton === undefined
@@ -4167,7 +4167,7 @@ export function ModeSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'mode',
-          data: {
+          data: { zIndex: 1600,
             id: props.mode.id,
             onSelect: props.showButton || props.showButton === undefined ? () => props.onClick(props.mode) : undefined,
           },
@@ -4226,7 +4226,7 @@ export function SenseSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'sense',
-          data: {
+          data: { zIndex: 1600,
             id: props.sense.id,
             onSelect: props.showButton || props.showButton === undefined ? () => props.onClick(props.sense) : undefined,
           },
@@ -4349,7 +4349,7 @@ export function ClassSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'class',
-          data: {
+          data: { zIndex: 1600,
             id: props.class_.id,
             onSelect: props.showButton || props.showButton === undefined ? () => onSelect() : undefined,
           },
@@ -4507,7 +4507,7 @@ export function AncestrySelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'ancestry',
-          data: {
+          data: { zIndex: 1600,
             id: props.ancestry.id,
             onSelect: props.showButton || props.showButton === undefined ? () => onSelect() : undefined,
           },
@@ -4609,7 +4609,7 @@ export function BackgroundSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'background',
-          data: {
+          data: { zIndex: 1600,
             id: props.background.id,
             onSelect: props.showButton || props.showButton === undefined ? () => onSelect() : undefined,
           },
@@ -4673,7 +4673,7 @@ export function ArchetypeSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'archetype',
-          data: {
+          data: { zIndex: 1600,
             id: props.archetype.id,
             onSelect:
               props.showButton || props.showButton === undefined ? () => props.onClick(props.archetype) : undefined,
@@ -4735,7 +4735,7 @@ export function VersatileHeritageSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'versatile-heritage',
-          data: {
+          data: { zIndex: 1600,
             id: props.versatileHeritage.id,
             onSelect:
               props.showButton || props.showButton === undefined
@@ -4798,7 +4798,7 @@ export function ItemSelectionOption(props: {
           ? () =>
               openDrawer({
                 type: 'item',
-                data: {
+                data: { zIndex: 1600,
                   id: props.item.id,
                   onSelect:
                     props.showButton || props.showButton === undefined ? () => props.onClick?.(props.item) : undefined,
@@ -4895,7 +4895,7 @@ export function SpellSelectionOption(props: {
           ? () =>
               openDrawer({
                 type: 'spell',
-                data: {
+                data: { zIndex: 1600,
                   id: props.spell.id,
                   onSelect:
                     props.showButton || props.showButton === undefined ? () => props.onClick?.(props.spell) : undefined,
@@ -4954,7 +4954,7 @@ export function TraitSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'trait',
-          data: {
+          data: { zIndex: 1600,
             id: props.trait.id,
             onSelect: props.showButton || props.showButton === undefined ? () => props.onClick(props.trait) : undefined,
           },
@@ -5014,7 +5014,7 @@ export function LanguageSelectionOption(props: {
       onClick={() =>
         openDrawer({
           type: 'language',
-          data: {
+          data: { zIndex: 1600,
             id: props.language.id,
             onSelect:
               props.showButton || props.showButton === undefined ? () => props.onClick(props.language) : undefined,
@@ -5066,7 +5066,7 @@ export function ClassArchetypeSelectionOption(props: {
           // Just show the normal base class drawer
           openDrawer({
             type: 'class',
-            data: {
+            data: { zIndex: 1600,
               id: props.classArchetype.class_id,
             },
             extra: { addToHistory: true },
@@ -5074,7 +5074,7 @@ export function ClassArchetypeSelectionOption(props: {
         } else {
           openDrawer({
             type: 'class-archetype',
-            data: {
+            data: { zIndex: 1600,
               id: props.classArchetype.id,
             },
             extra: { addToHistory: true },

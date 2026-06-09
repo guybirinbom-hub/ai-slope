@@ -5,6 +5,9 @@ import { sessionState } from '@atoms/supabaseAtoms';
 import { getContentDataFromHref } from '@common/rich_text_input/ContentLinkExtension';
 import { GUIDE_BLUE, IMPRINT_BG_COLOR, IMPRINT_BORDER_COLOR } from '@constants/data';
 import { getCachedCustomization } from '@content/customization-cache';
+import { userState } from '@atoms/userAtoms';
+import { getCachedPublicUser } from '@auth/user-manager';
+import { useGlobalAccent } from '@utils/use-global-accent';
 import DrawerBase from '@drawers/DrawerBase';
 import { convertContentLink } from '@drawers/drawer-utils';
 import {
@@ -44,7 +47,6 @@ import SelectStaffCastingModal from '@modals/SelectStaffCastingModal';
 import InitiativeRollModal from '@modals/InitiativeRollModal';
 import UpdateEncounterModal from '@modals/UpdateEncounterModal';
 import GenerateEncounterModal from '@modals/GenerateEncounterModal';
-import UpdateApiClientModal from '@modals/UpdateApiClientModal';
 import { getAnchorStyles } from '@utils/anchor';
 import BuyItemModal from '@modals/BuyItemModal';
 import { Wg4ConfirmModal } from '@common/wg4/Wg4Confirm';
@@ -73,7 +75,6 @@ const modals = {
   updateNotePage: UpdateNotePageModal,
   generateEncounter: GenerateEncounterModal,
   updateEncounter: UpdateEncounterModal,
-  updateApiClient: UpdateApiClientModal,
   condition: ConditionModal,
   createDicePreset: CreateDicePresetModal,
   addItems: AddItemsModal,
@@ -92,6 +93,14 @@ export default function App() {
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [_creatureDrawer, openCreatureDrawer] = useAtom(creatureDrawerState);
   const isPhone = useMediaQuery(phoneQuery());
+
+  // Global accent (from Settings): apply the user's chosen accent app-wide as
+  // the BASE colour. A character's own per-sheet accent (useSheetAccent, which
+  // injects a higher-specificity `.wg4.wg4` rule) still wins on its sheet /
+  // builder; this global accent shows through everywhere else. The cached-user
+  // fallback covers first paint before the live userState is populated.
+  const globalUser = useAtomValue(userState);
+  useGlobalAccent(globalUser?.site_theme?.color ?? getCachedPublicUser()?.site_theme?.color);
 
   // Ctrl+Wheel zoom for the whole app UI. Applied to
   // `document.documentElement` (the <html> element) rather than a
@@ -318,9 +327,7 @@ export default function App() {
       cursorType: 'pointer',
       primaryColor: 'guide',
       defaultRadius: 'md',
-      fontFamily: getCachedCustomization()?.sheet_theme?.dyslexia_font
-        ? 'OpenDyslexicRegular'
-        : 'Montserrat, sans-serif',
+      fontFamily: 'Montserrat, sans-serif',
       fontFamilyMonospace: 'Ubuntu Mono, monospace',
       components: {
         Popover: {

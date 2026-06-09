@@ -14,6 +14,22 @@ type DrawerStateValue = {
 
 const _internal_drawerState = atom(null as DrawerStateValue);
 
+// Two drawer requests target the same thing when they share a type and record —
+// by id when present, otherwise by a value compare. Used to avoid stacking a
+// duplicate of the drawer that's already open: clicking the same description
+// link repeatedly should be a no-op, not pile identical copies into history.
+function isSameDrawerTarget(a: DrawerStateValue, b: DrawerStateValue): boolean {
+  if (!a || !b || a.type !== b.type) return false;
+  const ai = a.data?.id;
+  const bi = b.data?.id;
+  if (ai != null || bi != null) return ai === bi;
+  try {
+    return JSON.stringify(a.data) === JSON.stringify(b.data);
+  } catch {
+    return a.data === b.data;
+  }
+}
+
 const drawerState = atom(
   (get) => {
     const drawer = get(_internal_drawerState);
@@ -38,6 +54,12 @@ const drawerState = atom(
     if (!newValue) {
       set(_internal_drawerHistoryState, []);
       set(_internal_drawerState, null);
+      return;
+    }
+
+    // Already showing this exact drawer? Do nothing — don't stack a duplicate
+    // into the back-history that the user then has to dismiss one at a time.
+    if (isSameDrawerTarget(drawer, newValue)) {
       return;
     }
 

@@ -1,4 +1,4 @@
-import { characterState } from '@atoms/characterAtoms';
+import { characterState, characterOperationResultsState } from '@atoms/characterAtoms';
 import { getCachedPublicUser } from '@auth/user-manager';
 import { applyConditions } from '@conditions/condition-handler';
 import {
@@ -21,7 +21,7 @@ import { saveCalculatedStats } from '@variables/calculated-stats';
 import { setVariable } from '@variables/variable-manager';
 import { isEqual, isArray, cloneDeep } from 'lodash-es';
 import { useEffect, useRef, useState } from 'react';
-import { useAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import { convertToSetEntity } from './type-fixing';
 import { IconRefresh, IconAlertCircle } from '@tabler/icons-react';
@@ -69,6 +69,7 @@ export default function useCharacter(
   results: OperationCharacterResultPackage | null;
 } {
   const [character, setCharacter] = useAtom(characterState);
+  const setCharacterOperationResults = useSetAtom(characterOperationResultsState);
   const queryClient = useQueryClient();
   useAutoSave(character, characterId);
 
@@ -302,6 +303,9 @@ export default function useCharacter(
     saveCalculatedStats('CHARACTER', debouncedCharacter, convertToSetEntity(setCharacterDebounced));
 
     setOperationResults(results);
+    // Expose the live results so other surfaces (the Custom Operations editor's
+    // "Inject Option") can read the character's current select menus.
+    setCharacterOperationResults(results);
     executingOperations.current = null;
 
     setTimeout(() => {
@@ -349,7 +353,14 @@ export default function useCharacter(
         id: characterId,
         ...data,
       });
-      return isArray(resData) && resData.length > 0 ? (resData[0] as Character) : null;
+      // update-character returns the saved row. The local backend port returns
+      // it as a SINGLE object ({ status, data: row } via upsertResponseWrapper);
+      // the original Deno function returned an array. Accept BOTH shapes —
+      // otherwise `c` in onSuccess is always null, the cache-sync below never
+      // runs, and the roster cards keep a stale snapshot (hero points / HP not
+      // matching the sheet, with no edit ever fixing it).
+      if (!resData) return null;
+      return (isArray(resData) ? resData[0] : resData) as Character;
     },
     onSuccess: (c) => {
       hideNotification(AUTOSAVE_ERROR_ID);

@@ -3,7 +3,7 @@ import { Wg4 } from '@common/wg4/primitives';
 import RichText from '@common/RichText';
 import { getAcParts } from '@items/armor-handler';
 import { getBestArmor } from '@items/inv-utils';
-import { Title, Text, Group, Box, HoverCard, List, Divider, Button } from '@mantine/core';
+import { Title, Text, Group, Box, List, Divider, Button } from '@mantine/core';
 import { Inventory, InventoryItem } from '@schemas/content';
 import { StoreID } from '@schemas/variables';
 import { sign } from '@utils/numbers';
@@ -111,29 +111,25 @@ export function StatAcDrawerContent(props: { data: { id: StoreID; inventory?: In
           <Wg4.Divider />
           <Wg4.Indent>
             <Wg4.Lbl>Conditional</Wg4.Lbl>{' '}
-            <HoverCard shadow='md' openDelay={250} width={260} position='bottom' zIndex={10000} withArrow>
-              <HoverCard.Target>
-                <Text c='var(--wg4-accent)' style={{ cursor: 'pointer', borderBottom: '1px dotted var(--wg4-accent)' }} span>
-                  {acBonusParts.conditionals.length} situational bonus
-                  {acBonusParts.conditionals.length === 1 ? '' : 'es'}
-                </Text>
-              </HoverCard.Target>
-              <HoverCard.Dropdown py={6} px={10}>
-                <Text size='xs'>These will only apply situationally:</Text>
-                <Divider my={5} />
-                <List size='xs'>
-                  {acBonusParts.conditionals.map((item, i) => (
-                    <List.Item key={i}>
-                      {item.text}
-                      <br />
-                      <Text c='dimmed' fs='italic' span>
-                        — from {item.source}
-                      </Text>
-                    </List.Item>
-                  ))}
-                </List>
-              </HoverCard.Dropdown>
-            </HoverCard>
+            <Text c='var(--wg4-accent)' span>
+              {acBonusParts.conditionals.length} situational bonus
+              {acBonusParts.conditionals.length === 1 ? '' : 'es'}
+            </Text>
+            <Text size='xs' mt={6}>
+              These will only apply situationally:
+            </Text>
+            <Divider my={5} />
+            <List size='xs'>
+              {acBonusParts.conditionals.map((item, i) => (
+                <List.Item key={i}>
+                  {item.text}
+                  <br />
+                  <Text c='dimmed' fs='italic' span>
+                    — from {item.source}
+                  </Text>
+                </List.Item>
+              ))}
+            </List>
           </Wg4.Indent>
         </Box>
       )}

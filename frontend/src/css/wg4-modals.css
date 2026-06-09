@@ -46,7 +46,7 @@
 
 .wg4 .modal-body {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   padding: 18px 22px;
 }
 .wg4 .modal-foot {
@@ -82,16 +82,9 @@
 .wg4 .btn:hover { background: var(--surface-hover); border-color: var(--border-strong); color: var(--ink); }
 .wg4 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .wg4 .btn.full { width: 100%; justify-content: center; display: inline-flex; align-items: center; }
-.wg4 .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.wg4 .btn-primary:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
-.wg4 .btn-danger { background: transparent; color: var(--accent-ink); border-color: #d8b9a4; }
-.wg4 .btn-danger:hover { background: var(--accent-soft); }
-.wg4 .btn-ghost { background: transparent; }
-.wg4 .btn-ghost:hover { background: var(--surface-2); }
-.wg4 .btn-primary-sm { background: var(--accent); border-color: var(--accent); color: #fff; padding: 4px 12px; font-size: 11px; }
-.wg4 .btn-primary-sm:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
-.wg4 .btn-ghost-sm { background: transparent; padding: 4px 12px; font-size: 11px; }
-.wg4 .btn-ghost-sm:hover { background: var(--surface-2); }
+/* Removed dead hyphenated button variants (.btn-primary / -danger / -ghost / -*-sm):
+   nothing emits those classes — the app uses dotted modifiers (.btn.primary /
+   .btn.danger / .btn.ghost), styled in wg4-drawers.css & wg4-screens.css. */
 
 /* Form fields */
 .wg4 .field {
@@ -618,7 +611,7 @@
 .wg4 .ops-mini.danger:hover { background: var(--accent-soft); }
 
 /* Init list */
-.wg4 .init-list { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 8px; }
+.wg4 .init-list { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; overflow-x: hidden; padding-right: 8px; }
 
 /* ═══════════════════════════════════════════════════════════════
    Aliases — map Mantine Modal class names to the design's modal

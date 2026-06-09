@@ -24,11 +24,12 @@ import { hideNotification, showNotification } from '@mantine/notifications';
 import { makeRequest } from '@requests/request-manager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Character } from '@schemas/content';
+import { accentVars } from '@utils/accent-color';
 import { isPlayable } from '@utils/character';
 import { getAllBackgroundImages } from '@utils/background-images';
 import { setPageTitle } from '@utils/document-change';
 import { hasPatreonAccess } from '@utils/patreon';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAtom, useAtomValue } from 'jotai';
@@ -62,6 +63,12 @@ export function Component() {
       });
     },
     enabled: !!session,
+    // Always pull a fresh roster when this page is shown, so the cards reflect
+    // the latest persisted hero points / HP / level rather than a stale cache
+    // (the hero-point pips were showing a cached count that lagged the sheet).
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const [_character, setCharacter] = useAtom(characterState);
@@ -262,6 +269,21 @@ export function Component() {
               <line x1='3' y1='8' x2='13' y2='8' />
             </svg>
           </button>
+
+          <button
+            type='button'
+            className='iconbtn'
+            title='Import character (.json)'
+            aria-label='Import character'
+            onClick={() => jsonImportRef.current?.click()}
+            disabled={reachedCharacterLimit}
+          >
+            <svg viewBox='0 0 16 16' fill='none' stroke='currentColor' strokeWidth='1.7' strokeLinecap='round' strokeLinejoin='round'>
+              <path d='M8 2.5 L8 9.5' />
+              <path d='M5.2 6.8 L8 9.6 L10.8 6.8' />
+              <path d='M3 10.5 L3 13 L13 13 L13 10.5' />
+            </svg>
+          </button>
         </div>
 
         {/* Hidden file inputs the import buttons trigger. */}
@@ -365,6 +387,57 @@ function isHexColor(s: string | undefined | null): s is string {
 }
 
 /**
+ * Hero-points display for a roster card. Fetches THIS character's hero points
+ * fresh from the DB on its own query key (`['card-hero-points', id]`), so it is
+ * immune to the roster list cache or optimistic sheet edits going stale — the
+ * exact failure that kept the old inline pips showing a wrong count. Refetches
+ * on mount and on window focus, and renders one filled diamond per hero point
+ * held (inline-styled so the fill can't be lost).
+ */
+function HeroPips(props: { characterId: number; fallbackHeroPoints: number }) {
+  const { data } = useQuery({
+    queryKey: ['card-hero-points', props.characterId],
+    queryFn: async () => {
+      const ch = await makeRequest<Character>('find-character', { id: props.characterId });
+      const hp = (ch as { hero_points?: number } | null)?.hero_points;
+      return Math.max(0, Math.min(3, typeof hp === 'number' ? hp : 0));
+    },
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
+  const hero = data ?? Math.max(0, Math.min(3, props.fallbackHeroPoints ?? 0));
+  return (
+    <>
+      <span>Hero</span>
+      <span
+        role='img'
+        aria-label={`${hero} of 3 hero points`}
+        style={{ display: 'inline-flex', gap: 5, alignItems: 'center', marginLeft: 2 }}
+      >
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: 9,
+              height: 9,
+              display: 'inline-block',
+              transform: 'rotate(45deg)',
+              borderRadius: 1,
+              boxSizing: 'border-box',
+              border: '1.5px solid var(--wg4-accent)',
+              // Filled diamond per hero point held; hollow otherwise. Inline so
+              // it can't be defeated by the .pip.full rule that wasn't rendering.
+              background: i < hero ? 'var(--wg4-accent)' : 'transparent',
+            }}
+          />
+        ))}
+      </span>
+    </>
+  );
+}
+
+/**
  * Single roster card — portrait + name/role/stats + foot row
  * (hero pips on left, ⋯ menu + OPEN button on right). Only the
  * portrait and the OPEN button navigate to the sheet; the rest of
@@ -458,6 +531,23 @@ function CharacterCard(props: {
     : undefined;
   const tier = tierForId(character.id);
 
+  // Tint the whole card to the character's own accent — the same luminance-
+  // clamped colour the sheet uses — so each card matches its character. We set
+  // both the wg4 vars and the screen-alias vars on the card root; the hero
+  // pips, class label, corner marks, etc. read those. No custom colour set →
+  // leave the page-default accent in place.
+  const cardAccent = hasThemeColor ? accentVars(themeHex!) : null;
+  const accentVarStyle = cardAccent
+    ? ({
+        '--wg4-accent': cardAccent['--wg4-accent'],
+        '--wg4-accent-soft': cardAccent['--wg4-accent-soft'],
+        '--wg4-accent-ink': cardAccent['--wg4-accent-ink'],
+        '--accent': cardAccent['--wg4-accent'],
+        '--accent-soft': cardAccent['--wg4-accent-soft'],
+        '--accent-ink': cardAccent['--wg4-accent-ink'],
+      } as React.CSSProperties)
+    : undefined;
+
   const openSheet = () => {
     if (!playable) {
       navigate(`/builder/${character.id}`);
@@ -484,6 +574,88 @@ function CharacterCard(props: {
       },
     });
 
+  // Single source of truth for the card's quick actions, rendered by BOTH the
+  // ⋯ menu and the right-click context menu so the two always match. `divider`
+  // draws a separator before the item.
+  const cardActions: {
+    label: string;
+    run: () => void;
+    disabled?: boolean;
+    danger?: boolean;
+    divider?: boolean;
+  }[] = [
+    {
+      label: playable ? 'Edit in Builder' : 'Continue Building',
+      run: () => navigate(`/builder/${character.id}`),
+    },
+    {
+      label: 'Create copy',
+      disabled: reachedCharacterLimit,
+      run: async () => {
+        await createCharacterCopy(character);
+        onRefetch();
+      },
+    },
+    {
+      label: 'Open stat block',
+      run: () => window.open(`/stat-block/character/${character.id}`, '_blank'),
+    },
+    {
+      label: 'Export to JSON',
+      run: async () => {
+        setLoading(true);
+        await exportToJSON(character);
+        setLoading(false);
+      },
+    },
+    {
+      label: 'Export to PDF',
+      run: async () => {
+        setLoading(true);
+        await exportToPDF(character);
+        setLoading(false);
+      },
+    },
+    archived
+      ? {
+          label: 'Make Active',
+          divider: true,
+          run: async () => {
+            setLoading(true);
+            await setCharacterArchived(character, false);
+            setLoading(false);
+            onRefetch();
+          },
+        }
+      : {
+          label: 'Archive',
+          divider: true,
+          run: async () => {
+            setLoading(true);
+            await setCharacterArchived(character, true);
+            setLoading(false);
+            onRefetch();
+          },
+        },
+    {
+      label: 'Delete',
+      danger: true,
+      run: () => {
+        // Only archived characters can be deleted. For an active one, point the
+        // user at Archive first rather than deleting outright.
+        if (!archived) {
+          showNotification({
+            title: 'Archive before deleting',
+            message: "Active characters can't be deleted directly. Archive this character first, then delete it.",
+            color: 'yellow',
+          });
+          return;
+        }
+        openConfirmDeleteModal();
+      },
+    },
+  ];
+
   return (
     <div
       className='ch-card'
@@ -503,6 +675,7 @@ function CharacterCard(props: {
       tabIndex={0}
       aria-label={`Open ${character.name || 'character'}`}
       style={{
+        ...accentVarStyle,
         opacity: loading ? 0.5 : 1,
         pointerEvents: loading ? 'none' : 'auto',
         cursor: 'pointer',
@@ -557,12 +730,7 @@ function CharacterCard(props: {
 
       <div className='ch-foot'>
         <div className='l'>
-          <span>Hero</span>
-          <div className='ch-hp-mini'>
-            {[0, 1, 2].map((i) => (
-              <span key={i} className={i < heroPoints ? 'pip full' : 'pip'}></span>
-            ))}
-          </div>
+          <HeroPips characterId={character.id} fallbackHeroPoints={heroPoints} />
         </div>
         <div className='r'>
           <Menu
@@ -587,87 +755,22 @@ function CharacterCard(props: {
               </button>
             </Menu.Target>
             <Menu.Dropdown>
-              <Menu.Item
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/builder/${character.id}`);
-                }}
-              >
-                {playable ? 'Edit in Builder' : 'Continue Building'}
-              </Menu.Item>
-              <Menu.Item
-                disabled={reachedCharacterLimit}
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  await createCharacterCopy(character);
-                  onRefetch();
-                }}
-              >
-                Create copy
-              </Menu.Item>
-              <Menu.Item
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(`/stat-block/character/${character.id}`, '_blank');
-                }}
-              >
-                Open stat block
-              </Menu.Item>
-              <Menu.Item
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setLoading(true);
-                  await exportToJSON(character);
-                  setLoading(false);
-                }}
-              >
-                Export to JSON
-              </Menu.Item>
-              <Menu.Item
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setLoading(true);
-                  await exportToPDF(character);
-                  setLoading(false);
-                }}
-              >
-                Export to PDF
-              </Menu.Item>
-              <Menu.Divider />
-              {archived ? (
-                <Menu.Item
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    setLoading(true);
-                    await setCharacterArchived(character, false);
-                    setLoading(false);
-                    onRefetch();
-                  }}
-                >
-                  Make Active
-                </Menu.Item>
-              ) : (
-                <Menu.Item
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    setLoading(true);
-                    await setCharacterArchived(character, true);
-                    setLoading(false);
-                    onRefetch();
-                  }}
-                >
-                  Archive
-                </Menu.Item>
-              )}
-              <Menu.Item
-                color='red'
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openConfirmDeleteModal();
-                }}
-              >
-                Delete
-              </Menu.Item>
+              {cardActions.map((a) => (
+                <Fragment key={a.label}>
+                  {a.divider && <Menu.Divider />}
+                  <Menu.Item
+                    color={a.danger ? 'red' : undefined}
+                    className={a.danger ? 'menu-item-danger' : undefined}
+                    disabled={a.disabled}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void a.run();
+                    }}
+                  >
+                    {a.danger ? <span style={{ color: 'var(--crimson)' }}>{a.label}</span> : a.label}
+                  </Menu.Item>
+                </Fragment>
+              ))}
             </Menu.Dropdown>
           </Menu>
         </div>
@@ -689,64 +792,24 @@ function CharacterCard(props: {
               top: ctxMenu.y,
             }}
           >
-            <button
-              type='button'
-              onClick={async (e) => {
-                e.stopPropagation();
-                setCtxMenu(null);
-                setLoading(true);
-                await exportToJSON(character);
-                setLoading(false);
-              }}
-              className='ch-ctxmenu-item'
-            >
-              Export to JSON
-            </button>
-            {archived ? (
-              <>
+            {cardActions.map((a) => (
+              <Fragment key={a.label}>
+                {a.divider && <div className='ch-ctxmenu-divider' />}
                 <button
                   type='button'
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    setCtxMenu(null);
-                    setLoading(true);
-                    await setCharacterArchived(character, false);
-                    setLoading(false);
-                    onRefetch();
-                  }}
-                  className='ch-ctxmenu-item'
-                >
-                  Make Active
-                </button>
-                <div className='ch-ctxmenu-divider' />
-                <button
-                  type='button'
+                  disabled={a.disabled}
                   onClick={(e) => {
                     e.stopPropagation();
                     setCtxMenu(null);
-                    openConfirmDeleteModal();
+                    void a.run();
                   }}
-                  className='ch-ctxmenu-item danger'
+                  className={`ch-ctxmenu-item${a.danger ? ' danger' : ''}`}
+                  style={a.disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                 >
-                  Delete
+                  {a.label}
                 </button>
-              </>
-            ) : (
-              <button
-                type='button'
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setCtxMenu(null);
-                  setLoading(true);
-                  await setCharacterArchived(character, true);
-                  setLoading(false);
-                  onRefetch();
-                }}
-                className='ch-ctxmenu-item'
-              >
-                Archive
-              </button>
-            )}
+              </Fragment>
+            ))}
           </div>
         </div>,
         document.body
@@ -817,9 +880,17 @@ async function createCharacter() {
   const images = getAllBackgroundImages();
   const randomImageUrl = images[Math.floor(Math.random() * images.length)]?.url;
 
+  // Seed the new character's accent from the global Settings accent so it opens
+  // in the user's preferred colour (still editable per-character in the
+  // builder). Omitted when no global accent is set, so the app default applies.
+  const defaultAccent = getCachedPublicUser()?.site_theme?.color;
+
   const result = await makeRequest<Character>('create-character', {
     meta_data: { reset_hp: true },
-    details: { background_image_url: randomImageUrl },
+    details: {
+      background_image_url: randomImageUrl,
+      ...(defaultAccent ? { sheet_theme: { color: defaultAccent } } : {}),
+    },
   });
   return result;
 }

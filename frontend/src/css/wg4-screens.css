@@ -36,7 +36,7 @@
   --accent-soft: var(--wg4-accent-soft);
   --accent-ink: var(--wg4-accent-ink);
   --accent-edge: #d8b9a4;
-  --danger: #9b3b2f;
+  --danger: var(--crimson);
   --danger-soft: #f0dcd6;
   --font-sans: var(--wg4-font-sans);
   --font-mono: var(--wg4-font-mono);
@@ -653,4 +653,233 @@
 .wg4-screen.wg4-page-root {
   min-height: 100%;
   background: var(--page);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Settings — codex redesign. Brings the character-sheet "tome" look
+   (Cinzel headers, Cormorant flavor, accent rules, parchment section
+   cards) to Settings, which previously sat in a plain accordion.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Ornamental top bar — the Settings header IS the frameless-window
+   title bar (replaces the generic CodexWinBar here). The whole bar is
+   the drag region; the control cluster + nav opt out so they stay
+   clickable. */
+.wg4-screen .set-topbar {
+  position: relative;
+  text-align: center;
+  padding: 18px 0 20px;
+  border-bottom: 1px solid var(--border-soft);
+  -webkit-app-region: drag;
+}
+.wg4-screen .set-topbar .navctl {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  -webkit-app-region: no-drag;
+}
+.wg4-screen .set-topbar .winctl {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+.wg4-screen .set-topbar .wbtn {
+  width: 28px;
+  height: 24px;
+  border-radius: var(--r1);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+}
+.wg4-screen .set-topbar .wbtn svg {
+  width: 10px;
+  height: 10px;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  fill: none;
+}
+.wg4-screen .set-topbar .wbtn:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.wg4-screen .set-topbar .wbtn.close:hover {
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
+}
+.wg4-screen .set-topbar .kicker {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.wg4-screen .set-topbar .ttl {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin: 7px 0 5px;
+}
+.wg4-screen .set-topbar .tag {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink-3);
+}
+.wg4-screen .set-topbar .orn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 14px auto 0;
+  max-width: 280px;
+}
+.wg4-screen .set-topbar .orn .line {
+  height: 1px;
+  flex: 1;
+  background: var(--border-strong);
+}
+.wg4-screen .set-topbar .orn .d {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+/* Section cards — replace the accordion. Cinzel header + accent rule +
+   italic descriptor per section, all visible (no collapse). */
+.wg4-screen .section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r3);
+  box-shadow: var(--shadow);
+  margin-top: 20px;
+  overflow: hidden;
+}
+.wg4-screen .sec-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 18px;
+  border-bottom: 2px solid var(--accent);
+}
+.wg4-screen .sec-head .glyph {
+  color: var(--accent);
+  font-size: 15px;
+  line-height: 1;
+}
+.wg4-screen .sec-head .ttl {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.wg4-screen .sec-head .sub {
+  margin-left: auto;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.wg4-screen .sec-body {
+  padding: 4px 18px 14px;
+}
+.wg4-screen .section.danger {
+  border-color: #dcc0b8;
+}
+.wg4-screen .section.danger .sec-head {
+  border-bottom-color: var(--danger);
+}
+.wg4-screen .section.danger .sec-head .glyph,
+.wg4-screen .section.danger .sec-head .ttl {
+  color: var(--danger);
+}
+
+/* Cormorant flavor line (e.g. the Modes explainer, empty states). */
+.wg4-screen .flavor {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 14.5px;
+  color: var(--ink-3);
+  line-height: 1.45;
+  margin: 6px 0 12px;
+}
+
+/* Mode cards (global modes list). */
+.wg4-screen .mode {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r2);
+  padding: 10px 12px;
+  background: var(--surface-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+}
+.wg4-screen .mode .mname {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.wg4-screen .mode .mdesc {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.wg4-screen .mode .eff {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+.wg4-screen .mode .chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: var(--r1);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.wg4-screen .mode .acts {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Danger paragraph (Uninstall). */
+.wg4-screen .danger-text {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin: 4px 0 14px;
+  line-height: 1.5;
+}
+.wg4-screen .danger-text b {
+  color: var(--ink-2);
+}
+
+/* Theme-aware danger so the danger card + button adapt in dark mode
+   (the base --danger / .btn.danger are light-only). */
+html.theme-dark .wg4-screen {
+  --danger: var(--crimson);
+  --danger-soft: #38271f;
+}
+html.theme-dark .wg4-screen .section.danger,
+html.theme-dark .wg4-screen .btn.danger {
+  border-color: #4a2b27;
 }

@@ -5,7 +5,8 @@ import {
   fetchTraitByName,
   getDefaultSources,
 } from '@content/content-store';
-import { AbilityBlock, ContentType, Item, Language, LivingEntity, Spell, Trait } from '@schemas/content';
+import { convertToContentType } from '@content/content-utils';
+import { AbilityBlock, AbilityBlockType, ContentType, Item, Language, LivingEntity, Spell, Trait } from '@schemas/content';
 import {
   Operation,
   OperationAddBonusToValue,
@@ -19,6 +20,7 @@ import {
   OperationGiveSpell,
   OperationGiveSpellSlot,
   OperationGiveTrait,
+  OperationInjectOption,
   OperationInjectSelectOption,
   OperationRemoveAbilityBlock,
   OperationRemoveLanguage,
@@ -208,6 +210,16 @@ export function createDefaultOperation<T = Operation>(type: OperationType): T {
         text: '',
       },
     } satisfies OperationInjectText as T;
+  } else if (type === 'injectOption') {
+    return {
+      id: crypto.randomUUID(),
+      type: type,
+      data: {
+        selectId: '',
+        type: 'feat',
+        id: -1,
+      },
+    } satisfies OperationInjectOption as T;
   } else if (type === 'sendNotification') {
     return {
       id: crypto.randomUUID(),
@@ -706,6 +718,41 @@ async function getAdjValuePredefinedList(id: StoreID, options: OperationSelectOp
       variable: option.operation.data.variable,
     };
   });
+}
+
+// Resolves the content options injected into a select via the `injectOption`
+// custom operation. Reads INJECT_OPTIONS (written by runInjectOption), keeps
+// the entries targeting THIS select, fetches each referenced content item, and
+// formats it as an ObjectWithUUID exactly like the filtered/predefined lists do
+// — so selecting an injected option grants it through the normal path. Returns
+// [] (a true no-op) when nothing targets this select, leaving it unaffected.
+export async function getInjectedOptionList(id: StoreID, operationId: string): Promise<ObjectWithUUID[]> {
+  const raw = getVariable<VariableListStr>(id, 'INJECT_OPTIONS')?.value ?? [];
+  if (raw.length === 0) return [];
+
+  type InjectedOptionRef = { selectId: string; type: ContentType | AbilityBlockType; id: number };
+  const injected = raw
+    .map((v) => {
+      try {
+        return JSON.parse(v) as InjectedOptionRef;
+      } catch (e) {
+        return null;
+      }
+    })
+    .filter((v): v is InjectedOptionRef => !!v && v.selectId === operationId);
+
+  const result: ObjectWithUUID[] = [];
+  for (const inj of injected) {
+    const contentType = convertToContentType(inj.type);
+    const content = await fetchContentById<{ id: number; [key: string]: any }>(contentType, inj.id);
+    if (!content) continue;
+    result.push({
+      ...content,
+      _select_uuid: `${content.id}`,
+      _content_type: contentType,
+    } as ObjectWithUUID);
+  }
+  return result;
 }
 
 async function getCustomPredefinedList(id: StoreID, operationId: string, options: OperationSelectOptionCustom[]) {

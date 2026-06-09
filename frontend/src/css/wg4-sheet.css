@@ -407,7 +407,7 @@
 }
 .wg4 .cond-pills .cond-pill .v-count {
   font-family: var(--wg4-font-mono);
-  background: rgba(176,84,47,0.18);
+  background: color-mix(in srgb, var(--wg4-accent) 18%, transparent);
   padding: 1px 5px; border-radius: var(--wg4-r-pill);
   font-size: 10px;
 }
@@ -981,7 +981,7 @@
 .wg4 .sp-add:hover {
   border-color: var(--wg4-accent) !important;
   color: var(--wg4-accent) !important;
-  background: rgba(176, 84, 47, 0.04) !important;
+  background: color-mix(in srgb, var(--wg4-accent) 4%, transparent) !important;
 }
 .wg4 .sp-add .plus {
   color: var(--wg4-accent) !important;
@@ -1436,7 +1436,7 @@
 .wg4 .feat.feature { border-left: 2px solid var(--wg4-accent-ink) !important; }
 .wg4 .feat.ancestry { border-left: 2px solid #5b7148 !important; }
 .wg4 .feat.skill { border-left: 2px solid var(--wg4-ink-4) !important; }
-.wg4 .feat.general { border-left: 2px solid #a83a25 !important; }
+.wg4 .feat.general { border-left: 2px solid var(--crimson) !important; }
 
 .wg4 .feat .nm {
   display: flex; flex-direction: column; min-width: 0;

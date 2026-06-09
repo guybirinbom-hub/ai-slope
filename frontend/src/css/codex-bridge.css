@@ -26,7 +26,7 @@
  *
  * NOTE: this file does NOT define the codex color tokens themselves —
  * those live in codex.css under :root. The bridge ASSUMES codex.css
- * is loaded earlier so var(--gold) etc. resolve.
+ * is loaded earlier so var(--wg4-accent) etc. resolve.
  */
 
 /* ============================================================
@@ -75,11 +75,9 @@
   /* Bridge the legacy codex tokens to wg4 inside the portal too —
      otherwise the Mantine Slider + TextInput global rules in this
      file still resolve to codex gold/dark surfaces because they
-     use var(--gold) / var(--bg-3) etc. and those bridge mappings
+     use var(--wg4-accent) / var(--bg-3) etc. and those bridge mappings
      live under `.wg4` in wg4.css (out of scope for our portal). */
-  --gold: var(--wg4-accent);
-  --gold-bright: var(--wg4-accent);
-  --gold-deep: var(--wg4-accent-ink);
+  /* --gold* are aliased once, globally, on :root in codex.css (→ --wg4-accent). */
   --ink: var(--wg4-ink);
   --ink-dim: var(--wg4-ink-2);
   --ink-muted: var(--wg4-ink-3);
@@ -351,7 +349,7 @@ body {
   --mantine-color-placeholder: #6b5e44;
   --mantine-color-anchor: #c9a13b;
   --mantine-color-bright: #ede4ce;
-  --mantine-color-error: #a83a25;
+  --mantine-color-error: var(--crimson);
 
   /* Dark gray scale — every "dark" Mantine color */
   --mantine-color-dark-0: #ede4ce;
@@ -394,7 +392,7 @@ body {
      etc. still produces something thematically consistent. */
   --mantine-color-red-3: #d9684a;
   --mantine-color-red-4: #c14935;
-  --mantine-color-red-5: #a83a25;
+  --mantine-color-red-5: var(--crimson);
   --mantine-color-red-6: #93311e;
   --mantine-color-red-7: #6f1f10;
   --mantine-color-yellow-3: #ebd9a8;
@@ -406,7 +404,7 @@ body {
   --mantine-color-green-5: #5b7148;
   --mantine-color-green-6: #495a3a;
   --mantine-color-orange-4: #d97b3a;
-  --mantine-color-orange-5: #a83a25;
+  --mantine-color-orange-5: var(--crimson);
 
   /* The primary color slot (resolves what theme.primaryColor points to). */
   --mantine-primary-color-0: var(--mantine-color-blue-0);
@@ -477,7 +475,7 @@ body {
   background:
     linear-gradient(180deg, rgba(201, 161, 59, 0.04), transparent 40%),
     var(--bg-card) !important;
-  border: 1px solid var(--gold-deep) !important;
+  border: 1px solid var(--wg4-accent-ink) !important;
   box-shadow:
     0 30px 60px -30px rgba(0, 0, 0, 0.65),
     0 0 0 1px rgba(0, 0, 0, 0.4) !important;
@@ -493,7 +491,7 @@ body {
   position: absolute;
   width: 10px;
   height: 10px;
-  border: 1px solid var(--gold);
+  border: 1px solid var(--wg4-accent);
   pointer-events: none;
   z-index: 1;
 }
@@ -528,7 +526,7 @@ body {
   font-family: 'Cinzel', serif;
   font-weight: 700;
   letter-spacing: 0.18em;
-  color: var(--gold);
+  color: var(--wg4-accent);
   text-transform: uppercase;
   font-size: 16px;
   display: flex;
@@ -537,17 +535,17 @@ body {
 }
 .mantine-Modal-title::before {
   content: '✦';
-  color: var(--gold-bright);
+  color: var(--wg4-accent);
 }
 .mantine-Modal-body {
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-accent-ink) transparent;
 }
 .mantine-Modal-body::-webkit-scrollbar {
   width: 4px;
 }
 .mantine-Modal-body::-webkit-scrollbar-thumb {
-  background: var(--gold-deep);
+  background: var(--wg4-accent-ink);
 }
 .mantine-Modal-close,
 .mantine-Drawer-close {
@@ -601,7 +599,7 @@ body {
 .mantine-Drawer-title {
   font-family: 'Cinzel', serif;
   letter-spacing: 0.12em;
-  color: var(--gold);
+  color: var(--wg4-accent);
 }
 
 /* Button */
@@ -613,13 +611,13 @@ body {
   border-radius: 0 !important;
 }
 .mantine-Button-root[data-variant='filled'] {
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep)) !important;
+  background: linear-gradient(180deg, var(--wg4-accent), var(--wg4-accent-ink)) !important;
   color: var(--bg) !important;
-  border: 1px solid var(--gold-deep);
+  border: 1px solid var(--wg4-accent-ink);
 }
 .mantine-Button-root[data-variant='light'] {
   background: rgba(201, 161, 59, 0.10) !important;
-  color: var(--gold) !important;
+  color: var(--wg4-accent) !important;
   border: 1px solid var(--rule-soft);
 }
 .mantine-Button-root[data-variant='outline'],
@@ -634,21 +632,21 @@ body {
 }
 .mantine-Button-root[data-variant='subtle']:hover {
   background: rgba(201, 161, 59, 0.08) !important;
-  color: var(--gold) !important;
+  color: var(--wg4-accent) !important;
 }
 
 /* ActionIcon */
 .mantine-ActionIcon-root {
-  color: var(--gold);
+  color: var(--wg4-accent);
   border-radius: 0 !important;
 }
 .mantine-ActionIcon-root[data-variant='filled'] {
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep)) !important;
+  background: linear-gradient(180deg, var(--wg4-accent), var(--wg4-accent-ink)) !important;
   color: var(--bg) !important;
 }
 .mantine-ActionIcon-root[data-variant='light'] {
   background: rgba(201, 161, 59, 0.10) !important;
-  color: var(--gold) !important;
+  color: var(--wg4-accent) !important;
 }
 .mantine-ActionIcon-root[data-variant='default'] {
   background: var(--bg-card) !important;
@@ -666,7 +664,7 @@ body {
 }
 .mantine-Input-input:focus,
 .mantine-Textarea-input:focus {
-  border-color: var(--gold) !important;
+  border-color: var(--wg4-accent) !important;
 }
 .mantine-InputWrapper-label {
   font-family: 'Cinzel', serif !important;
@@ -687,9 +685,9 @@ body {
   border-radius: 0 !important;
 }
 .mantine-Tabs-tab[data-active='true'] {
-  color: var(--gold) !important;
+  color: var(--wg4-accent) !important;
   background: linear-gradient(180deg, rgba(201,161,59,.06), transparent 80%) !important;
-  border-color: var(--gold-deep) !important;
+  border-color: var(--wg4-accent-ink) !important;
 }
 
 /* Accordion */
@@ -710,7 +708,7 @@ body {
   color: var(--ink) !important;
 }
 .mantine-Accordion-chevron {
-  color: var(--gold);
+  color: var(--wg4-accent);
 }
 
 /* Menu (dropdown) */
@@ -727,7 +725,7 @@ body {
 .mantine-Menu-item:hover,
 .mantine-Menu-item[data-hovered='true'] {
   background: rgba(201, 161, 59, 0.10) !important;
-  color: var(--gold-bright) !important;
+  color: var(--wg4-accent) !important;
 }
 .mantine-Menu-label {
   color: var(--ink-muted) !important;
@@ -750,7 +748,7 @@ body {
 .mantine-Notification-title {
   font-family: 'Cinzel', serif !important;
   letter-spacing: 0.12em;
-  color: var(--gold);
+  color: var(--wg4-accent);
 }
 
 /* Tooltips */
@@ -789,7 +787,7 @@ body {
 
 /* Loader bars (the bars-style spinner) */
 .mantine-Loader-root {
-  color: var(--gold) !important;
+  color: var(--wg4-accent) !important;
 }
 
 /* AppShell / Layout containers — strip Mantine's default backgrounds
@@ -806,7 +804,7 @@ body {
   background: transparent !important;
 }
 .mantine-ScrollArea-thumb {
-  background-color: var(--gold-deep) !important;
+  background-color: var(--wg4-accent-ink) !important;
 }
 
 /* Tiptap rich text editor */
@@ -828,12 +826,12 @@ body {
 }
 .mantine-Slider-bar,
 .mantine-RangeSlider-bar {
-  background: linear-gradient(90deg, var(--gold-deep), var(--gold-bright)) !important;
+  background: linear-gradient(90deg, var(--wg4-accent-ink), var(--wg4-accent)) !important;
 }
 .mantine-Slider-thumb,
 .mantine-RangeSlider-thumb {
   background-color: var(--bg) !important;
-  border: 2px solid var(--gold) !important;
+  border: 2px solid var(--wg4-accent) !important;
   border-radius: 50% !important;
 }
 .mantine-Slider-mark,
@@ -843,15 +841,15 @@ body {
 }
 .mantine-Slider-markFilled,
 .mantine-RangeSlider-markFilled {
-  background-color: var(--gold) !important;
+  background-color: var(--wg4-accent) !important;
 }
 
 /* Anchors / links */
 a, .mantine-Anchor-root {
-  color: var(--gold);
+  color: var(--wg4-accent);
 }
 a:hover, .mantine-Anchor-root:hover {
-  color: var(--gold-bright);
+  color: var(--wg4-accent);
 }
 
 /* Strong / bold in body text */
@@ -921,7 +919,7 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 .mantine-Modal-root .mantine-Autocomplete-input:focus,
 .mantine-Modal-root .mantine-TextInput-input:focus-within,
 .mantine-Modal-root .mantine-NumberInput-input:focus-within {
-  border-color: var(--gold) !important;
+  border-color: var(--wg4-accent) !important;
 }
 .mantine-Modal-root .mantine-InputWrapper-label,
 .mantine-Modal-root .mantine-Input-label {
@@ -929,7 +927,7 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
   font-size: 10px !important;
   letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: var(--gold) !important;
+  color: var(--wg4-accent) !important;
   font-weight: 500 !important;
 }
 
@@ -955,20 +953,20 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 .mantine-Modal-root .mantine-Button-root[data-variant='default']:hover,
 .mantine-Modal-root .mantine-Button-root[data-variant='outline']:hover,
 .mantine-Modal-root .mantine-Button-root[data-variant='subtle']:hover {
-  color: var(--gold) !important;
-  border-color: var(--gold-deep) !important;
+  color: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent-ink) !important;
   background: rgba(201, 161, 59, 0.05) !important;
 }
 .mantine-Modal-root .mantine-Button-root[data-variant='filled'],
 .mantine-Modal-root .mantine-Button-root[data-variant='gradient'] {
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep)) !important;
+  background: linear-gradient(180deg, var(--wg4-accent), var(--wg4-accent-ink)) !important;
   color: var(--bg) !important;
-  border: 1px solid var(--gold-deep) !important;
+  border: 1px solid var(--wg4-accent-ink) !important;
   font-weight: 700 !important;
 }
 .mantine-Modal-root .mantine-Button-root[data-variant='filled']:hover,
 .mantine-Modal-root .mantine-Button-root[data-variant='gradient']:hover {
-  background: linear-gradient(180deg, var(--gold-bright), var(--gold)) !important;
+  background: linear-gradient(180deg, var(--wg4-accent), var(--wg4-accent)) !important;
 }
 
 /* Pagination — codex page chips */
@@ -984,22 +982,22 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 }
 .mantine-Modal-root .mantine-Pagination-control:hover,
 .mantine-Pagination-root .mantine-Pagination-control:hover {
-  color: var(--gold) !important;
-  border-color: var(--gold-deep) !important;
+  color: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent-ink) !important;
 }
 .mantine-Modal-root .mantine-Pagination-control[data-active='true'],
 .mantine-Pagination-root .mantine-Pagination-control[data-active='true'] {
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep)) !important;
+  background: linear-gradient(180deg, var(--wg4-accent), var(--wg4-accent-ink)) !important;
   color: var(--bg) !important;
-  border-color: var(--gold-deep) !important;
+  border-color: var(--wg4-accent-ink) !important;
   font-weight: 700 !important;
 }
 
 /* Switch / chip / checkbox accents → gold */
 .mantine-Modal-root .mantine-Switch-track[data-checked='true'],
 .mantine-Modal-root .mantine-Checkbox-input:checked {
-  background-color: var(--gold) !important;
-  border-color: var(--gold-deep) !important;
+  background-color: var(--wg4-accent) !important;
+  border-color: var(--wg4-accent-ink) !important;
 }
 
 /* ActionIcon inside modal — codex chrome rectangle */
@@ -1233,7 +1231,7 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 .cai-table {
   padding: 0 22px;
   flex: 1 1 auto;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
@@ -1548,7 +1546,7 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
   gap: 14px !important;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--wg4-border-strong) transparent;
@@ -1635,7 +1633,7 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 .mantine-Modal-content .mantine-ScrollArea-viewport,
 .mantine-Modal-content .mantine-Modal-body {
   scrollbar-width: thin;
-  scrollbar-color: var(--gold-deep) transparent;
+  scrollbar-color: var(--wg4-accent-ink) transparent;
 }
 .mantine-Modal-content::-webkit-scrollbar,
 .mantine-Modal-content .mantine-ScrollArea-viewport::-webkit-scrollbar,
@@ -1651,13 +1649,13 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 .mantine-Modal-content::-webkit-scrollbar-thumb,
 .mantine-Modal-content .mantine-ScrollArea-viewport::-webkit-scrollbar-thumb,
 .mantine-Modal-content .mantine-Modal-body::-webkit-scrollbar-thumb {
-  background: var(--gold-deep);
+  background: var(--wg4-accent-ink);
   border-radius: 4px;
 }
 .mantine-Modal-content::-webkit-scrollbar-thumb:hover,
 .mantine-Modal-content .mantine-ScrollArea-viewport::-webkit-scrollbar-thumb:hover,
 .mantine-Modal-content .mantine-Modal-body::-webkit-scrollbar-thumb:hover {
-  background: var(--gold);
+  background: var(--wg4-accent);
 }
 /* Belt-and-suspenders: clip any direct child wider than the body. */
 .mantine-Modal-content .mantine-Modal-body > * {
@@ -1666,6 +1664,19 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 .mantine-Modal-content,
 .mantine-Modal-content .mantine-Modal-body {
   overflow-x: hidden !important;
+}
+/* The modal scrollbar styling above also targets .mantine-ScrollArea-viewport,
+   but Mantine ScrollArea draws its OWN overlay scrollbar (.mantine-ScrollArea-thumb,
+   styled gold-deep) and hides the native one. Styling the native back on left the
+   viewport with BOTH — the double scrollbar in the image picker (and every modal
+   ScrollArea). Hide the viewport's native scrollbar so only the overlay shows. */
+.mantine-Modal-content .mantine-ScrollArea-viewport {
+  scrollbar-width: none !important;
+}
+.mantine-Modal-content .mantine-ScrollArea-viewport::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 
 /* ──── Manage Spells modal ────────────────────────────────────────────
@@ -1854,7 +1865,7 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 /* ── Body ─────────────────────────────────────────────────────────── */
 .cms-body {
   flex: 1 1 auto;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   overflow-x: hidden;
   padding: 0 22px;
   display: flex;
@@ -2294,7 +2305,7 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 .csp-table {
   padding: 0 22px;
   flex: 1 1 auto;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
@@ -2706,7 +2717,7 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
   flex-direction: column;
   padding: 4px 22px 0;
   gap: 12px;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--wg4-border-strong) transparent;
@@ -2820,7 +2831,7 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
   flex-direction: column;
   padding: 4px 22px 0;
   gap: 12px;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--wg4-border-strong) transparent;
@@ -2927,13 +2938,13 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 }
 .codex-pill.excl {
   color: #fff;
-  border-color: #a83a25;
-  background: #a83a25;
+  border-color: var(--crimson);
+  background: var(--crimson);
   font-weight: 600;
 }
 .codex-pill.excl .ring {
   background: #fff;
-  box-shadow: inset 0 0 0 1.5px #a83a25;
+  box-shadow: inset 0 0 0 1.5px var(--crimson);
   border-color: #fff;
   opacity: 1;
 }

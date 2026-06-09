@@ -1,5 +1,11 @@
-import { Character } from '@schemas/content';
+import { Character, OperationCharacterResultPackage } from '@schemas/content';
 import { atom } from 'jotai';
+
+// The character builder's most recent operation-execution results. Set by
+// useCharacter on each recompute so other surfaces (e.g. the Custom Operations
+// editor's "Inject Option") can read the character's LIVE list of select menus
+// without re-running operations. Null until the first execution completes.
+export const characterOperationResultsState = atom<OperationCharacterResultPackage | null>(null);
 
 const _internal_characterState = atom(loadCharacter() as Character | null);
 

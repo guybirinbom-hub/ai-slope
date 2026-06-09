@@ -18,6 +18,7 @@
 
 import { Character, LivingEntity } from '@schemas/content';
 import RichTextInput from '@common/rich_text_input/RichTextInput';
+import { Icon } from '@common/Icon';
 import { GUIDE_BLUE } from '@constants/data';
 import { useDebouncedState, useDidUpdate } from '@mantine/hooks';
 import { openContextModal } from '@mantine/modals';
@@ -57,6 +58,8 @@ export function CodexNotesPanel(props: {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  // Right-click context menu for a page row (Delete).
+  const [ctxMenu, setCtxMenu] = useState<{ index: number; x: number; y: number } | null>(null);
 
   // Debounce content edits the same way the legacy panel did so
   // typing doesn't fire a setCharacter on every keystroke.
@@ -98,6 +101,31 @@ export function CodexNotesPanel(props: {
     setActiveIndex(newPages.length - 1);
   };
 
+  const deletePage = (index: number) => {
+    if (!character) return;
+    const newPages = cloneDeep(pages);
+    newPages.splice(index, 1);
+    setCharacter({
+      ...character,
+      notes: { ...character.notes, pages: newPages.length ? newPages : [cloneDeep(defaultPage)] },
+    } as LivingEntity);
+    setActiveIndex(0);
+  };
+
+  // Open the icon picker directly for a page (clicking its icon in the list).
+  const openIconPicker = (index: number) => {
+    const page = pages[index];
+    if (!page) return;
+    openContextModal({
+      modal: 'selectIcon',
+      title: <Title order={3}>Select Icon</Title>,
+      innerProps: {
+        color: page.color,
+        onSelect: (option: string) => updatePage(index, { icon: option }),
+      },
+    });
+  };
+
   const openPageSettings = (index: number) => {
     if (!character) return;
     const page = pages[index];
@@ -111,16 +139,7 @@ export function CodexNotesPanel(props: {
         onUpdate: (name: string, icon: string, color: string, shared: boolean) => {
           updatePage(index, { name, icon, color, shared });
         },
-        onDelete: () => {
-          if (!character) return;
-          const newPages = cloneDeep(pages);
-          newPages.splice(index, 1);
-          setCharacter({
-            ...character,
-            notes: { ...character.notes, pages: newPages.length ? newPages : [cloneDeep(defaultPage)] },
-          } as LivingEntity);
-          setActiveIndex(0);
-        },
+        onDelete: () => deletePage(index),
       },
     });
   };
@@ -193,10 +212,24 @@ export function CodexNotesPanel(props: {
                 onClick={() => setActiveIndex(i)}
                 role='button'
                 tabIndex={0}
-                title='Click to open · double-click to rename'
+                title='Open · right-click to delete · double-click for settings'
                 onDoubleClick={() => openPageSettings(i)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setCtxMenu({ index: i, x: e.clientX, y: e.clientY });
+                }}
               >
-                <div className='np-ic'>▤</div>
+                <div
+                  className='np-ic'
+                  title='Change icon'
+                  style={{ cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openIconPicker(i);
+                  }}
+                >
+                  <Icon name={p.icon || 'notebook'} style={{ width: 15, height: 15 }} stroke={1.6} />
+                </div>
                 <div className='np-body'>
                   <div className='np-nm'>{p.name || 'Untitled page'}</div>
                   <div className='np-sub'>
@@ -215,40 +248,61 @@ export function CodexNotesPanel(props: {
             Add Page
           </button>
         </div>
+
+        {ctxMenu && (
+          <>
+            <div
+              onClick={() => setCtxMenu(null)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setCtxMenu(null);
+              }}
+              style={{ position: 'fixed', inset: 0, zIndex: 4000 }}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                left: ctxMenu.x,
+                top: ctxMenu.y,
+                zIndex: 4001,
+                background: 'var(--wg4-surface)',
+                border: '1px solid var(--wg4-border)',
+                borderRadius: 6,
+                padding: 4,
+                minWidth: 150,
+                boxShadow: '0 8px 24px rgba(0,0,0,.35)',
+              }}
+            >
+              <button
+                type='button'
+                onClick={() => {
+                  deletePage(ctxMenu.index);
+                  setCtxMenu(null);
+                }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '7px 12px',
+                  background: 'none',
+                  border: 0,
+                  color: 'var(--crimson)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 4,
+                  fontFamily: 'inherit',
+                }}
+              >
+                Delete page
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ============ RIGHT — Notes editor ============ */}
       <div className='col right notes-editor'>
-        <div className='notes-toolbar'>
-          {/* The RichTextInput ships its own TipTap toolbar inside
-              the leaf — this strip just hosts the page-level metadata
-              (saved indicator + page settings gear). */}
-          <div></div>
-          <div className='tb-end'>
-            <div className='save-state'>
-              <span className='dot'></span>
-              Auto-saving
-            </div>
-            <div
-              className='gear'
-              role='button'
-              tabIndex={0}
-              title='Page settings (rename / icon / colour / delete)'
-              onClick={() => openPageSettings(activeIndex)}
-            >
-              <svg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
-                <circle cx='12' cy='12' r='3.4' fill='none' stroke='currentColor' strokeWidth='1.6' />
-                <path
-                  d='M12 3 V6 M12 18 V21 M3 12 H6 M18 12 H21 M5.5 5.5 L7.7 7.7 M16.3 16.3 L18.5 18.5 M5.5 18.5 L7.7 16.3 M16.3 7.7 L18.5 5.5'
-                  stroke='currentColor'
-                  strokeWidth='1.6'
-                  strokeLinecap='round'
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-
         <div className='notes-stage'>
           {activePage ? (
             <div className='leaf'>

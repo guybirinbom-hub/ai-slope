@@ -111,14 +111,23 @@
 .codex-edit-item .modal-body {
   padding: 22px 24px 18px;
   display: flex; flex-direction: column; gap: 14px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-y: auto; overflow-x: hidden;
   flex: 1 1 auto;
   /* min-height:0 is REQUIRED for a flex child to shrink below its
      content size — without it the body refuses to shrink, grows past
      the frame, and overflow-y:auto never engages (no scroll). */
   min-height: 0;
   position: relative;
+  /* Accent scrollbar (was the default gray). --wg4-accent-ink is inherited
+     from .codex-edit-item, which useSheetAccent recolors to the character's
+     chosen accent — so this matches the rest of the sheet. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--wg4-accent-ink) transparent;
+}
+.codex-edit-item .modal-body::-webkit-scrollbar { width: 6px; }
+.codex-edit-item .modal-body::-webkit-scrollbar-thumb {
+  background: var(--wg4-accent-ink);
+  border-radius: 3px;
 }
 
 /* Rows wrap so fixed-width cells (currency, size/group/hands selects)
@@ -260,7 +269,7 @@
   line-height: 1;
   cursor: pointer;
 }
-.codex-edit-item .trait-chip .x:hover { color: var(--wg4-accent); background: rgba(176,84,47,0.1); }
+.codex-edit-item .trait-chip .x:hover { color: var(--wg4-accent); background: color-mix(in srgb, var(--wg4-accent) 10%, transparent); }
 .codex-edit-item .trait-input-add {
   appearance: none; border: 0; background: transparent;
   flex: 1; min-width: 80px;

@@ -74,6 +74,9 @@ html.theme-dark .codex-hb-editor {
   --wg4-accent: #cf6a3f;
   --wg4-accent-soft: #38271f;
   --wg4-accent-ink: #e2966a;
+  /* Danger red — crimson is the single source; --danger resolves to it.
+     Light #a83a25 (codex.css / wg4.css); softer salmon here for dark contrast. */
+  --crimson: #d9776a;
 }
 
 /* Native form controls + scrollbars render dark; ensure the base page

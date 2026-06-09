@@ -82,7 +82,7 @@ function ProfCondMark({ varName }: { varName: string }) {
   return (
     <span
       style={{
-        color: 'var(--gold)',
+        color: 'var(--wg4-accent)',
         marginLeft: 2,
         fontWeight: 700,
         fontFamily: 'Cinzel, serif',
@@ -241,7 +241,7 @@ export function ActionGlyph(props: { cost: 1 | 2 | 3 | 'r' | 'f' | string }) {
     return <span style={{ color: 'var(--ink-muted)', fontSize: 12 }}>—</span>;
   }
   const color =
-    c === 'r' ? 'var(--crimson)' : c === 'f' ? 'var(--gold-bright)' : 'var(--gold)';
+    c === 'r' ? 'var(--crimson)' : c === 'f' ? 'var(--wg4-accent)' : 'var(--wg4-accent)';
   return (
     <span
       className='ai'
@@ -255,7 +255,7 @@ export function ActionGlyph(props: { cost: 1 | 2 | 3 | 'r' | 'f' | string }) {
             ? 'drop-shadow(0 0 3px rgba(168,58,37,.45))'
             : c === 'f'
               ? 'none'
-              : 'drop-shadow(0 0 3px rgba(176,84,47,.35))',
+              : 'drop-shadow(0 0 3px color-mix(in srgb, var(--wg4-accent) 35%, transparent))',
       }}
     >
       {ch}

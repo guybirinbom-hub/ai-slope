@@ -64,7 +64,7 @@
 }
 .wg4 .winbar .title .dot {
   background: var(--wg4-accent) !important;
-  box-shadow: 0 0 4px rgba(176,84,47,0.4) !important;
+  box-shadow: 0 0 4px color-mix(in srgb, var(--wg4-accent) 40%, transparent) !important;
 }
 .wg4 .winbar .center {
   color: var(--wg4-ink-3) !important;
@@ -583,7 +583,7 @@
 .wg4 .portrait.t4,
 .wg4 .portrait.t5 {
   background:
-    radial-gradient(circle at 50% 38%, rgba(176,84,47,0.18), transparent 70%),
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--wg4-accent) 18%, transparent), transparent 70%),
     var(--wg4-surface) !important;
   color: var(--wg4-accent-ink) !important;
 }
@@ -651,11 +651,11 @@
 /* Feat cards — :hover, :feature gradient, .nm small, .meta b
  * specifics that codex hardcoded with rgba(201,161,59,.0X) gold. */
 .wg4 .feat:hover {
-  background: linear-gradient(180deg, rgba(176,84,47,0.06), var(--wg4-surface)) !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wg4-accent) 6%, transparent), var(--wg4-surface)) !important;
   border-color: var(--wg4-accent) !important;
 }
 .wg4 .feat.feature {
-  background: linear-gradient(180deg, rgba(176,84,47,0.04), var(--wg4-surface)) !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wg4-accent) 4%, transparent), var(--wg4-surface)) !important;
   border-left-color: var(--wg4-accent) !important;
 }
 .wg4 .feat .nm small {
@@ -680,7 +680,7 @@
 .wg4 .feat.class { border-left: 2px solid var(--wg4-accent) !important; }
 .wg4 .feat.ancestry { border-left: 2px solid #5b7148 !important; }
 .wg4 .feat.skill { border-left: 2px solid var(--wg4-ink-4) !important; }
-.wg4 .feat.general { border-left: 2px solid #a83a25 !important; }
+.wg4 .feat.general { border-left: 2px solid var(--crimson) !important; }
 
 /* Spell rows + cantrips — match wg4 trade dress. */
 .wg4 .sp-row {
@@ -708,7 +708,7 @@
 .wg4 .sp-add:hover {
   border-color: var(--wg4-accent) !important;
   color: var(--wg4-accent) !important;
-  background: rgba(176, 84, 47, 0.04) !important;
+  background: color-mix(in srgb, var(--wg4-accent) 4%, transparent) !important;
 }
 .wg4 .sp-add .plus {
   color: var(--wg4-accent) !important;
@@ -1270,7 +1270,7 @@
 .wg4 .cm-body {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  overflow-y: auto !important;
+  overflow-y: auto !important; overflow-x: hidden !important;
   padding: 6px 0 !important;
   background: var(--wg4-surface) !important;
   scrollbar-width: thin !important;
@@ -1466,6 +1466,23 @@
 .wg4 .cm-editor-row textarea:focus,
 .wg4 .cm-effect-row select:focus,
 .wg4 .cm-effect-row input:focus { border-color: var(--wg4-accent) !important; box-shadow: 0 0 0 3px var(--wg4-accent-soft) !important; }
+.wg4 .cm-cond-toggle.on { border-color: var(--wg4-accent) !important; color: var(--wg4-accent) !important; background: var(--wg4-accent-soft) !important; }
+.wg4 .cm-effect-cond-input {
+  width: 100% !important;
+  margin-top: 6px !important;
+  font-family: var(--wg4-font-sans) !important;
+  font-style: italic !important;
+  font-size: 12.5px !important;
+  padding: 7px 10px !important;
+  background: var(--wg4-surface-2) !important;
+  border: 1px solid var(--wg4-border) !important;
+  border-left: 2px solid var(--wg4-accent) !important;
+  border-radius: 8px !important;
+  color: var(--wg4-ink) !important;
+  outline: none !important;
+}
+.wg4 .cm-effect-cond-input:focus { border-color: var(--wg4-accent) !important; box-shadow: 0 0 0 3px var(--wg4-accent-soft) !important; }
+.wg4 .cm-effect-cond-input::placeholder { color: var(--wg4-ink-4) !important; font-style: italic !important; }
 .wg4 .cm-scope-btn,
 .wg4 .cm-mini-btn {
   font-family: var(--wg4-font-sans) !important;
@@ -3699,7 +3716,7 @@
   background: transparent !important;
   border: 0 !important;
   border-left: 0 !important;
-  overflow-y: auto !important;
+  overflow-y: auto !important; overflow-x: hidden !important;
   overflow-x: hidden !important;
   display: flex !important;
   flex-direction: column !important;
@@ -5039,7 +5056,7 @@
   background: var(--wg4-surface);
   padding: 14px 10px !important;
   gap: 2px !important;
-  overflow-y: auto !important;
+  overflow-y: auto !important; overflow-x: hidden !important;
   align-content: flex-start;
 }
 .codex-hb-editor .mantine-Tabs-list::before {
@@ -5101,7 +5118,7 @@
 .codex-hb-editor .mantine-Tabs-panel {
   flex: 1 1 auto !important;
   min-width: 0 !important;
-  overflow-y: auto !important;
+  overflow-y: auto !important; overflow-x: hidden !important;
   padding: 20px 28px !important;
 }
 

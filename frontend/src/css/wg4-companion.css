@@ -386,22 +386,18 @@
 
 /* ── Abilities — compact paragraph cards (Version B mockup .b-ability) ─
  *   Ability name (+ inline action glyph) over a serif description.
- *   Each card is clickable and opens the standard action drawer, so a
- *   soft hover tint signals interactivity. Lives inside `.cmp-body`,
- *   right after the strikes, under a `.cmp-sub` "Abilities" header. */
+ *   Read-only stat-block entry — NOT clickable: the full text, traits and
+ *   condition links are already shown inline (RichText), so a drawer would
+ *   just duplicate them. Lives inside `.cmp-body`, right after the strikes,
+ *   under a `.cmp-sub` "Abilities" header. */
 .wg4 .codex-companion .cmp-ability {
   padding: 9px 8px;
   margin: 0 -8px;
   border-top: 1px solid var(--wg4-border-soft);
   border-radius: var(--wg4-r-1);
-  cursor: pointer;
-  transition: background 0.12s;
 }
 .wg4 .codex-companion .cmp-ability:first-of-type {
   border-top: 0;
-}
-.wg4 .codex-companion .cmp-ability:hover {
-  background: var(--wg4-surface-hover);
 }
 .wg4 .codex-companion .cmp-ability .nm {
   display: flex;
@@ -411,12 +407,36 @@
   color: var(--wg4-ink);
   font-size: 13px;
 }
-/* Action glyph sits snug after the name in the accent color. */
+/* Action glyph sits snug after the name in the accent color. The generic
+   class name `.act` collides with codex.css's activity-row CARD (.act —
+   border / bg / padding / min-height), which leaked in and drew a box
+   around the glyph. Force the wrapper AND the inner .ai glyph to be JUST
+   the icon — no card chrome — with !important so nothing can redraw it. */
+.wg4 .codex-companion .cmp-ability .nm .act,
+.wg4 .codex-companion .cmp-ability .nm .act .ai {
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+}
 .wg4 .codex-companion .cmp-ability .nm .act {
   display: inline-flex;
   align-items: center;
   color: var(--wg4-accent);
   line-height: 1;
+}
+/* Action-cost glyphs (ability rows + the Melee/Ranged strike lines) render the
+   real PF2e ActionIcons font. Drop codex.css's fixed 14x14 icon-box sizing
+   (which squished/warped the glyph) and the inline 18px size — render at a
+   clean inline size that fits the stat-block rows. */
+.wg4 .codex-companion .ai {
+  width: auto !important;
+  height: auto !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  vertical-align: middle;
 }
 .wg4 .codex-companion .cmp-ability .txt {
   font-family: var(--wg4-font-serif);

@@ -33,6 +33,7 @@ import {
   OperationGiveSpell,
   OperationGiveSpellSlot,
   OperationGiveTrait,
+  OperationInjectOption,
   OperationInjectSelectOption,
   OperationInjectText,
   OperationSelect,
@@ -64,6 +65,7 @@ import { GiveItemOperation } from './item/GiveItemOperation';
 import { GiveTraitOperation } from './trait/GiveTraitOperation';
 import useRefresh from '@utils/use-refresh';
 import { InjectSelectOptionOperation } from './selection/InjectSelectOptionOperation';
+import { InjectOptionOperation } from './selection/InjectOptionOperation';
 import { InjectTextOperation } from './variables/InjectTextOperation';
 import { GiveModeOperation } from './ability_block/GiveModeOperation';
 import { BindValOperation } from './variables/BindValOperation';
@@ -294,6 +296,7 @@ export function OperationSection(props: {
                 { value: 'setValue', label: 'Override Value' },
                 { value: 'bindValue', label: 'Bind Value' },
                 { value: 'injectSelectOption', label: 'Inject Select Option' },
+                { value: 'injectOption', label: 'Inject Option' },
                 { value: 'injectText', label: 'Inject Text' },
                 { value: 'sendNotification', label: 'Send Notification' },
                 // { value: 'giveSelectOption', label: 'Give Select Option' }, // TODO
@@ -505,6 +508,23 @@ export function OperationDisplay(props: {
             opInjectSelectOption.data.value = value;
 
             props.onChange(cloneDeep(opInjectSelectOption));
+          }}
+          onRemove={() => props.onRemove(props.operation.id)}
+        />
+      );
+    case 'injectOption':
+      let opInjectOption = props.operation as OperationInjectOption;
+      return (
+        <InjectOptionOperation
+          selectId={opInjectOption.data.selectId}
+          type={opInjectOption.data.type}
+          id={opInjectOption.data.id}
+          onChange={(selectId, type, id) => {
+            opInjectOption.data.selectId = selectId;
+            opInjectOption.data.type = type;
+            opInjectOption.data.id = id;
+
+            props.onChange(cloneDeep(opInjectOption));
           }}
           onRemove={() => props.onRemove(props.operation.id)}
         />
