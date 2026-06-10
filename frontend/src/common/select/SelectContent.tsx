@@ -1946,6 +1946,24 @@ export default function SelectContentModal({
         : raw
           ? [String(raw).toUpperCase()]
           : [];
+      // Skill FEATS don't populate meta_data.skill — their skill lives in the
+      // prerequisites ("trained in Acrobatics"). When there's no explicit
+      // skill, derive it from the prerequisites (and trait list) so the Skill
+      // filter actually matches skill feats instead of emptying the list.
+      if (skills.length === 0) {
+        const SKILL_NAMES = [
+          'ACROBATICS', 'ARCANA', 'ATHLETICS', 'CRAFTING', 'DECEPTION', 'DIPLOMACY',
+          'INTIMIDATION', 'LORE', 'MEDICINE', 'NATURE', 'OCCULTISM', 'PERFORMANCE',
+          'RELIGION', 'SOCIETY', 'STEALTH', 'SURVIVAL', 'THIEVERY',
+        ];
+        const prereq = Array.isArray(option.prerequisites)
+          ? option.prerequisites.join(' ')
+          : String(option.prerequisites ?? '');
+        const hay = prereq.toUpperCase();
+        for (const sk of SKILL_NAMES) {
+          if (new RegExp('\\b' + sk + '\\b').test(hay) && !skills.includes(sk)) skills.push(sk);
+        }
+      }
       // AND mode: every include-key must be present; OR mode: any one.
       const exclude = [...filterState.skills.entries()]
         .filter(([, v]) => v === 'exclude')
