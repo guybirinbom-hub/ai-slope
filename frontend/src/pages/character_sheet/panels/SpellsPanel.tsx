@@ -1,5 +1,6 @@
 import { ActionSymbol } from '@common/Actions';
 import TokenSelect from '@common/TokenSelect';
+import { expandActionCost } from '@common/select/filter-helpers';
 import { collectEntitySpellcasting } from '@content/collect-content';
 import { fetchContentAll, getContentFast, getDefaultSources } from '@content/content-store';
 import {
@@ -100,7 +101,9 @@ export default function SpellsPanel(props: {
           const query = searchQueryDebounced.trim().toLowerCase();
 
           const checkSpell = (spell: Spell) => {
-            if (actionTypeFilter !== 'ALL') return false;
+            // NOTE: the action-cost chip is applied AFTER this search pass
+            // (see `allSpells` below). An early `return false` here when a
+            // cost chip was active made every chip empty the whole list.
 
             const searchStr = JSON.stringify({
               _: spell.name,
@@ -126,7 +129,11 @@ export default function SpellsPanel(props: {
       : (spells ?? []);
   }, [spells, actionTypeFilter, searchQueryDebounced]);
 
-  const allSpells = searchSpells.filter((spell) => spell.cast === actionTypeFilter || actionTypeFilter === 'ALL');
+  // Expand ranged casts (ONE-TO-THREE-ACTIONS etc.) so e.g. Heal matches
+  // the 1-, 2- AND 3-action chips — same semantics as the content picker.
+  const allSpells = searchSpells.filter(
+    (spell) => actionTypeFilter === 'ALL' || expandActionCost(spell.cast).includes(actionTypeFilter ?? '')
+  );
   const hasFilters = searchQuery.trim().length > 0 || actionTypeFilter !== 'ALL';
 
   return (

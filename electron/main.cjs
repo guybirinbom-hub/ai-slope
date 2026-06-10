@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -239,8 +239,77 @@ async function startBackend() {
   }
 }
 
+// ─── Auto-update ────────────────────────────────────────────────────────────
+// Installed (NSIS) builds check the GitHub releases feed (the `publish`
+// config in package.json → guybirinbom-hub/ai-slope), download the new
+// Setup in the background, and offer a one-click "restart & update" — so
+// users never have to re-download installers from the Releases page.
+//
+// Quietly does nothing when:
+//   - running from source (`npm run app`) — app.isPackaged is false
+//   - running the PORTABLE build — no resources/app-update.yml is bundled
+//   - offline / GitHub unreachable — errors are logged and swallowed;
+//     the app must keep working fully offline.
+let updatePromptOpen = false;
+function setupAutoUpdate() {
+  if (!app.isPackaged) return;
+  try {
+    if (!fs.existsSync(path.join(process.resourcesPath, 'app-update.yml'))) {
+      console.log('[update] no app-update.yml (portable build) — auto-update disabled');
+      return;
+    }
+    const { autoUpdater } = require('electron-updater');
+    autoUpdater.autoDownload = true;
+    // If the user dismisses the prompt, still apply the downloaded update
+    // the next time the app quits normally.
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.on('error', (err) => {
+      console.log('[update] error (ignored):', err && err.message ? err.message : err);
+    });
+    autoUpdater.on('update-downloaded', (info) => {
+      if (updatePromptOpen) return;
+      updatePromptOpen = true;
+      const w = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+      dialog
+        .showMessageBox(w, {
+          type: 'info',
+          title: 'Update ready',
+          message: `Wanderer's Guide ${info.version} has been downloaded.`,
+          detail: 'Restart now to install the update? Your characters and data are kept.',
+          buttons: ['Restart && Update', 'Later'],
+          defaultId: 0,
+          cancelId: 1,
+        })
+        .then(({ response }) => {
+          updatePromptOpen = false;
+          if (response === 0) {
+            // Spawns the installer (silent) and quits. Our shutdown path
+            // stops Postgres on before-quit, then the installer swaps the
+            // app files and relaunches.
+            autoUpdater.quitAndInstall(true, true);
+          }
+        })
+        .catch(() => {
+          updatePromptOpen = false;
+        });
+    });
+    const check = () => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.log('[update] check failed (ignored):', err && err.message ? err.message : err);
+      });
+    };
+    // First check shortly after boot (let the backend/window settle), then
+    // every 4 hours for long-running sessions.
+    setTimeout(check, 15_000);
+    setInterval(check, 4 * 60 * 60 * 1000);
+  } catch (err) {
+    console.log('[update] setup failed (ignored):', err && err.message ? err.message : err);
+  }
+}
+
 app.whenReady().then(async () => {
   createMainWindow();
+  setupAutoUpdate();
   try {
     await startBackend();
   } catch (err) {

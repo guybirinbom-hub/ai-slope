@@ -185,6 +185,35 @@ export function passesItemGroupFilter(
   return true;
 }
 
+// ─── Action-cost expansion ─────────────────────────────────────────────────
+//
+// Expand a single action cost into its constituent single-step costs.
+// ONE-TO-TWO-ACTIONS abilities are valid 1-action plays AND valid
+// 2-action plays, so they should match both "1 action" and "2 actions"
+// cost filters. Non-enum / free-text casts ("10 minutes" on a spell)
+// return [] — they aren't single-action-cost plays. Shared by the
+// content picker and the sheet's Spells / Actions panels so a chip
+// means the same thing everywhere.
+export function expandActionCost(cost: unknown): string[] {
+  if (typeof cost !== 'string') return [];
+  switch (cost) {
+    case 'ONE-ACTION':
+    case 'TWO-ACTIONS':
+    case 'THREE-ACTIONS':
+    case 'FREE-ACTION':
+    case 'REACTION':
+      return [cost];
+    case 'ONE-TO-TWO-ACTIONS':
+      return ['ONE-ACTION', 'TWO-ACTIONS'];
+    case 'ONE-TO-THREE-ACTIONS':
+      return ['ONE-ACTION', 'TWO-ACTIONS', 'THREE-ACTIONS'];
+    case 'TWO-TO-THREE-ACTIONS':
+      return ['TWO-ACTIONS', 'THREE-ACTIONS'];
+    default:
+      return [];
+  }
+}
+
 // ─── Cast Time chip → spell.cast substring matcher ────────────────────────
 //
 // Cast Time chips encode their value as something like 'one-action',

@@ -1,5 +1,6 @@
 import { drawerState } from '@atoms/navAtoms';
 import { ActionSymbol } from '@common/Actions';
+import { expandActionCost } from '@common/select/filter-helpers';
 import { EllipsisText } from '@common/EllipsisText';
 import TraitsDisplay from '@common/TraitsDisplay';
 import { IMPRINT_BG_COLOR, IMPRINT_BG_COLOR_HOVER, IMPRINT_BORDER_COLOR } from '@constants/data';
@@ -117,7 +118,10 @@ export default function SkillsActionsPanel(props: {
           const query = searchQueryDebounced.trim().toLowerCase();
 
           const checkAction = (action: AbilityBlock) => {
-            if (actionTypeFilter !== 'ALL' && action.actions !== actionTypeFilter) return false;
+            // Expand ranged costs (ONE-TO-TWO-ACTIONS …) so they match their
+            // constituent chips — same semantics as the content picker.
+            if (actionTypeFilter !== 'ALL' && !expandActionCost(action.actions).includes(actionTypeFilter ?? ''))
+              return false;
 
             const searchStr = JSON.stringify({
               _: action.name,
@@ -149,7 +153,8 @@ export default function SkillsActionsPanel(props: {
           const query = searchQueryDebounced.trim().toLowerCase();
 
           const checkAbs = (action: AbilityBlock) => {
-            if (actionTypeFilter !== 'ALL' && action.actions !== actionTypeFilter) return false;
+            if (actionTypeFilter !== 'ALL' && !expandActionCost(action.actions).includes(actionTypeFilter ?? ''))
+              return false;
 
             const searchStr = JSON.stringify({
               _: action.name,
