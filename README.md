@@ -5,17 +5,17 @@ machine — no Docker, no Supabase cloud, no internet required after install.
 
 ## Download
 
-**[➡ Download the latest Windows installer](https://github.com/guybirinbom-hub/ai-slope/releases/latest/download/Wanderers-Guide-Setup.exe)**
+### → [**Get it from the Releases page**](https://github.com/guybirinbom-hub/ai-slope/releases/latest)
 
-Run the installer — it adds **Wanderer's Guide** to your Start menu and
-desktop so you can reopen it any time. On first launch, Postgres and the
-bundled content initialize (takes ~30–60 seconds, with a progress screen);
-after that, startup is fast.
+On that page, under **Assets**, download **`Wanderers-Guide-Setup.exe`** and
+run it — that's the easy one-click install. It adds **Wanderer's Guide** to
+your Start menu and desktop. On first launch, Postgres and the bundled content
+initialize (~30–60 seconds, with a progress screen); after that, startup is
+fast.
 
-> Prefer not to install? There's also a
-> **[portable build](https://github.com/guybirinbom-hub/ai-slope/releases/latest/download/Wanderers-Guide-Portable.exe)**
-> — one file, no install — but it unpacks itself on every launch and creates
-> no shortcut, so most people should use the installer above.
+A one-file **`Wanderers-Guide-Portable.exe`** is on the same page if you'd
+rather not install — but it unpacks on every launch and makes no shortcut, so
+the Setup installer is the recommended choice.
 
 To uninstall: open Settings → Uninstall inside the app, or use Windows'
 "Add or remove programs". That wipes both the user-data folder and the app.
