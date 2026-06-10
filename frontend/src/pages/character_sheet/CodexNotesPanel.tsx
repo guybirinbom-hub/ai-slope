@@ -25,7 +25,7 @@ import { openContextModal } from '@mantine/modals';
 import { JSONContent } from '@tiptap/react';
 import { Title } from '@mantine/core';
 import { cloneDeep } from 'lodash-es';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { SetterOrUpdater } from '@utils/type-fixing';
 
 type NotePage = {
@@ -61,23 +61,42 @@ export function CodexNotesPanel(props: {
   // Right-click context menu for a page row (Delete).
   const [ctxMenu, setCtxMenu] = useState<{ index: number; x: number; y: number } | null>(null);
 
-  // Debounce content edits the same way the legacy panel did so
-  // typing doesn't fire a setCharacter on every keystroke.
-  const [debouncedJson, setDebouncedJson] = useDebouncedState<{
-    index: number;
-    json: JSONContent;
-  } | null>(null, 500);
+  // Buffer the latest edit for each page index in a ref, then flush them
+  // all on a single debounced signal. Buffering PER INDEX (instead of a
+  // single held {index,json}) means switching pages mid-edit can never
+  // clobber the pending save for the page you just left — each page's
+  // content always lands on its own page. Debounced so typing doesn't
+  // fire setCharacter on every keystroke.
+  const pendingEditsRef = useRef<Map<number, JSONContent>>(new Map());
+  const editSignalRef = useRef(0);
+  const [editSignal, bumpEditSignal] = useDebouncedState(0, 500);
+
+  const queuePageEdit = (index: number, json: JSONContent) => {
+    pendingEditsRef.current.set(index, json);
+    bumpEditSignal((editSignalRef.current += 1));
+  };
 
   useDidUpdate(() => {
-    if (!character || !debouncedJson) return;
-    const newPages = cloneDeep(pages);
-    if (!newPages[debouncedJson.index]) return;
-    newPages[debouncedJson.index].contents = debouncedJson.json;
-    setCharacter({
-      ...character,
-      notes: { ...character.notes, pages: newPages },
-    } as LivingEntity);
-  }, [debouncedJson]);
+    if (pendingEditsRef.current.size === 0) return;
+    const edits = new Map(pendingEditsRef.current);
+    pendingEditsRef.current.clear();
+    // Functional update against the freshest character so an unrelated
+    // concurrent change can't be overwritten by a stale closure.
+    setCharacter((prev) => {
+      if (!prev) return prev;
+      const prevPages = (prev.notes?.pages as NotePage[] | undefined) ?? [cloneDeep(defaultPage)];
+      const newPages = cloneDeep(prevPages);
+      let changed = false;
+      edits.forEach((json, idx) => {
+        if (newPages[idx]) {
+          newPages[idx].contents = json;
+          changed = true;
+        }
+      });
+      if (!changed) return prev;
+      return { ...prev, notes: { ...prev.notes, pages: newPages } } as LivingEntity;
+    });
+  }, [editSignal]);
 
   const updatePage = (index: number, patch: Partial<NotePage>) => {
     if (!character) return;
@@ -337,10 +356,16 @@ export function CodexNotesPanel(props: {
 
               <div className='leaf-body'>
                 <RichTextInput
+                  // Remount the editor whenever the active page changes.
+                  // RichTextInput seeds TipTap's document from `value` only
+                  // at init and never re-syncs, so without a per-page key a
+                  // single shared editor keeps showing the first page's
+                  // content — making every new page "lead to the same page".
+                  key={activeIndex}
                   placeholder='Begin your page. Sketch a list, mark a passage, or simply start typing. The parchment will keep your words.'
                   value={activePage.contents}
                   onChange={(_text, json) => {
-                    setDebouncedJson({ index: activeIndex, json });
+                    queuePageEdit(activeIndex, json);
                   }}
                   height={520}
                   hasColorOptions={true}

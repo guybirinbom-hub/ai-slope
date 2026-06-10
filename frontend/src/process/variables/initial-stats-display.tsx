@@ -289,23 +289,45 @@ export function getDisplay(
     // || (isNumber(+value) && variable?.type === 'attr')
     if (operation) {
       if (mode === 'READ/WRITE') {
+        const myPath = `${writeDetails?.primarySource}_${operation.id}`;
+        // Enforce the PF2e rule "you can't boost the same attribute twice in
+        // the same set" SYNCHRONOUSLY. We read the sibling boosts' picks
+        // straight from the LIVE character (writeDetails.characterState[0]),
+        // not from the operation recompile — that recompile lags a beat
+        // behind a click, which is exactly why a fast double-click could pick
+        // the same attribute on two boosts before the option disappeared.
+        // Reading live state means the instant one boost takes STR, STR is
+        // gone from every other boost in this same source/set. Filtered
+        // attribute options store the attribute's variable name (e.g.
+        // "ATTRIBUTE_STR") as their selection value, so a sibling's stored
+        // value IS the attribute to exclude.
+        const liveSelections = writeDetails?.characterState?.[0]?.operation_data?.selections ?? {};
+        const setPrefix = `${writeDetails?.primarySource}_`;
+        const takenBySiblings = new Set<string>();
+        for (const [selPath, selVal] of Object.entries(liveSelections)) {
+          if (selPath === myPath) continue; // never exclude this boost's own pick
+          if (!selPath.startsWith(setPrefix)) continue; // same source/set only
+          if (typeof selVal === 'string' && selVal.startsWith('ATTRIBUTE_')) {
+            takenBySiblings.add(selVal);
+          }
+        }
+        const overrideOptions = (result?.selection?.options ?? []).filter((o) => {
+          const oo = o as { variable?: string; _select_uuid?: string };
+          return !takenBySiblings.has(oo.variable ?? oo._select_uuid ?? '');
+        });
         return (
           <Box py={0}>
             <SelectContentButton
               type={'ability-block'}
               onClick={(option) => {
-                updateCharacter(
-                  writeDetails?.characterState,
-                  `${writeDetails?.primarySource}_${operation.id}`,
-                  option._select_uuid
-                );
+                updateCharacter(writeDetails?.characterState, myPath, option._select_uuid);
               }}
               onClear={() => {
-                updateCharacter(writeDetails?.characterState, `${writeDetails?.primarySource}_${operation.id}`, '');
+                updateCharacter(writeDetails?.characterState, myPath, '');
               }}
               selectedId={result?.result?.source?.id}
               options={{
-                overrideOptions: result?.selection?.options,
+                overrideOptions,
                 overrideLabel: result?.selection?.title || 'Select an Option',
               }}
             />

@@ -2,7 +2,6 @@ import React from 'react';
 import { MantineSize, NativeSelect, Rating, Select } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { isTabletSized, isTouchDevice, tabletQuery } from '@utils/mobile-responsive';
-import { useState } from 'react';
 import { IMPRINT_BG_COLOR, IMPRINT_BORDER_COLOR } from '@constants/data';
 
 export default function TokenSelect(props: {
@@ -14,7 +13,11 @@ export default function TokenSelect(props: {
   size?: MantineSize;
   invertedSelect?: boolean;
 }) {
-  const [value, setValue] = useState(props.value ?? props.count);
+  // Fully controlled: render straight from props.value so the pips stay in
+  // sync when the value changes externally (e.g. the Refill button, rest).
+  // Previously this seeded internal state once and never re-synced, so the
+  // tokens lagged behind the number.
+  const value = props.value ?? props.count;
   const isMobileTouch = useMediaQuery(tabletQuery()) && isTouchDevice();
 
   return (
@@ -31,7 +34,6 @@ export default function TokenSelect(props: {
               // Invert the value if needed
               val = props.invertedSelect ? props.count - val : val;
 
-              setValue(val);
               props.onChange?.(val);
             }}
             styles={{
@@ -58,7 +60,6 @@ export default function TokenSelect(props: {
             } else {
               newVal = v;
             }
-            setValue(newVal);
             props.onChange?.(newVal);
           }}
         />

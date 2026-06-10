@@ -148,7 +148,18 @@ export default function useCharacter(
   // sheet feel sluggish since stat updates couldn't appear until the
   // window elapsed. 250ms is short enough to feel instant on user
   // input but still batches rapid keystrokes in text fields.
-  const [debouncedCharacter] = useDebouncedValue(character, 250);
+  //
+  // The BUILDER gets a much shorter window. There, picking one choice
+  // changes which options the OTHER choices may show — e.g. boosting STR
+  // must immediately drop STR from the next free-attribute boost's list.
+  // That list only refreshes once this recompile runs, so a long debounce
+  // leaves a gap where a fast second click can pick the same attribute
+  // twice (and similar duplicate picks in other choice menus). 60ms closes
+  // that gap to near-imperceptible while still coalescing rapid bursts; the
+  // sheet keeps 250ms since its rapid actions don't gate later choices.
+  const opsDebounceMs =
+    options.type === 'EXECUTE_OPS' && options.data.context === 'CHARACTER-BUILDER' ? 60 : 250;
+  const [debouncedCharacter] = useDebouncedValue(character, opsDebounceMs);
   const prevDebouncedCharacter = usePrevious(debouncedCharacter);
   const setCharacterDebounced = useDebouncedCallback(setCharacter, 250);
 

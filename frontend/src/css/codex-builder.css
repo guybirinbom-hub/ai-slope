@@ -75,7 +75,7 @@
 .codex-builder-page .mode-row .m-btn:hover { color: var(--ink); }
 .codex-builder-page .mode-row .m-btn.on {
   color: var(--wg4-accent);
-  background: linear-gradient(180deg, rgba(201,161,59,.08), transparent 80%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wg4-accent) 8%, transparent), transparent 80%);
 }
 .codex-builder-page .mode-row .m-btn.on::after {
   content: ''; position: absolute; left: 14%; right: 14%; bottom: 0; height: 2px;
@@ -141,7 +141,7 @@
   color: var(--bg); border-color: var(--wg4-accent-ink);
 }
 .codex-builder-page .lv.on {
-  background: rgba(201,161,59,.16);
+  background: color-mix(in srgb, var(--wg4-accent) 16%, transparent);
   color: var(--wg4-accent);
   border-color: var(--wg4-accent);
   border-width: 2px;
@@ -162,7 +162,7 @@
   cursor: pointer;
   font-family: 'Cinzel', serif; font-size: 14px;
 }
-.codex-builder-page .levels .nav-arrow:hover { background: rgba(201,161,59,.08); border-color: var(--wg4-accent-ink); }
+.codex-builder-page .levels .nav-arrow:hover { background: color-mix(in srgb, var(--wg4-accent) 8%, transparent); border-color: var(--wg4-accent-ink); }
 
 /* ── 3-col body ──────────────────────────────────────────────── */
 .codex-builder-page .body {
@@ -236,7 +236,7 @@
   color: var(--wg4-accent); font-size: 8px;
 }
 .codex-builder-page .ab.boosted {
-  background: linear-gradient(180deg, rgba(201,161,59,.10), var(--bg-card));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wg4-accent) 10%, transparent), var(--bg-card));
   border-color: var(--wg4-accent);
 }
 .codex-builder-page .ab.boosted::before {
@@ -309,7 +309,7 @@
   align-items: center; gap: 7px;
   padding: 4px 0;
   font-size: 12px;
-  border-bottom: 1px dotted rgba(201,161,59,.10);
+  border-bottom: 1px dotted color-mix(in srgb, var(--wg4-accent) 10%, transparent);
   line-height: 1.2;
 }
 .codex-builder-page .sk:last-child { border-bottom: 0; }
@@ -362,7 +362,7 @@
 }
 .codex-builder-page .level-emblem::before {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(circle at 50% 50%, rgba(201,161,59,.18), transparent 70%);
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--wg4-accent) 18%, transparent), transparent 70%);
   border: 1px solid var(--wg4-accent-ink);
   transform: rotate(45deg);
 }
@@ -412,7 +412,7 @@
 
 .codex-builder-page .choice-card {
   background:
-    linear-gradient(180deg, rgba(201,161,59,.03), transparent 50%),
+    linear-gradient(180deg, color-mix(in srgb, var(--wg4-accent) 3%, transparent), transparent 50%),
     var(--bg-card);
   border: 1px solid var(--rule-soft);
   position: relative;
@@ -435,7 +435,7 @@
 .codex-builder-page .cc-head {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px;
-  border-bottom: 1px dotted rgba(201,161,59,.18);
+  border-bottom: 1px dotted color-mix(in srgb, var(--wg4-accent) 18%, transparent);
 }
 .codex-builder-page .cc-head .nm {
   font-family: 'Cinzel', serif; font-weight: 700;
@@ -505,7 +505,7 @@
   grid-template-columns: 1fr auto;
   align-items: baseline;
   padding: 5px 0; gap: 8px;
-  border-bottom: 1px dotted rgba(201,161,59,.10);
+  border-bottom: 1px dotted color-mix(in srgb, var(--wg4-accent) 10%, transparent);
   font-size: 12px;
 }
 .codex-builder-page .granted-row:last-child { border-bottom: 0; }
@@ -546,16 +546,21 @@
    pip already mark the section identity without box chrome. */
 .codex-builder-page .choice {
   background: transparent;
-  border: 0;
-  border-top: 1px solid var(--rule-soft);
+  /* Borders are owned by wg4-builder.css's boxed `.choice` design (it
+     loads AFTER this file). The old flat-design `border-top` hairline +
+     `.choice:first-child { border-top: 0 }` used to live here, but the
+     first-child rule outranks `.wg4 .choice` on specificity, so it
+     stripped the TOP border off the FIRST card in each group while every
+     other card kept its full boxed outline — the "first card has no top
+     line" bug. Border styling is ceded entirely to wg4-builder.css so all
+     cards render identically. */
   margin-bottom: 0;
   position: relative;
   transition: background .15s;
 }
-.codex-builder-page .choice:first-child { border-top: 0; }
-.codex-builder-page .choice:hover { background: rgba(201,161,59,.025); }
+.codex-builder-page .choice:hover { background: color-mix(in srgb, var(--wg4-accent) 2.5%, transparent); }
 .codex-builder-page .choice.open {
-  background: rgba(201,161,59,.04);
+  background: color-mix(in srgb, var(--wg4-accent) 4%, transparent);
 }
 /* The previous open-state corner ornaments reinforced the boxy
    "this is a separate window" feel. With the flat layout they're
@@ -620,7 +625,7 @@
 .codex-builder-page .ch-state.required {
   color: var(--wg4-accent);
   border-color: var(--wg4-accent-ink);
-  background: linear-gradient(180deg, rgba(201,161,59,.10), var(--bg-2));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wg4-accent) 10%, transparent), var(--bg-2));
 }
 .codex-builder-page .ch-state.done {
   color: var(--sage, #5b7148);
@@ -674,7 +679,7 @@
   transform: rotate(45deg);
   margin-left: 6px;
   flex: 0 0 auto;
-  box-shadow: 0 0 8px rgba(201,161,59,.35);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--wg4-accent) 35%, transparent);
 }
 .codex-builder-page .pending-pip > span { transform: rotate(-45deg); display: inline-block; }
 

@@ -1582,15 +1582,50 @@ export function DisplayOperationResult(props: {
   onChange: (path: string, value: string) => void;
 }) {
   const selections = props.results.filter((result) => hasOperationSelection(result));
+  // Synchronous record of attribute picks made among THESE sibling boosts this
+  // render-session, keyed by selection id. Lets a second boost drop an
+  // attribute the instant a sibling takes it, before the async operation
+  // recompile catches up (the gap that let a fast click pick it twice).
+  const [recentPicks, setRecentPicks] = useState<Record<string, string>>({});
   if (selections.length === 0) return null;
+
+  // What attribute each sibling boost currently holds: prefer the live local
+  // pick, fall back to the recomputed selection for picks made before mount.
+  const heldBy: Record<string, string | undefined> = {};
+  for (const r of selections) {
+    const sid = r?.selection?.id ?? '';
+    const src = r?.result?.source as { variable?: string; _select_uuid?: string } | undefined;
+    heldBy[sid] = recentPicks[sid] !== undefined ? recentPicks[sid] : (src?.variable ?? src?._select_uuid);
+  }
 
   return (
     <ResultWrapper label={`From ${props.source?.name ?? 'Unknown'}`} disabled={!props.source}>
       <Stack gap={10}>
-        {selections.map((result, i) => (
+        {selections.map((result, i) => {
+          const sid = result?.selection?.id ?? '';
+          // Attributes held by the OTHER boosts in this set (exclude self).
+          const excludeAttrs = new Set<string>();
+          for (const [osid, attr] of Object.entries(heldBy)) {
+            if (osid === sid) continue;
+            if (attr && attr.startsWith('ATTRIBUTE_')) excludeAttrs.add(attr);
+          }
+          return (
           <Stack key={i} gap={10}>
             {result?.selection && (
-              <OperationResultSelector result={result} level={props.level} onChange={props.onChange} />
+              <OperationResultSelector
+                result={result}
+                level={props.level}
+                excludeAttrs={excludeAttrs}
+                onChange={(path, value) => {
+                  // Record this pick synchronously so the sibling selectors
+                  // re-render with it excluded immediately (path is the bare
+                  // selection id for these top-level boosts).
+                  if (path === sid) {
+                    setRecentPicks((prev) => ({ ...prev, [sid]: value }));
+                  }
+                  props.onChange(path, value);
+                }}
+              />
             )}
             {result?.result?.results && result.result.results.length > 0 && (
               <DisplayOperationResult
@@ -1609,7 +1644,8 @@ export function DisplayOperationResult(props: {
               />
             )}
           </Stack>
-        ))}
+          );
+        })}
       </Stack>
     </ResultWrapper>
   );
@@ -1618,8 +1654,26 @@ export function DisplayOperationResult(props: {
 function OperationResultSelector(props: {
   result: OperationResult;
   level?: number;
+  excludeAttrs?: Set<string>;
   onChange: (path: string, value: string) => void;
 }) {
+  // Drop attribute options already taken by SIBLING boosts in the same set
+  // (PF2e: you can't boost the same attribute twice in one set). excludeAttrs
+  // is computed live by the parent from picks made THIS render — before the
+  // async operation recompile lands — which is what closes the race that let a
+  // fast double-click pick the same attribute twice. Filtered attribute
+  // options carry the attribute's variable name (e.g. "ATTRIBUTE_STR").
+  const exclude = props.excludeAttrs;
+  const overrideOptions = (props.result?.selection?.options ?? [])
+    .filter((option) => {
+      if (!exclude || exclude.size === 0) return true;
+      const oo = option as { variable?: string; _select_uuid?: string };
+      return !exclude.has(oo.variable ?? oo._select_uuid ?? '');
+    })
+    .map((option) => ({
+      ...option,
+      _source_level: props.level,
+    }));
   return (
     <SelectContentButton
       type={
@@ -1635,10 +1689,7 @@ function OperationResultSelector(props: {
       }}
       selectedId={props.result!.result?.source?.id}
       options={{
-        overrideOptions: props.result?.selection?.options.map((option) => ({
-          ...option,
-          _source_level: props.level,
-        })),
+        overrideOptions,
         overrideLabel: props.result?.selection?.title || 'Select an Option',
         abilityBlockType:
           (props.result?.selection?.options ?? []).length > 0 ? props.result?.selection?.options[0].type : undefined,

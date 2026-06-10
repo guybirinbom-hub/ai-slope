@@ -42,6 +42,14 @@
   --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, monospace;
   --font-serif: 'Newsreader', ui-serif, Georgia, serif;
+  /* Amber "incomplete / needs-a-pick" — a DISTINCT semantic from the
+     character accent (which is the user's colour). Tokenised, with a dark
+     override below, so it adapts per-theme instead of being hardcoded in
+     each rule. */
+  --warn: #c98a3f;
+  --warn-soft: #f4e3cf;
+  --warn-ink: #946431;
+  --shadow-pop: 0 1px 0 rgba(20,20,20,.02), 0 8px 24px rgba(20,20,20,.08);
 
   max-width: 1680px;
   margin: 0 auto;
@@ -53,6 +61,17 @@
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "ss01", "cv11";
+}
+
+/* Dark-theme values for the builder-local tokens. The --wg4-* tokens flip
+   automatically via wg4-dark.css; these builder-local aliases need their
+   own dark declaration so they don't stay light in dark mode. */
+html.theme-dark .wg4 .codex-home-page,
+html.theme-dark .wg4 .codex-builder-page {
+  --warn: #e0b974;
+  --warn-soft: #3a3320;
+  --warn-ink: #e0b974;
+  --shadow-pop: 0 1px 0 rgba(0,0,0,.2), 0 10px 28px rgba(0,0,0,.5);
 }
 
 .wg4 .codex-home-page *,
@@ -137,17 +156,22 @@
 
 /* ============================== TOPBAR ============================== */
 .wg4 .builder-topbar {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) 1fr 1fr 1fr auto;
-  align-items: stretch;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 12px 22px;
   border-top: 1px solid var(--border-soft);
   border-bottom: 1px solid var(--border-soft);
   background: var(--surface);
 }
+/* `.who` flex:1 pushes the segmented nav + menu to the right; nav buttons
+   stay edge-to-edge (no gap) so they read as one pill. */
+.wg4 .builder-topbar .topbar-right { margin-left: 14px; padding: 0; }
 .wg4 .builder-topbar .who {
+  flex: 1;
   display: flex; align-items: center; gap: 14px;
-  padding: 14px 22px;
-  border-right: 1px solid var(--border-soft);
+  padding: 0;
+  border-right: 0;
   min-width: 0;
 }
 .wg4 .builder-topbar .crest {
@@ -186,32 +210,29 @@
 .wg4 .builder-topbar .label .sub i { font-style: normal; color: var(--ink-5); margin: 0 5px; }
 
 .wg4 .builder-topbar .nav-step {
-  appearance: none; border: 0; background: transparent;
-  border-right: 1px solid var(--border-soft);
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 14px 18px;
+  appearance: none;
+  border: 1px solid var(--border);
+  border-right: 0;
+  background: var(--surface);
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 9px 18px;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.1em;
   font-weight: 600;
   color: var(--ink-3);
   cursor: pointer;
   transition: background .12s, color .12s;
   position: relative;
 }
+.wg4 .builder-topbar .nav-step:first-of-type { border-radius: var(--r-2) 0 0 var(--r-2); }
+.wg4 .builder-topbar .nav-step:last-of-type { border-right: 1px solid var(--border); border-radius: 0 var(--r-2) var(--r-2) 0; }
 .wg4 .builder-topbar .nav-step:hover { background: var(--surface-2); color: var(--ink); }
 .wg4 .builder-topbar .nav-step:disabled { color: var(--ink-5); cursor: not-allowed; }
-.wg4 .builder-topbar .nav-step:disabled:hover { background: transparent; color: var(--ink-5); }
-.wg4 .builder-topbar .nav-step.on { background: var(--surface-2); color: var(--ink); }
-.wg4 .builder-topbar .nav-step.on::after {
-  content: "";
-  position: absolute;
-  left: 18px; right: 18px;
-  bottom: -1px;
-  height: 2px;
-  background: var(--accent);
-}
-.wg4 .builder-topbar .nav-step svg { width: 16px; height: 16px; }
+.wg4 .builder-topbar .nav-step:disabled:hover { background: var(--surface); color: var(--ink-5); }
+.wg4 .builder-topbar .nav-step.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wg4 .builder-topbar .nav-step.on::after { display: none; }
+.wg4 .builder-topbar .nav-step svg { width: 15px; height: 15px; }
 
 .wg4 .builder-topbar .topbar-right {
   display: flex; align-items: center; padding: 0 18px;
@@ -838,21 +859,21 @@
 .wg4 .levels .nav-arrow:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--ink); }
 
 .wg4 .lv-track {
-  display: flex; gap: 4px; flex: 1;
+  display: flex; gap: 6px; flex: 1;
+  justify-content: space-between;
   overflow: hidden;
 }
 .wg4 .lv-track .lv {
-  flex: 1;
-  min-width: 0;
-  height: 28px;
+  flex: 0 0 auto;
+  width: 29px; height: 29px;
   display: grid; place-items: center;
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: var(--r-1);
+  border-radius: var(--r-3);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 500;
-  color: var(--ink-4);
+  color: var(--ink-3);
   cursor: pointer;
   transition: background .1s, border-color .1s, color .1s;
   letter-spacing: -0.01em;
@@ -865,9 +886,9 @@
    callsites don't break while CharBuilderCreation moves over. */
 .wg4 .lv-track .lv.done,
 .wg4 .lv-track .lv.complete {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  border-color: var(--accent);
+  background: var(--surface);
+  color: var(--accent);
+  border-color: var(--accent-soft);
   font-weight: 600;
 }
 .wg4 .lv-track .lv.done::before,
@@ -888,9 +909,9 @@
    they still have to revisit this level. Same .ch-state.warn palette
    used elsewhere in the choice card vocabulary. */
 .wg4 .lv-track .lv.incomplete {
-  background: #f4e3cf;
-  color: #946431;
-  border-color: #e1c8a4;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  border-color: var(--warn);
   font-weight: 600;
 }
 .wg4 .lv-track .lv.incomplete::before {
@@ -901,33 +922,45 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #c98a3f;
+  background: var(--warn);
 }
 .wg4 .lv-track .lv.on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--surface);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
   font-weight: 600;
 }
 
 .wg4 .builder-body {
   display: grid;
-  grid-template-columns: 280px 1fr 280px;
-  gap: 14px;
-  padding: 18px 32px 24px;
+  grid-template-columns: 248px 1fr 264px;
+  gap: 24px;
+  padding: 22px 32px 28px;
   align-items: start;
 }
 .wg4 .builder-body .col {
-  display: flex; flex-direction: column; gap: 18px;
+  display: flex; flex-direction: column; gap: 22px;
 }
-.wg4 .builder-body .col > div {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-3);
-  padding: 14px 16px 16px;
-  box-shadow: var(--shadow-card);
+/* Rail sections are FLAT (no card box) — just a header + content sitting
+   on the page, matching the mockup. The centre column keeps its panel. */
+.wg4 .builder-body .col.left > div,
+.wg4 .builder-body .col.right > div {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
-.wg4 .builder-body .col.main > div { padding: 0; }
+.wg4 .builder-body .col.main > div {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+/* level-head sits flat at the top of the centre column (no card frame). */
+.wg4 .builder-body .col.main .level-head { padding: 0 4px 16px; }
+.wg4 .builder-body .col.main .choice-list { padding: 0; }
 
 .wg4 .sec-title.compact {
   display: flex; align-items: center; gap: 10px;
@@ -996,18 +1029,23 @@
   font-weight: 600;
 }
 .wg4 .origin .v {
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 16px;
+  font-weight: 500;
   color: var(--ink);
-  margin-top: 2px;
+  margin-top: 1px;
   letter-spacing: -0.005em;
+  text-transform: none;
 }
 
 .wg4 .ab-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 6px;
 }
+.wg4 .ab { text-align: center; }
+.wg4 .ab .mod { text-align: center; }
 .wg4 .ab {
   background: var(--surface);
   border: 1px solid var(--border-soft);
@@ -1073,10 +1111,10 @@
 .wg4 .level-emblem {
   width: 56px; height: 56px;
   display: grid; place-items: center;
-  background: var(--ink);
+  background: var(--accent);
   border-radius: var(--r-2);
-  color: var(--surface);
-  border: 1px solid var(--ink);
+  color: #fff;
+  border: 1px solid var(--accent);
   position: relative;
 }
 .wg4 .level-emblem .num {
@@ -1085,6 +1123,7 @@
   font-weight: 500;
   letter-spacing: -0.02em;
   line-height: 1;
+  color: #fff;
 }
 .wg4 .level-head .meta { flex: 1; min-width: 0; }
 .wg4 .level-head .eyebrow {
@@ -1110,16 +1149,31 @@
 .wg4 .choice {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-2);
+  border-radius: var(--r-3);
   overflow: hidden;
   position: relative;
-  transition: background .1s, border-color .1s;
+  transition: background .1s, border-color .1s, box-shadow .1s;
+  box-shadow: var(--shadow-card);
+}
+/* Slim accent edge down the left — lit only when the section is open, so
+   the active choice reads in THE CHARACTER'S OWN colour (the accent token
+   is set per-character by useSheetAccent). */
+.wg4 .choice::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background .12s;
 }
 .wg4 .choice:hover { border-color: var(--border-strong); }
 .wg4 .choice.open {
-  border-color: var(--accent);
+  border-color: var(--border-strong);
   background: var(--surface);
+  box-shadow: var(--shadow-pop);
 }
+/* The accent reads through the slim left edge only — not a full red box. */
+.wg4 .choice.open::before { background: var(--accent); }
 .wg4 .choice-head {
   display: grid;
   grid-template-columns: 40px 1fr auto 14px;
@@ -1143,30 +1197,38 @@
 }
 .wg4 .choice.open .choice-head .ico {
   background: var(--accent-soft);
-  border-color: #d8b9a4;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .wg4 .choice-head .nm {
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 16px;
+  font-weight: 500;
   color: var(--ink);
-  line-height: 1.25;
+  line-height: 1.15;
   letter-spacing: -0.005em;
+  text-transform: none;
 }
 .wg4 .choice-head .nm small {
   display: block;
-  margin-top: 2px;
-  font-family: var(--font-serif);
-  font-style: italic;
+  margin-top: 3px;
+  font-family: var(--font-sans);
+  font-style: normal;
   font-size: 11.5px;
-  color: var(--ink-4);
+  color: var(--ink-3);
   font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .wg4 .pending-pip {
-  width: 22px; height: 22px;
+  min-width: 20px; height: 20px;
+  padding: 0 6px;
   display: grid; place-items: center;
-  background: var(--accent);
-  color: #fff;
-  border-radius: 50%;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  border: 1px solid var(--warn);
+  border-radius: var(--r-pill);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
@@ -1190,9 +1252,9 @@
   border: 1px solid var(--accent);
 }
 .wg4 .ch-state.warn {
-  background: #f4e3cf;
-  color: #946431;
-  border: 1px solid #e1c8a4;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  border: 1px solid var(--warn);
 }
 .wg4 .choice .chev {
   width: 8px; height: 8px;
@@ -1280,17 +1342,18 @@
   width: 18px; height: 18px;
   display: inline-grid; place-items: center;
   background: var(--surface-2);
-  border-radius: 3px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
   color: var(--ink-3);
 }
-.wg4 .pf-chip.U { color: var(--ink-5); }
-.wg4 .pf-chip.T { color: var(--ink-3); }
-.wg4 .pf-chip.E { color: var(--ink); background: #dfdac9; }
-.wg4 .pf-chip.M { color: var(--surface); background: var(--ink); }
-.wg4 .pf-chip.L { color: var(--accent); background: var(--accent-soft); }
+.wg4 .pf-chip.U { color: var(--ink-5); background: transparent; }
+.wg4 .pf-chip.T { color: var(--ink-2); background: var(--surface-2); }
+.wg4 .pf-chip.E { color: var(--ink); background: var(--surface-hover); }
+.wg4 .pf-chip.M { color: #fff; background: var(--accent); border-color: var(--accent); }
+.wg4 .pf-chip.L { color: #fff; background: var(--accent-ink); border-color: var(--accent-ink); }
 
 .wg4 .start-hint {
   padding: 28px 22px;

@@ -9,6 +9,7 @@ import {
   compileTraits,
   determineItemMetaType,
   getCurrentUses,
+  usesSpentChargeConvention,
   getFillableSpellHolder,
   getItemHealth,
   getMaxUses,
@@ -374,8 +375,13 @@ export function InvItemDrawerContent(props: {
             {(() => {
               const maxUses = getMaxUses(invItem.item);
               if (maxUses <= 0) return null;
+              // `current` is always uses REMAINING here (full = max), so a
+              // full item shows filled tokens and the Refill button fills
+              // them — identical to what Rest does. getCurrentUses already
+              // normalises wands/staves (which persist SPENT) into this.
               const current = getCurrentUses(invItem.item);
-              const setCurrent = (val: number) =>
+              const spentConvention = usesSpentChargeConvention(invItem.item);
+              const setCurrent = (remaining: number) =>
                 onItemUpdate({
                   ...invItem,
                   item: {
@@ -384,7 +390,10 @@ export function InvItemDrawerContent(props: {
                       ...invItem.item.meta_data!,
                       charges: {
                         ...invItem.item.meta_data?.charges,
-                        current: val,
+                        // Persist in the item's native convention: wands/
+                        // staves store SPENT (so casting/overcharge keeps
+                        // working), everything else stores REMAINING.
+                        current: spentConvention ? Math.max(0, maxUses - remaining) : remaining,
                         max: maxUses,
                       },
                     },
@@ -420,7 +429,7 @@ export function InvItemDrawerContent(props: {
                           <ActionIcon
                             variant='transparent'
                             color='gray.1'
-                            aria-label='Item Charge, Unused'
+                            aria-label='Item Charge, Spent'
                             size='xs'
                             style={{
                               opacity: 0.7,
@@ -434,7 +443,7 @@ export function InvItemDrawerContent(props: {
                           <ActionIcon
                             variant='transparent'
                             color='gray.1'
-                            aria-label='Item Charge, Used'
+                            aria-label='Item Charge, Available'
                             size='xs'
                             style={{
                               opacity: 0.7,

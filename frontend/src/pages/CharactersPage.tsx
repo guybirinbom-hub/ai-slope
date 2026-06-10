@@ -464,6 +464,10 @@ function CharacterCard(props: {
   const playable = isPlayable(character);
   const archived = !!(character.meta_data as Record<string, unknown> | undefined)?.archived;
   const initial = character.name?.trim()?.[0]?.toUpperCase() || '?';
+  // Character portrait, if one was chosen in the builder. When present it
+  // fills the portrait tile (cover) and replaces the initial-letter
+  // placeholder; otherwise we fall back to the theme color / tier gradient.
+  const portraitUrl = character.details?.image_url || undefined;
 
   // Close right-click menu on outside click / Escape.
   useEffect(() => {
@@ -688,11 +692,32 @@ function CharacterCard(props: {
       {/* Portrait tile. Whole card is now clickable so we don't need
           the explicit onClick handler on the portrait. */}
       <div
-        className={`ch-portrait ${hasThemeColor ? '' : tier}`}
-        style={hasThemeColor ? { background: themeHex, backgroundImage: 'none' } : undefined}
+        className={`ch-portrait ${portraitUrl || hasThemeColor ? '' : tier}`}
+        style={hasThemeColor && !portraitUrl ? { background: themeHex, backgroundImage: 'none' } : undefined}
         aria-hidden='true'
       >
-        <span>{initial}</span>
+        {portraitUrl ? (
+          // Render the portrait as a real <img> (like the builder does) rather
+          // than a CSS background — a CSS url() resolves relative to the
+          // stylesheet, which breaks the builder's document-relative portrait
+          // paths in the packaged app, leaving the tile blank. object-fit:cover
+          // fills the tile and the level badge stays on top.
+          <img
+            src={portraitUrl}
+            alt=''
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              borderRadius: 'inherit',
+              display: 'block',
+            }}
+          />
+        ) : (
+          <span>{initial}</span>
+        )}
         <div className='level'>{character.level ?? 1}</div>
       </div>
 

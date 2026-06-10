@@ -527,8 +527,24 @@ export function getMaxUses(item: Item): number {
 }
 
 /**
- * Current uses remaining on an item instance. Defaults to the max
- * when no `current` has been persisted, so a freshly-picked-up
+ * Wands and staves store `meta_data.charges.current` as casts SPENT
+ * (0 = full, max = empty) because their casting / overcharge logic
+ * (WandSpellsList / StaffSpellsList) counts `current` UP as you cast.
+ * EVERY other use-tracked item stores it as uses REMAINING (max = full,
+ * 0 = empty). This helper flags the spent-convention items so the
+ * generic use UI can normalise both into a single "remaining" meaning.
+ */
+export function usesSpentChargeConvention(item: Item): boolean {
+  if (!item) return false;
+  return hasTraitType('WAND', item.traits ?? undefined) || hasTraitType('STAFF', item.traits ?? undefined);
+}
+
+/**
+ * Current uses REMAINING on an item instance (max = full, 0 = empty),
+ * normalised across BOTH charge conventions so every generic caller
+ * (the drawer's use tracker, the exhausted-dimming) sees one consistent
+ * meaning: a full item reads `max`, an empty one reads `0`. Defaults to
+ * the max when no `current` has been persisted, so a freshly-picked-up
  * consumable starts "full" instead of looking already-spent.
  */
 export function getCurrentUses(item: Item): number {
@@ -536,7 +552,10 @@ export function getCurrentUses(item: Item): number {
   const max = getMaxUses(item);
   if (max <= 0) return 0;
   const cur = item.meta_data?.charges?.current;
-  return typeof cur === 'number' ? cur : max;
+  if (typeof cur !== 'number') return max; // unset = full
+  // Wands/staves persist SPENT; flip to remaining so callers can treat
+  // every item the same way (full = max, empty = 0).
+  return usesSpentChargeConvention(item) ? Math.max(0, max - cur) : cur;
 }
 
 /**
