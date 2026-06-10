@@ -1094,7 +1094,12 @@ export default function CodexSheet(props: {
                       {ABILITIES.map((a) => {
                         const v = getVariable<VariableAttr>('CHARACTER', a.var);
                         const mod = v?.value?.value ?? 0;
-                        const score = 10 + mod * 2;
+                        // Partial boost (boosting an 18+): the score is odd
+                        // (e.g. 19) while the modifier stays put. Show the
+                        // real score and underline the mod — same convention
+                        // as the stat drawer + companion stat block.
+                        const partial = !!v?.value?.partial;
+                        const score = 10 + mod * 2 + (partial ? 1 : 0);
                         const isKey = keyAttribute === a.var;
                         return (
                           <button
@@ -1110,7 +1115,7 @@ export default function CodexSheet(props: {
                             }
                           >
                             <div className='k'>{a.glyph}</div>
-                            <div className='num mod'>{sign(mod)}</div>
+                            <div className={`num mod${partial ? ' partial' : ''}`}>{sign(mod)}</div>
                             <div className='num score'>{score}</div>
                           </button>
                         );

@@ -1071,6 +1071,14 @@ html.theme-dark .wg4 .codex-builder-page {
   letter-spacing: -0.02em;
   line-height: 1.05;
 }
+/* Partial boost (score 19 at +4): underline the modifier — matches the
+   sheet / stat drawer / companion convention. */
+.wg4 .ab .mod.partial {
+  text-decoration: underline;
+  text-decoration-color: var(--ink-5);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
 .wg4 .ab .score {
   font-family: var(--font-mono);
   font-size: 10px;

@@ -222,12 +222,16 @@ export function CharBuilderCreationInner(props: {
         ).map(({ vn, label }) => {
           const v = getVariable<VariableAttr>('CHARACTER', vn);
           const mod = v?.value?.value ?? 0;
-          const score = 10 + mod * 2;
+          // Partial boost (boosting an 18+): score goes odd (19) while the
+          // modifier holds. Show the real score; underline the mod (same
+          // convention as the sheet / stat drawer / companion block).
+          const partial = !!v?.value?.partial;
+          const score = 10 + mod * 2 + (partial ? 1 : 0);
           const sign = mod >= 0 ? '+' : '';
           return (
             <div key={vn} className='ab'>
               <div className='glyph'>{label}</div>
-              <div className='mod'>
+              <div className={`mod${partial ? ' partial' : ''}`}>
                 {sign}
                 {mod}
               </div>
