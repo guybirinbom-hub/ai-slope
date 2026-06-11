@@ -12,7 +12,7 @@ import { BackgroundInitialOverview, convertBackgroundOperationsIntoUI } from '@d
 import { ClassInitialOverview, convertClassOperationsIntoUI } from '@drawers/types/ClassDrawer';
 import { Accordion, Badge, Box, Group, ScrollArea, Stack, Text } from '@mantine/core';
 import { useHover, useInterval, useMediaQuery } from '@mantine/hooks';
-import { getChoiceCounts, getPendingChoicesPerLevel } from '@operations/choice-count-tracker';
+import { countChoicesInResults, getPendingChoicesPerLevel } from '@operations/choice-count-tracker';
 import { OperationResult } from '@schemas/operations';
 import { ObjectWithUUID, convertKeyToBasePrefix, hasOperationSelection } from '@operations/operation-utils';
 import { removeParentSelections } from '@operations/selection-tree';
@@ -33,8 +33,7 @@ import { VariableAttr, VariableProf } from '@schemas/variables';
 import { displayFinalHealthValue, displayFinalProfValue } from '@variables/variable-display';
 import { getAllSkillVariables, getVariable } from '@variables/variable-manager';
 import { compileProficiencyType } from '@variables/variable-utils';
-import { isEqual } from 'lodash-es';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { SetterOrUpdater } from '@utils/type-fixing';
 import useCharacter from '@utils/use-character';
@@ -44,8 +43,16 @@ import ImprintButton from '@common/ImprintButton';
 import BuilderSpellPicks from './BuilderSpellPicks';
 import DeepBackgroundForm from './DeepBackgroundForm';
 
-// Determines how often to check for choice counts
-const CHOICE_COUNT_INTERVAL = 1500;
+// Pending-choice count for a result slice, read straight from the operation
+// result tree — instant and independent of whether the (collapsed) dropdown
+// body is mounted. Replaces the old 1.5s DOM-walk that left counts blank
+// until each dropdown was opened.
+function usePendingCount(results: OperationResult[] | undefined): { pending: number; max: number } {
+  return useMemo(() => {
+    const { current, max } = countChoicesInResults(results);
+    return { pending: Math.max(0, max - current), max };
+  }, [results]);
+}
 
 // CodexChoice — replaces the Mantine `<Accordion.Item>` shell used by
 // the per-level sub-sections (ancestry feats, class features, etc.).
@@ -54,8 +61,7 @@ const CHOICE_COUNT_INTERVAL = 1500;
 // Single-open behaviour is controlled by the parent via `open` +
 // `onToggle` — same model the Mantine Accordion used, just rewritten
 // to drop the Mantine context. `bodyRef` is forwarded onto the
-// expanded panel so `getChoiceCounts()` can DOM-walk for the pending
-// pip count (same trick the legacy items used on Accordion.Panel).
+// expanded panel (kept as an optional forward ref for callers).
 function CodexChoice(props: {
   id?: string;
   open: boolean;
@@ -390,7 +396,7 @@ export function CharBuilderCreationInner(props: {
             ‹
           </button>
           <div className='lv-track'>
-            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((lvl) => {
+            {Array.from({ length: maxLevel + 1 }, (_, i) => i).map((lvl) => {
               // Chip state:
               //   `on`         — selected level (solid black emblem)
               //   future (no class) — past character.level, can't edit yet
@@ -401,7 +407,14 @@ export function CharBuilderCreationInner(props: {
               let cls: 'on' | 'complete' | 'incomplete' | '' = '';
               if (lvl === selectedLevel) cls = 'on';
               else if (lvl > currentLevel) cls = '';
-              else if ((pendingPerLevel[lvl] ?? 0) > 0) cls = 'incomplete';
+              else if (
+                (pendingPerLevel[lvl] ?? 0) > 0 ||
+                (lvl === 0 &&
+                  (!character?.details?.ancestry ||
+                    !character?.details?.background ||
+                    !character?.details?.class))
+              )
+                cls = 'incomplete';
               else cls = 'complete';
               return (
                 <div
@@ -815,26 +828,7 @@ function ClassFeatureAccordionItem(props: {
   opened: boolean;
   onToggle: () => void;
 }) {
-  const featureChoiceCountRef = useRef<HTMLDivElement>(null);
-  const [featureChoiceCounts, setFeatureChoiceCounts] = useState<{
-    current: number;
-    max: number;
-  }>({
-    current: 0,
-    max: 0,
-  });
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (featureChoiceCountRef.current) {
-        const choiceCounts = getChoiceCounts(featureChoiceCountRef.current);
-        if (!isEqual(choiceCounts, featureChoiceCounts)) setFeatureChoiceCounts(choiceCounts);
-      }
-    }, CHOICE_COUNT_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [props.results]);
-
-  const pending = Math.max(0, featureChoiceCounts.max - featureChoiceCounts.current);
+  const { pending, max: choiceMax } = usePendingCount(props.results);
 
   return (
     <CodexChoice
@@ -844,9 +838,8 @@ function ClassFeatureAccordionItem(props: {
       glyph={'✪'}
       name={props.feature.name}
       pending={pending}
-      state={pending === 0 && featureChoiceCounts.max > 0 ? 'done' : undefined}
+      state={pending === 0 && choiceMax > 0 ? 'done' : undefined}
       stateLabel={'Done'}
-      bodyRef={featureChoiceCountRef}
     >
       <Stack gap={5}>
         <RichText ta='justify' store='CHARACTER'>
@@ -873,26 +866,7 @@ function AncestrySectionAccordionItem(props: {
   opened: boolean;
   onToggle: () => void;
 }) {
-  const featureChoiceCountRef = useRef<HTMLDivElement>(null);
-  const [featureChoiceCounts, setFeatureChoiceCounts] = useState<{
-    current: number;
-    max: number;
-  }>({
-    current: 0,
-    max: 0,
-  });
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (featureChoiceCountRef.current) {
-        const choiceCounts = getChoiceCounts(featureChoiceCountRef.current);
-        if (!isEqual(choiceCounts, featureChoiceCounts)) setFeatureChoiceCounts(choiceCounts);
-      }
-    }, CHOICE_COUNT_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [props.results]);
-
-  const pending = Math.max(0, featureChoiceCounts.max - featureChoiceCounts.current);
+  const { pending, max: choiceMax } = usePendingCount(props.results);
 
   return (
     <CodexChoice
@@ -902,9 +876,8 @@ function AncestrySectionAccordionItem(props: {
       glyph={'❦'}
       name={props.section.name}
       pending={pending}
-      state={pending === 0 && featureChoiceCounts.max > 0 ? 'done' : undefined}
+      state={pending === 0 && choiceMax > 0 ? 'done' : undefined}
       stateLabel={'Done'}
-      bodyRef={featureChoiceCountRef}
     >
       <Stack gap={5}>
         <RichText ta='justify' store='CHARACTER'>
@@ -1049,24 +1022,7 @@ function AncestryAccordionItem(props: {
   const [_drawer, openDrawer] = useAtom(drawerState);
   const { hovered, ref } = useHover();
 
-  const choiceCountRef = useRef<HTMLDivElement>(null);
-  const [choiceCounts, setChoiceCounts] = useState<{
-    current: number;
-    max: number;
-  }>({
-    current: 0,
-    max: 0,
-  });
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (choiceCountRef.current) {
-        const newChoiceCounts = getChoiceCounts(choiceCountRef.current);
-        if (!isEqual(newChoiceCounts, choiceCounts)) setChoiceCounts(newChoiceCounts);
-      }
-    }, CHOICE_COUNT_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [props.operationResults]);
+  const { pending } = usePendingCount(props.operationResults.ancestryResults);
 
   // Only display the operation results that aren't already displayed in the ancestry overview
   const physicalFeatures = (props.content.abilityBlocks ?? []).filter((block) => block.type === 'physical-feature');
@@ -1120,12 +1076,10 @@ function AncestryAccordionItem(props: {
       <Accordion.Control disabled={!props.ancestry} icon={getIconFromContentType('ancestry', '1rem')}>
         <Group gap={5}>
           <Box>Ancestry</Box>
-          {choiceCounts.max - choiceCounts.current > 0 && (
-            <Badge variant='filled'>{choiceCounts.max - choiceCounts.current}</Badge>
-          )}
+          {pending > 0 && <Badge variant='filled'>{pending}</Badge>}
         </Group>
       </Accordion.Control>
-      <Accordion.Panel ref={choiceCountRef}>
+      <Accordion.Panel>
         <Stack gap={5}>
           <Box>
             {props.ancestry && (
@@ -1167,24 +1121,7 @@ function BackgroundAccordionItem(props: {
   const [_drawer, openDrawer] = useAtom(drawerState);
   const { hovered, ref } = useHover();
 
-  const choiceCountRef = useRef<HTMLDivElement>(null);
-  const [choiceCounts, setChoiceCounts] = useState<{
-    current: number;
-    max: number;
-  }>({
-    current: 0,
-    max: 0,
-  });
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (choiceCountRef.current) {
-        const newChoiceCounts = getChoiceCounts(choiceCountRef.current);
-        if (!isEqual(newChoiceCounts, choiceCounts)) setChoiceCounts(newChoiceCounts);
-      }
-    }, CHOICE_COUNT_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [props.operationResults]);
+  const { pending } = usePendingCount(props.operationResults.backgroundResults);
 
   let backgroundOperationResults = props.operationResults?.backgroundResults ?? [];
   const backgroundInitialOverviewDisplay = props.background
@@ -1233,12 +1170,10 @@ function BackgroundAccordionItem(props: {
       >
         <Group gap={5}>
           <Box>Background{isDeepBackground ? ' (Deep)' : ''}</Box>
-          {choiceCounts.max - choiceCounts.current > 0 && (
-            <Badge variant='filled'>{choiceCounts.max - choiceCounts.current}</Badge>
-          )}
+          {pending > 0 && <Badge variant='filled'>{pending}</Badge>}
         </Group>
       </Accordion.Control>
-      <Accordion.Panel ref={choiceCountRef}>
+      <Accordion.Panel>
         {isDeepBackground ? (
           <DeepBackgroundForm />
         ) : (
@@ -1280,24 +1215,9 @@ function ClassAccordionItem(props: {
   const [character, setCharacter] = useAtom(characterState);
   const { hovered, ref } = useHover();
 
-  const choiceCountRef = useRef<HTMLDivElement>(null);
-  const [choiceCounts, setChoiceCounts] = useState<{
-    current: number;
-    max: number;
-  }>({
-    current: 0,
-    max: 0,
-  });
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (choiceCountRef.current) {
-        const newChoiceCounts = getChoiceCounts(choiceCountRef.current);
-        if (!isEqual(newChoiceCounts, choiceCounts)) setChoiceCounts(newChoiceCounts);
-      }
-    }, CHOICE_COUNT_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [props.operationResults]);
+  const { pending } = usePendingCount(
+    props.isClass2 ? props.operationResults.class2Results : props.operationResults.classResults
+  );
 
   let classOperationResults =
     (props.isClass2 ? props.operationResults?.class2Results : props.operationResults?.classResults) ?? [];
@@ -1342,12 +1262,10 @@ function ClassAccordionItem(props: {
       <Accordion.Control disabled={!props.class_} icon={getIconFromContentType('class', '1rem')}>
         <Group gap={5}>
           <Box>Class {props.isClass2 ? '2' : ''}</Box>
-          {choiceCounts.max - choiceCounts.current > 0 && (
-            <Badge variant='filled'>{choiceCounts.max - choiceCounts.current}</Badge>
-          )}
+          {pending > 0 && <Badge variant='filled'>{pending}</Badge>}
         </Group>
       </Accordion.Control>
-      <Accordion.Panel ref={choiceCountRef}>
+      <Accordion.Panel>
         <Stack gap={5}>
           <Box>
             {props.class_ && (
@@ -1390,24 +1308,9 @@ function BooksAccordionItem(props: {
 
   const character = useAtomValue(characterState);
 
-  const choiceCountRef = useRef<HTMLDivElement>(null);
-  const [choiceCounts, setChoiceCounts] = useState<{
-    current: number;
-    max: number;
-  }>({
-    current: 0,
-    max: 0,
-  });
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (choiceCountRef.current) {
-        const newChoiceCounts = getChoiceCounts(choiceCountRef.current);
-        if (!isEqual(newChoiceCounts, choiceCounts)) setChoiceCounts(newChoiceCounts);
-      }
-    }, CHOICE_COUNT_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [props.operationResults]);
+  const { pending } = usePendingCount(
+    props.operationResults.contentSourceResults.flatMap((cs) => cs.baseResults)
+  );
 
   return (
     <Accordion.Item
@@ -1421,12 +1324,10 @@ function BooksAccordionItem(props: {
       <Accordion.Control icon={getIconFromContentType('content-source', '1rem')}>
         <Group gap={5}>
           <Box>Books</Box>
-          {choiceCounts.max - choiceCounts.current > 0 && (
-            <Badge variant='filled'>{choiceCounts.max - choiceCounts.current}</Badge>
-          )}
+          {pending > 0 && <Badge variant='filled'>{pending}</Badge>}
         </Group>
       </Accordion.Control>
-      <Accordion.Panel ref={choiceCountRef}>
+      <Accordion.Panel>
         {props.operationResults.contentSourceResults.map((s, index) => (
           <DisplayOperationResult
             key={index}
@@ -1454,24 +1355,7 @@ function ItemsAccordionItem(props: {
 }) {
   const { hovered, ref } = useHover();
 
-  const choiceCountRef = useRef<HTMLDivElement>(null);
-  const [choiceCounts, setChoiceCounts] = useState<{
-    current: number;
-    max: number;
-  }>({
-    current: 0,
-    max: 0,
-  });
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (choiceCountRef.current) {
-        const newChoiceCounts = getChoiceCounts(choiceCountRef.current);
-        if (!isEqual(newChoiceCounts, choiceCounts)) setChoiceCounts(newChoiceCounts);
-      }
-    }, CHOICE_COUNT_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [props.operationResults]);
+  const { pending } = usePendingCount(props.operationResults.itemResults.flatMap((it) => it.baseResults));
 
   return (
     <Accordion.Item
@@ -1485,12 +1369,10 @@ function ItemsAccordionItem(props: {
       <Accordion.Control icon={getIconFromContentType('item', '1rem')}>
         <Group gap={5}>
           <Box>Items</Box>
-          {choiceCounts.max - choiceCounts.current > 0 && (
-            <Badge variant='filled'>{choiceCounts.max - choiceCounts.current}</Badge>
-          )}
+          {pending > 0 && <Badge variant='filled'>{pending}</Badge>}
         </Group>
       </Accordion.Control>
-      <Accordion.Panel ref={choiceCountRef}>
+      <Accordion.Panel>
         {props.operationResults.itemResults.map((s, index) => (
           <DisplayOperationResult
             key={index}
@@ -1520,24 +1402,7 @@ function CustomAccordionItem(props: {
 
   const character = useAtomValue(characterState);
 
-  const choiceCountRef = useRef<HTMLDivElement>(null);
-  const [choiceCounts, setChoiceCounts] = useState<{
-    current: number;
-    max: number;
-  }>({
-    current: 0,
-    max: 0,
-  });
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (choiceCountRef.current) {
-        const newChoiceCounts = getChoiceCounts(choiceCountRef.current);
-        if (!isEqual(newChoiceCounts, choiceCounts)) setChoiceCounts(newChoiceCounts);
-      }
-    }, CHOICE_COUNT_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [props.operationResults]);
+  const { pending } = usePendingCount(props.operationResults.characterResults);
 
   const selections = props.operationResults.characterResults.filter((result) => hasOperationSelection(result));
 
@@ -1553,12 +1418,10 @@ function CustomAccordionItem(props: {
       <Accordion.Control icon={<IconPuzzle size='1rem' />}>
         <Group gap={5}>
           <Box>Custom</Box>
-          {choiceCounts.max - choiceCounts.current > 0 && (
-            <Badge variant='filled'>{choiceCounts.max - choiceCounts.current}</Badge>
-          )}
+          {pending > 0 && <Badge variant='filled'>{pending}</Badge>}
         </Group>
       </Accordion.Control>
-      <Accordion.Panel ref={choiceCountRef}>
+      <Accordion.Panel>
         <DisplayOperationResult
           source={undefined}
           level={character?.level ?? 1}
