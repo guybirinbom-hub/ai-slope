@@ -24,6 +24,17 @@ import { getVariable } from '@variables/variable-manager';
 import { VariableBool } from '@schemas/variables';
 import { IMPRINT_BG_COLOR, IMPRINT_BORDER_COLOR } from '@constants/data';
 
+// Force-close the wrapping HoverCard when a tag is clicked. The hover
+// summary sits at zIndex 2000 — above drawers BY DESIGN so the popups
+// keep working on tags inside drawers — but it stays open after a click
+// (the cursor never leaves the badge), hiding the trait/condition drawer
+// that just opened beneath it. Mantine's HoverCard has no controlled
+// close, so fire the synthetic mouseout React uses to derive
+// onMouseLeave; the popup closes the instant the click lands.
+function closeHoverCardFor(el: HTMLElement) {
+  el.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+}
+
 export default function TraitsDisplay(props: {
   traitIds: number[];
   interactable?: boolean;
@@ -110,8 +121,9 @@ export default function TraitsDisplay(props: {
                   cursor: props.interactable ? 'pointer' : undefined,
                 },
               }}
-              onClick={() => {
+              onClick={(e) => {
                 if (props.interactable) {
+                  closeHoverCardFor(e.currentTarget);
                   openDrawer({
                     type: 'trait',
                     data: { id: trait.id },
@@ -254,8 +266,9 @@ export function BrokenDisplay(props: { interactable?: boolean; size?: MantineSiz
                 cursor: props.interactable ? 'pointer' : undefined,
               },
             }}
-            onClick={() => {
+            onClick={(e) => {
               if (props.interactable) {
+                closeHoverCardFor(e.currentTarget);
                 openDrawer({
                   type: 'condition',
                   data: { id: broken.name },

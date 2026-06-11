@@ -1455,11 +1455,42 @@ function buildWg4Row(opts: {
           : skillAdjustment === '-1'
             ? prevProficiencyType(currentProf ?? 'U')
             : (skillAdjustment as ProficiencyType);
+
+      // ── Proficiency gating — mirrors the legacy GenericSelectionOption.
+      // A '1'-step increase is capped by the level of the feature granting
+      // it (PF2e: a skill increase can only raise to Master from level 7,
+      // Legendary from level 15). `_source_level` is stamped on the option
+      // by the builder's selector; initial level-1 picks default to 1.
+      let limitedByLevel = false;
+      if (skillAdjustment === '1') {
+        if (nextProf === 'M' && (option._source_level ?? 1) < 7) {
+          limitedByLevel = true;
+        } else if (nextProf === 'L' && (option._source_level ?? 1) < 15) {
+          limitedByLevel = true;
+        }
+      }
+      // Absolute adjustments ('T'/'E'/'M'/'L' — e.g. a background's
+      // "trained in X" or a feat's "become expert in Y") are a no-op on a
+      // skill already at or above the target rank — disable those rows so
+      // the pick can't be wasted (and an over-cap rank can't slip in).
+      let alreadyProficient =
+        !isSelected &&
+        !!currentProf &&
+        (currentProf === skillAdjustment ||
+          (isProficiencyType(skillAdjustment) &&
+            maxProficiencyType(currentProf ?? 'U', skillAdjustment as ProficiencyType) === currentProf));
+      // Nothing above Legendary (nextProficiencyType('L') === null).
+      if (nextProf === null) {
+        alreadyProficient = true;
+      }
+      const profLocked = (alreadyProficient || limitedByLevel) && !isSelected;
+
       // @ts-ignore — same as legacy: option.variable is a string variable
       const finalTotal = getFinalProfValue('CHARACTER', option.variable, undefined, undefined, nextProf ?? currentProf);
       return {
         key,
         option,
+        variantClass: profLocked ? 'csp-row-locked' : '',
         content: (
           <>
             <div className={`csp-row-lvl pf-chip pf-${currentProf ?? 'U'}`}>
@@ -1485,9 +1516,24 @@ function buildWg4Row(opts: {
                 e.stopPropagation();
                 onSelect(option);
               }}
-              disabled={isSelected}
+              disabled={isSelected || profLocked}
+              title={
+                limitedByLevel
+                  ? `Requires level ${nextProf === 'L' ? 15 : 7}+ to increase to ${nextProf === 'L' ? 'Legendary' : 'Master'}`
+                  : alreadyProficient
+                    ? 'Already at or above this proficiency'
+                    : undefined
+              }
             >
-              {currentProf === 'U' ? 'Train' : 'Increase'}
+              {isSelected
+                ? 'Selected'
+                : limitedByLevel
+                  ? `Lv ${nextProf === 'L' ? 15 : 7}+`
+                  : alreadyProficient
+                    ? 'Maxed'
+                    : currentProf === 'U'
+                      ? 'Train'
+                      : 'Increase'}
             </button>
           </>
         ),

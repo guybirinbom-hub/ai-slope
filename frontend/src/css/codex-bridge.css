@@ -2374,6 +2374,20 @@ h6.mantine-Title-root, .mantine-Title-root[data-order='6'] { font-size: 11px; }
 .csp-row.csp-row-simple {
   grid-template-columns: 1fr auto;
 }
+/* Locked proficiency rows — a skill increase that can't legally apply
+ * (already at/above the target rank, or the rank is level-capped:
+ * Master needs a level-7+ increase, Legendary 15+). The row stays
+ * visible so the player can see WHY (button reads "Lv 7+" / "Maxed",
+ * with a tooltip), but reads dimmed and the select button is disabled. */
+.csp-row.csp-row-locked {
+  opacity: 0.55;
+}
+.csp-row.csp-row-locked .csp-row-select {
+  cursor: not-allowed;
+  background: var(--wg4-surface-2);
+  border-color: var(--wg4-border);
+  color: var(--wg4-ink-4);
+}
 
 /* Legacy spell-picker row layout — only applies inside the spell
  * picker container. Kept as-is so the existing spell-row look (rank

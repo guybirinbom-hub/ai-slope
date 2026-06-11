@@ -420,16 +420,49 @@ ipcMain.handle('wg-uninstall', async () => {
 
   const q = (p) => p.replace(/"/g, '""');
 
+  // INSTALLED builds have the real NSIS uninstaller sitting next to the
+  // exe ("Uninstall Wanderer's Guide.exe"). Running it silently is the
+  // only way to remove EVERYTHING the installer created — app files,
+  // desktop + Start-menu shortcuts, and the Add/Remove Programs registry
+  // entry — and its customUnInstall hook (build/installer.nsh) also wipes
+  // userData and the updater/cache dirs. The old approach of `rd /s /q`
+  // on the folders left the shortcuts and the registry entry orphaned.
+  let uninstallerPath = null;
+  if (isPackaged) {
+    try {
+      const hit = fs.readdirSync(exeDir).find((f) => /^uninstall .*\.exe$/i.test(f));
+      if (hit) uninstallerPath = path.join(exeDir, hit);
+    } catch (err) {
+      console.log('[main] uninstall: no NSIS uninstaller found:', err?.message);
+    }
+  }
+
   const lines = [
     '@echo off',
+    'rem Run from TEMP so this shell holds no lock on the dirs being removed.',
+    'cd /d "%TEMP%"',
     'rem Wait ~3s for the parent app to fully exit + release pg-data locks.',
     'ping -n 4 127.0.0.1 > nul',
-    `rd /s /q "${q(userData)}"`,
+    'rem Belt-and-braces: kill any orphaned backend children still holding files.',
+    'taskkill /F /IM postgres.exe > nul 2>&1',
+    'taskkill /F /IM postgrest.exe > nul 2>&1',
   ];
-  if (isPackaged) {
-    lines.push(`rd /s /q "${q(exeDir)}"`);
+  if (uninstallerPath) {
+    lines.push(`"${q(uninstallerPath)}" /S`);
   } else {
-    lines.push('rem dev mode: leaving the unpacked exe / node_modules alone.');
+    // Portable / unpacked / dev fallback — no registered uninstaller exists
+    // (and no shortcuts or registry entry were ever created for these), so
+    // remove every footprint directly.
+    lines.push(`rd /s /q "${q(userData)}"`);
+    if (process.env.LOCALAPPDATA) {
+      lines.push(`rd /s /q "${q(path.join(process.env.LOCALAPPDATA, "Wanderer's Guide"))}"`);
+      lines.push(`rd /s /q "${q(path.join(process.env.LOCALAPPDATA, 'wanderers-guide-updater'))}"`);
+    }
+    if (isPackaged) {
+      lines.push(`rd /s /q "${q(exeDir)}"`);
+    } else {
+      lines.push('rem dev mode: leaving the unpacked exe / node_modules alone.');
+    }
   }
   lines.push('del "%~f0"');
 

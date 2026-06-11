@@ -5,7 +5,14 @@
 # Node / build artifacts
 node_modules/
 dist/
-build/
+# (contents-level so the negations below can re-include source files —
+# git cannot re-include anything under a directory-level ignore)
+build/*
+# …electron-builder's build/ holds SOURCE resources (NSIS installer
+# hooks, app icon) required to produce the installer — keep those tracked.
+!build/installer.nsh
+!build/icon.ico
+!build/icon.png
 .cache/
 
 # Cypress

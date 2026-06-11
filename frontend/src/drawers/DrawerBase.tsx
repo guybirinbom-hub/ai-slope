@@ -149,6 +149,22 @@ export default function DrawerBase() {
   const [_drawer, openDrawer] = useAtom(drawerState);
   const [character, setCharacter] = useAtom(characterState);
 
+  // Effective stacking order for the drawer. Most drawer-to-drawer
+  // navigation (clicking a content link inside a description, the back
+  // button) replaces the drawer state WITHOUT re-passing data.zIndex —
+  // only the first open (e.g. a search/picker row, which passes 1600 so
+  // the drawer sits above the 1100 search modal) carries it. Reading
+  // zIndex from the current data alone made every linked-to description
+  // drop back to 1000 and vanish BEHIND the still-open search. So:
+  // inherit the highest zIndex seen while the drawer stays open, and
+  // reset once it fully closes.
+  const effectiveZRef = useRef<number>(1000);
+  if (_drawer) {
+    effectiveZRef.current = Math.max(_drawer.data?.zIndex ?? 1000, effectiveZRef.current);
+  } else {
+    effectiveZRef.current = 1000;
+  }
+
   // Compute the favoritable identity of the current drawer (if any).
   // `null` for stat / manager / non-favoritable drawers.
   const favoriteEntry = _drawer ? favoriteFromDrawer(_drawer.type, _drawer.data) : null;
@@ -289,7 +305,7 @@ export default function DrawerBase() {
         closeOnClickOutside={!isWideDesktop}
         withOverlay={!isWideDesktop}
         position='right'
-        zIndex={_drawer?.data.zIndex ?? 1000}
+        zIndex={effectiveZRef.current}
         styles={DRAWER_STYLES}
         transitionProps={{ duration: 200 }}
         style={{

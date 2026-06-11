@@ -5165,3 +5165,43 @@
 .codex-hb-editor .mantine-Tabs-panel .mantine-Button-root[data-variant='light']:hover {
   background: #e3cdb8 !important;
 }
+
+/* ============================================================
+   Pending-pick "!" marker
+   Every selector that still needs a choice (the SelectContentButton
+   in its unselected state — "Select a Feat", "Select an Attribute",
+   "Select an Option" …) gets a small amber "!" bubble pinned to its
+   top-right corner, so unfinished picks in the builder jump out at a
+   glance. Pure CSS on the existing state class: the button already
+   flips selection-choice-unselected → selection-choice-selected when
+   a pick is made (the same signal the cards' pending-count pips use),
+   so the marker appears and disappears with zero extra logic.
+   ============================================================ */
+.selection-choice-unselected {
+  position: relative;
+  overflow: visible !important;
+}
+.selection-choice-unselected::after {
+  content: '!';
+  position: absolute;
+  top: -5px;
+  right: -3px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #c98a3f; /* warn amber — matches the builder's pending pips */
+  color: #fff;
+  font-family: var(--wg4-font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  border: 1.5px solid var(--wg4-surface, #f6f3eb);
+  pointer-events: none;
+  z-index: 2;
+}
+/* Dark theme — lighter amber chip with dark ink for contrast. */
+html.theme-dark .selection-choice-unselected::after {
+  background: #e0b974;
+  color: #2a2008;
+}
